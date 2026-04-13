@@ -6,6 +6,7 @@ import { CharacterHandle } from "../src/character";
 
 function makeHandle(): CharacterHandle {
   return {
+    setAnimation: vi.fn(),
     setTexture: vi.fn(),
     setPosition: vi.fn(),
     setFlip: vi.fn(),
