@@ -24,7 +24,7 @@ export const BUBBLE = {
   OFFSET_Y_PX: -72,
   MAX_WIDTH_PX: 160,
   /** Characters revealed per second during typing animation (Phase 2+). */
-  TYPING_SPEED_CPS: 25,
+  TYPING_SPEED_CPS: 10,
   /** Seconds to hold the bubble after typing finishes (Phase 2+). */
   LINGER_S: 1.5,
   /** Hard cap on total bubble lifetime in seconds (Phase 2+). */
@@ -37,11 +37,20 @@ export const BUBBLE = {
   PER_CHAR_JITTER_S: 20,
 };
 
-export const GREETINGS = ["hi!", "hello!", "hey!", "*waves*", "yo"];
+export const GREETINGS = ["hi!", "hello!", "hey!", "*waves*", "yo", "👋", "🫡"];
 
 export const IDLE_LINES = [
-  "zzz", "hmm", "...", "where am I?",
-  "*looks around*", "la la la", "what's up?", "*yawns*",
+  "zzz",
+  "hmm",
+  "...",
+  "😂",
+  "🤪",
+  "where am I?",
+  "*looks around*",
+  "la la la",
+  "what's up?",
+  "*yawns*",
+  "😱",
 ];
 
 export const ASSET_MANIFEST: AssetEntry[] = [
@@ -58,6 +67,24 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "ninja-frog",
     idlePath: "/assets/sprites/ninja-frog/idle.png",
     walkPath: "/assets/sprites/ninja-frog/walk.png",
+    idleFrames: 11,
+    walkFrames: 12,
+    frameWidth: 32,
+    frameHeight: 32,
+  },
+  {
+    name: "pink-man",
+    idlePath: "/assets/sprites/pink-man/idle.png",
+    walkPath: "/assets/sprites/pink-man/walk.png",
+    idleFrames: 11,
+    walkFrames: 12,
+    frameWidth: 32,
+    frameHeight: 32,
+  },
+  {
+    name: "virtual-guy",
+    idlePath: "/assets/sprites/virtual-guy/idle.png",
+    walkPath: "/assets/sprites/virtual-guy/walk.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,

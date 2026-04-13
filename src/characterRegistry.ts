@@ -1,71 +1,76 @@
-import { Sprite, Container, Texture, Graphics, BitmapFont, BitmapText, TextStyle } from "pixi.js";
+import { Sprite, Container, Texture, Graphics, Text } from "pixi.js";
 import { AssetEntry, BUBBLE, GREETINGS, IDLE_LINES } from "./config";
-import { Character, CharacterHandle, CharacterConfig, CharacterState } from "./character";
+import {
+  Character,
+  CharacterHandle,
+  CharacterConfig,
+  CharacterState,
+} from "./character";
 import { BubbleHandle, Bubble } from "./bubble";
 import { LoadedAsset } from "./spriteLoader";
 
 const SPRITE_SCALE = 2;
-const BUBBLE_FONT = "WispBubble";
-const BUBBLE_FONT_SIZE = 10;
+const BUBBLE_FONT_SIZE = 12;
 const BUBBLE_PADDING = 5;
 const BUBBLE_TAIL_H = 6;
 
-let bubbleFontInstalled = false;
-
-function ensureBubbleFont(): void {
-  if (bubbleFontInstalled) return;
-  BitmapFont.install({
-    name: BUBBLE_FONT,
-    style: new TextStyle({
-      fontFamily: "monospace",
+export function defaultCreateBubbleHandle(
+  stage: Container,
+  text: string,
+): BubbleHandle {
+  const pixiText = new Text({
+    text,
+    style: {
+      fontFamily: '"Apple Color Emoji", monospace',
       fontSize: BUBBLE_FONT_SIZE,
       fill: "#222222",
-    }),
-    chars: [["a", "z"], ["A", "Z"], ["0", "9"], "!?.,;:*()[]-_' "],
+    },
   });
-  bubbleFontInstalled = true;
-}
-
-export function defaultCreateBubbleHandle(stage: Container, text: string): BubbleHandle {
-  ensureBubbleFont();
-
-  const bitmapText = new BitmapText({
-    text,
-    style: { fontFamily: BUBBLE_FONT, fontSize: BUBBLE_FONT_SIZE },
-  });
-  // Access width to trigger synchronous glyph layout before we measure.
 
   const bubbleW = Math.min(
-    Math.max(bitmapText.width + BUBBLE_PADDING * 2, 24),
+    Math.max(pixiText.width + BUBBLE_PADDING * 2, 24),
     BUBBLE.MAX_WIDTH_PX,
   );
-  const bubbleH = bitmapText.height + BUBBLE_PADDING * 2;
+  const bubbleH = pixiText.height + BUBBLE_PADDING * 2;
 
-  bitmapText.x = BUBBLE_PADDING;
-  bitmapText.y = BUBBLE_PADDING;
+  pixiText.x = BUBBLE_PADDING;
+  pixiText.y = BUBBLE_PADDING;
 
   const gfx = new Graphics();
   // Bubble body: crisp rect with dark 1px border (pixel-art style, no smooth corners).
-  gfx.rect(0, 0, bubbleW, bubbleH).fill({ color: 0xf5f0e8 }).stroke({ color: 0x222222, width: 1 });
+  gfx
+    .rect(0, 0, bubbleW, bubbleH)
+    .fill({ color: 0xf5f0e8 })
+    .stroke({ color: 0x222222, width: 1 });
   // Downward tail centered below bubble.
   const tailX = Math.floor(bubbleW / 2);
   gfx
-    .poly([tailX - 4, bubbleH, tailX + 4, bubbleH, tailX, bubbleH + BUBBLE_TAIL_H])
+    .poly([
+      tailX - 4,
+      bubbleH,
+      tailX + 4,
+      bubbleH,
+      tailX,
+      bubbleH + BUBBLE_TAIL_H,
+    ])
     .fill({ color: 0xf5f0e8 });
 
   const container = new Container();
   container.addChild(gfx);
-  container.addChild(bitmapText);
+  container.addChild(pixiText);
   // Pivot at tail tip so setPosition(charX, charY) anchors the tail to the character head.
   container.pivot.set(tailX, bubbleH + BUBBLE_TAIL_H);
   stage.addChild(container);
 
+  // Code-point-safe character array so emoji (surrogate pairs) aren't split.
+  const codepoints = Array.from(text);
+
   return {
     setText(t: string) {
-      bitmapText.text = t;
+      pixiText.text = t;
     },
     setVisibleChars(n: number) {
-      bitmapText.text = text.slice(0, n);
+      pixiText.text = codepoints.slice(0, n).join("");
     },
     setPosition(x: number, y: number) {
       container.x = x;
@@ -120,7 +125,8 @@ function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
 
   return {
     setAnimation(anim: CharacterState) {
-      currentTextures = anim === "walk" ? loaded.walkTextures : loaded.idleTextures;
+      currentTextures =
+        anim === "walk" ? loaded.walkTextures : loaded.idleTextures;
     },
     setTexture(frameIndex: number) {
       const tex = currentTextures[frameIndex];
@@ -167,7 +173,16 @@ export class CharacterRegistry {
   }
 
   spawn(): void {
-    const { manifest, loadedAssets, rng, stage, screenWidth, floorY, createHandle, createBubbleHandle } = this.opts;
+    const {
+      manifest,
+      loadedAssets,
+      rng,
+      stage,
+      screenWidth,
+      floorY,
+      createHandle,
+      createBubbleHandle,
+    } = this.opts;
 
     const entry = manifest[Math.floor(rng() * manifest.length)];
     const loaded = loadedAssets.get(entry.name)!;
@@ -197,7 +212,7 @@ export class CharacterRegistry {
       { x, y: floorY, facing: "right", handle },
       entry.idleFrames,
       entry.walkFrames,
-      cfg
+      cfg,
     );
 
     // Greeting bypasses global cooldown — spawn always produces visual feedback.
@@ -206,7 +221,10 @@ export class CharacterRegistry {
 
     // Fixed initial roll timer so characters don't lock-step on the first roll.
     // After the first roll fires, subsequent timers are randomized via rng().
-    this.entries.push({ char: character, rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S });
+    this.entries.push({
+      char: character,
+      rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
+    });
   }
 
   despawnAll(): void {
@@ -227,7 +245,8 @@ export class CharacterRegistry {
       if (entry.rollTimer <= 0) {
         // Always schedule the next roll, whether or not this one fires.
         entry.rollTimer =
-          (BUBBLE.PER_CHAR_AVG_INTERVAL_S - BUBBLE.PER_CHAR_JITTER_S) +
+          BUBBLE.PER_CHAR_AVG_INTERVAL_S -
+          BUBBLE.PER_CHAR_JITTER_S +
           rng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
 
         // Respect global cooldown — drop the roll if a bubble just fired.

@@ -42,13 +42,18 @@ async function init() {
     createBubbleHandle: defaultCreateBubbleHandle,
   });
 
-  // Tray / hotkey events
-  await listen("spawn", () => registry.spawn());
-  await listen("despawn-all", () => registry.despawnAll());
-
   app.ticker.add((ticker) => {
     registry.tick(ticker.deltaMS / 1000);
   });
+
+  // Tray / hotkey events — guarded so a missing Tauri bridge (e.g. running
+  // under plain `vite dev`) doesn't kill the render loop.
+  try {
+    await listen("spawn", () => registry.spawn());
+    await listen("despawn-all", () => registry.despawnAll());
+  } catch (err) {
+    console.warn("Tauri event bridge unavailable:", err);
+  }
 }
 
 init();

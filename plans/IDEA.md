@@ -25,7 +25,7 @@ A standalone desktop overlay app built with **Tauri** (Rust backend) + **Vanilla
 | Pixel art / sprites | Aseprite spritesheet (PNG + JSON) | Standard format, Pixi.js native support |
 
 ## More Ideas
-- [ ] speech bubble (greething when spawn and random after spawned)
+- [X] speech bubble (greething when spawn and random after spawned)
 - [ ] more action (jump)
 - [ ] despawn one character
 - [ ] despawn effect

@@ -119,10 +119,11 @@ export class Character {
   private tickBubble(dt: number): void {
     if (!this.bubble) return;
     this.bubble.tick(dt);
-    this.bubble.setPosition(this.x, this.y + BUBBLE.OFFSET_Y_PX);
     if (this.bubble.expired) {
       this.bubble = null;
+      return;
     }
+    this.bubble.setPosition(this.x, this.y + BUBBLE.OFFSET_Y_PX);
   }
 
   private tickIdle(dt: number): void {
