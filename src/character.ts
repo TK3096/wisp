@@ -6,7 +6,9 @@ import {
   IDLE_DWELL_MS_MAX,
   WALK_DWELL_MS_MIN,
   WALK_DWELL_MS_MAX,
+  BUBBLE,
 } from "./config";
+import { Bubble } from "./bubble";
 
 export type Facing = "right" | "left";
 export type CharacterState = "idle" | "walk";
@@ -37,6 +39,8 @@ export interface CharacterConfig {
   floorLeft: number;
   floorRight: number;
   rng: () => number;
+  /** Factory for creating a Bubble. Undefined → say() is a no-op (used in tests). */
+  createBubble?: (text: string) => Bubble;
 }
 
 const DEFAULT_CONFIG: CharacterConfig = {
@@ -62,6 +66,7 @@ export class Character {
   private frameTimer = 0;
   private dwellTimer: number;
   private walkTargetX = 0;
+  private bubble: Bubble | null = null;
 
   private readonly handle: CharacterHandle;
   private readonly idleFrameCount: number;
@@ -90,12 +95,35 @@ export class Character {
     this.handle.setTexture(this.frameIndex);
   }
 
+  /**
+   * Display a speech bubble with the given text.
+   * No-op if a bubble is already active (skip-while-active rule).
+   * No-op if no createBubble factory was injected.
+   */
+  say(text: string): void {
+    if (this.bubble !== null) return;
+    if (!this.cfg.createBubble) return;
+    this.bubble = this.cfg.createBubble(text);
+    this.bubble.setPosition(this.x, this.y + BUBBLE.OFFSET_Y_PX);
+  }
+
   tick(dt: number): void {
     if (this.state === "idle") {
       this.tickIdle(dt);
     } else {
       this.tickWalk(dt);
     }
+    this.tickBubble(dt);
+  }
+
+  private tickBubble(dt: number): void {
+    if (!this.bubble) return;
+    this.bubble.tick(dt);
+    if (this.bubble.expired) {
+      this.bubble = null;
+      return;
+    }
+    this.bubble.setPosition(this.x, this.y + BUBBLE.OFFSET_Y_PX);
   }
 
   private tickIdle(dt: number): void {
@@ -163,6 +191,8 @@ export class Character {
   }
 
   destroy(): void {
+    this.bubble?.destroy();
+    this.bubble = null;
     this.handle.destroy();
   }
 }

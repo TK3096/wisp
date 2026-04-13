@@ -2,7 +2,7 @@ import { Application } from "pixi.js";
 import { listen } from "@tauri-apps/api/event";
 import { ASSET_MANIFEST, FLOOR_BAND_PX } from "./config";
 import { loadAsset } from "./spriteLoader";
-import { CharacterRegistry } from "./characterRegistry";
+import { CharacterRegistry, defaultCreateBubbleHandle } from "./characterRegistry";
 
 async function init() {
   const app = new Application();
@@ -39,15 +39,21 @@ async function init() {
     rng: Math.random,
     screenWidth: window.innerWidth,
     floorY: window.innerHeight - FLOOR_BAND_PX,
+    createBubbleHandle: defaultCreateBubbleHandle,
   });
-
-  // Tray / hotkey events
-  await listen("spawn", () => registry.spawn());
-  await listen("despawn-all", () => registry.despawnAll());
 
   app.ticker.add((ticker) => {
     registry.tick(ticker.deltaMS / 1000);
   });
+
+  // Tray / hotkey events — guarded so a missing Tauri bridge (e.g. running
+  // under plain `vite dev`) doesn't kill the render loop.
+  try {
+    await listen("spawn", () => registry.spawn());
+    await listen("despawn-all", () => registry.despawnAll());
+  } catch (err) {
+    console.warn("Tauri event bridge unavailable:", err);
+  }
 }
 
 init();
