@@ -3,7 +3,7 @@ use tauri::{
     tray::TrayIconBuilder,
     Emitter, Manager,
 };
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -62,8 +62,10 @@ pub fn run() {
             let modifier = Modifiers::CONTROL | Modifiers::SHIFT;
             let shortcut = Shortcut::new(Some(modifier), Code::KeyW);
             app.global_shortcut()
-                .on_shortcut(shortcut, move |app, _shortcut, _event| {
-                    let _ = app.emit("spawn", ());
+                .on_shortcut(shortcut, move |app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        let _ = app.emit("spawn", ());
+                    }
                 })?;
 
             Ok(())
