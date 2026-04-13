@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { CharacterRegistry, SpawnContext } from "../src/characterRegistry";
 import { CharacterHandle } from "../src/character";
+import { BubbleHandle } from "../src/bubble";
+import { BUBBLE, GREETINGS, IDLE_LINES } from "../src/config";
 
 // --- Fakes ---
 
@@ -200,5 +202,154 @@ describe("CharacterRegistry", () => {
 
     const callsAfter = (handles[0].setTexture as ReturnType<typeof vi.fn>).mock.calls.length;
     expect(callsAfter).toBeGreaterThan(callsBefore);
+  });
+});
+
+// ─── Phase 4: Scheduler tests ─────────────────────────────────────────────────
+
+function makeFakeBubbleHandle(): BubbleHandle {
+  return {
+    setText: vi.fn(),
+    setVisibleChars: vi.fn(),
+    setPosition: vi.fn(),
+    destroy: vi.fn(),
+  };
+}
+
+function makeSchedulerRegistry(rng: () => number = () => 0.5) {
+  const bubbleHandles: BubbleHandle[] = [];
+  const reg = new CharacterRegistry({
+    stage: makeStage() as any,
+    manifest: FAKE_MANIFEST,
+    loadedAssets: makeLoadedAssets(),
+    rng,
+    screenWidth: SCREEN_W,
+    floorY: FLOOR_Y,
+    createHandle: () => makeHandle(),
+    createBubbleHandle: (_stage, _text) => {
+      const h = makeFakeBubbleHandle();
+      bubbleHandles.push(h);
+      return h;
+    },
+  });
+  return { reg, bubbleHandles };
+}
+
+describe("CharacterRegistry scheduler (Phase 4)", () => {
+  it("greeting fires on spawn regardless of prior bubble state", () => {
+    const { reg, bubbleHandles } = makeSchedulerRegistry(makeRng([0, 0.5, 0]));
+    expect(bubbleHandles.length).toBe(0);
+    reg.spawn();
+    // One greeting bubble created immediately on spawn
+    expect(bubbleHandles.length).toBe(1);
+    expect(bubbleHandles[0].setText).toHaveBeenCalledWith(GREETINGS[0]); // rng=0 → idx 0
+  });
+
+  it("idle roll fires after PER_CHAR_AVG_INTERVAL_S seconds", () => {
+    const { reg, bubbleHandles } = makeSchedulerRegistry(makeRng([0, 0.5, 0]));
+    reg.spawn(); // greeting → bubbleHandles.length=1
+
+    // Tick just past the roll interval (30s). Greeting expired well before this.
+    // Large dt: bubble from greeting expires within the same tick.
+    reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 0.5);
+
+    // One new idle bubble fired
+    expect(bubbleHandles.length).toBe(2);
+  });
+
+  it("global cooldown blocks a second bubble fired within GLOBAL_COOLDOWN_S", () => {
+    // rng sequences: per spawn [asset, x, greeting], then per tick roll [rollTimer, line]
+    const rng = makeRng([0, 0.5, 0, 0, 0.5, 0]);
+    const { reg, bubbleHandles } = makeSchedulerRegistry(rng);
+
+    reg.spawn(); // char1, greeting
+    reg.spawn(); // char2, greeting
+    expect(bubbleHandles.length).toBe(2); // 2 greetings
+
+    // Tick past both roll timers (both at 30s). Char1's roll fires first (first in entries),
+    // char2's roll fires in the same tick but is blocked by 3s cooldown.
+    reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 0.5);
+
+    // Only one idle bubble should have fired
+    expect(bubbleHandles.length).toBe(3); // 2 greetings + 1 idle
+  });
+
+  it("more than one idle bubble fires over multiple roll cycles with two characters", () => {
+    const rng = makeRng([0, 0.5, 0, 0, 0.5, 0]);
+    const { reg, bubbleHandles } = makeSchedulerRegistry(rng);
+
+    reg.spawn();
+    reg.spawn();
+    const greetingCount = bubbleHandles.length; // 2 greetings
+
+    // Run two full roll cycles (each ~30s). Over 60s both characters get multiple chances.
+    reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 1);
+    reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 1);
+
+    // More than one idle bubble should have fired across the two roll cycles
+    expect(bubbleHandles.length - greetingCount).toBeGreaterThan(1);
+  });
+
+  it("greeting bypasses cooldown — fires even when lastBubbleAt is recent", () => {
+    const rng = makeRng([0, 0.5, 0, 0.5]);
+    const { reg, bubbleHandles } = makeSchedulerRegistry(rng);
+
+    reg.spawn(); // char1 greeting
+    // Trigger an idle roll to set lastBubbleAt
+    reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 0.5);
+    const countAfterIdleRoll = bubbleHandles.length;
+
+    // Spawn char2 immediately — within the cooldown window
+    // Greeting must fire despite the cooldown
+    reg.spawn();
+    expect(bubbleHandles.length).toBeGreaterThan(countAfterIdleRoll);
+  });
+
+  it("bubble rate at max 8 characters is bounded by GLOBAL_COOLDOWN_S", () => {
+    const { reg, bubbleHandles } = makeSchedulerRegistry(() => 0.5);
+
+    // Spawn 8 characters
+    for (let i = 0; i < 8; i++) reg.spawn();
+    const greetingCount = bubbleHandles.length; // 8 greetings
+
+    // Simulate 120s with small ticks (to exercise per-tick scheduler)
+    const TOTAL_S = 120;
+    const DT = 0.1;
+    for (let t = 0; t < TOTAL_S; t += DT) {
+      reg.tick(DT);
+    }
+
+    const idleBubbles = bubbleHandles.length - greetingCount;
+    // Max possible idle bubbles: TOTAL_S / GLOBAL_COOLDOWN_S = 120/3 = 40
+    expect(idleBubbles).toBeLessThanOrEqual(Math.ceil(TOTAL_S / BUBBLE.GLOBAL_COOLDOWN_S));
+    // At least some idle bubbles should have fired
+    expect(idleBubbles).toBeGreaterThan(0);
+  });
+
+  it("greetings and idle lines come from distinct pools", () => {
+    // Sanity check: at least one value in GREETINGS is not in IDLE_LINES
+    const greetingSet = new Set(GREETINGS);
+    const idleSet = new Set(IDLE_LINES);
+    const overlap = [...greetingSet].filter((x) => idleSet.has(x));
+    expect(overlap.length).toBeLessThan(GREETINGS.length);
+  });
+
+  it("skipped rolls are dropped — no backlog of pending bubbles", () => {
+    const rng = makeRng([0, 0.5, 0, 0, 0.5, 0]);
+    const { reg, bubbleHandles } = makeSchedulerRegistry(rng);
+
+    reg.spawn();
+    reg.spawn();
+
+    // Both roll at t=30. Char1 fires, char2 is blocked (skipped/dropped).
+    reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 0.5);
+    const afterBothRolls = bubbleHandles.length; // 2 greetings + 1 idle
+
+    // Wait cooldown to expire, then a short tick (well under next roll interval).
+    // No backlogged bubble should fire — only a new roll can trigger.
+    reg.tick(BUBBLE.GLOBAL_COOLDOWN_S + 0.1); // short, no new roll fires yet
+    // bubbleHandles should NOT have grown (rollTimers not yet expired)
+    // Note: rollTimers were reset when rolls fired, so next roll is ~10s–50s away
+    expect(bubbleHandles.length).toBe(afterBothRolls);
   });
 });

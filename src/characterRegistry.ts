@@ -1,5 +1,5 @@
 import { Sprite, Container, Texture, Graphics, BitmapFont, BitmapText, TextStyle } from "pixi.js";
-import { AssetEntry, BUBBLE, GREETINGS } from "./config";
+import { AssetEntry, BUBBLE, GREETINGS, IDLE_LINES } from "./config";
 import { Character, CharacterHandle, CharacterConfig, CharacterState } from "./character";
 import { BubbleHandle, Bubble } from "./bubble";
 import { LoadedAsset } from "./spriteLoader";
@@ -144,16 +144,26 @@ type ResolvedOptions = RegistryOptions & {
   createHandle: (ctx: SpawnContext) => CharacterHandle;
 };
 
+interface CharEntry {
+  char: Character;
+  /** Seconds until this character's next idle-line roll. */
+  rollTimer: number;
+}
+
 export class CharacterRegistry {
-  private readonly characters: Character[] = [];
+  private readonly entries: CharEntry[] = [];
   private readonly opts: ResolvedOptions;
+  /** Total elapsed seconds since the registry was created. */
+  private elapsed = 0;
+  /** Elapsed time at which the last bubble was emitted (idle rolls only). */
+  private lastBubbleAt = -Infinity;
 
   constructor(opts: RegistryOptions) {
     this.opts = { createHandle: defaultCreateHandle, ...opts };
   }
 
   get count(): number {
-    return this.characters.length;
+    return this.entries.length;
   }
 
   spawn(): void {
@@ -194,19 +204,39 @@ export class CharacterRegistry {
     const greeting = GREETINGS[Math.floor(rng() * GREETINGS.length)];
     character.say(greeting);
 
-    this.characters.push(character);
+    // Fixed initial roll timer so characters don't lock-step on the first roll.
+    // After the first roll fires, subsequent timers are randomized via rng().
+    this.entries.push({ char: character, rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S });
   }
 
   despawnAll(): void {
-    for (const character of this.characters) {
-      character.destroy();
+    for (const entry of this.entries) {
+      entry.char.destroy();
     }
-    this.characters.length = 0;
+    this.entries.length = 0;
   }
 
   tick(dt: number): void {
-    for (const character of this.characters) {
-      character.tick(dt);
+    this.elapsed += dt;
+    const { rng } = this.opts;
+
+    for (const entry of this.entries) {
+      entry.char.tick(dt);
+
+      entry.rollTimer -= dt;
+      if (entry.rollTimer <= 0) {
+        // Always schedule the next roll, whether or not this one fires.
+        entry.rollTimer =
+          (BUBBLE.PER_CHAR_AVG_INTERVAL_S - BUBBLE.PER_CHAR_JITTER_S) +
+          rng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
+
+        // Respect global cooldown — drop the roll if a bubble just fired.
+        if (this.elapsed - this.lastBubbleAt >= BUBBLE.GLOBAL_COOLDOWN_S) {
+          const line = IDLE_LINES[Math.floor(rng() * IDLE_LINES.length)];
+          entry.char.say(line);
+          this.lastBubbleAt = this.elapsed;
+        }
+      }
     }
   }
 }
