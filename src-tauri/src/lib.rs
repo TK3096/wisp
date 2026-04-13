@@ -21,9 +21,10 @@ pub fn run() {
                     width: size.width,
                     height: size.height,
                 }))?;
-                window.set_position(tauri::Position::Physical(
-                    tauri::PhysicalPosition { x: pos.x, y: pos.y },
-                ))?;
+                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                    x: pos.x,
+                    y: pos.y,
+                }))?;
             }
 
             // Allow all mouse events to pass through the overlay
@@ -38,6 +39,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&spawn_item, &despawn_item, &quit_item])?;
 
             let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "spawn" => {
@@ -59,9 +61,10 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             let modifier = Modifiers::CONTROL | Modifiers::SHIFT;
             let shortcut = Shortcut::new(Some(modifier), Code::KeyW);
-            app.global_shortcut().on_shortcut(shortcut, move |app, _shortcut, _event| {
-                let _ = app.emit("spawn", ());
-            })?;
+            app.global_shortcut()
+                .on_shortcut(shortcut, move |app, _shortcut, _event| {
+                    let _ = app.emit("spawn", ());
+                })?;
 
             Ok(())
         })
