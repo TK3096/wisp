@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { Bubble, BubbleHandle } from "../src/bubble";
 import { Character, CharacterHandle } from "../src/character";
+import { BUBBLE as BUBBLE_CFG } from "../src/config";
 
 // --- Fake BubbleHandle ---
 
@@ -260,5 +261,71 @@ describe("Character.say()", () => {
     c.destroy();
 
     expect(bh.destroy).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── Phase 3: bubble follows the character on walk ────────────────────────────
+
+describe("Bubble follows character", () => {
+  it("bubble x matches character x on every tick during a walk", () => {
+    const bh = makeBubbleHandle();
+    const createBubble = (text: string): Bubble => makeBubble(text, bh);
+
+    // rng=0.9 → idle dwell = 1500 + 0.9*2500 = 3750ms = 3.75s
+    // walk target = 0.9 * 1920 = 1728, so character walks right from 100
+    const c = new Character(
+      { x: 100, y: 1016, facing: "right", handle: makeCharHandle() },
+      11, 12,
+      {
+        idleFps: 8, walkFps: 10, walkSpeedPxS: 80,
+        idleDwellMsMin: 1500, idleDwellMsMax: 4000,
+        walkDwellMsMin: 1000, walkDwellMsMax: 3000,
+        floorLeft: 0, floorRight: 1920,
+        rng: () => 0.9,
+        createBubble,
+      },
+    );
+
+    // Trigger idle→walk transition first, before creating the bubble.
+    c.tick(3.76);
+
+    // Now say() — bubble lifetime is 10chars/25cps + 1.5s = 1.9s,
+    // which outlasts the 10 × 0.1s = 1.0s of walk ticks below.
+    c.say("following!");
+
+    const setPosCalls = (bh.setPosition as ReturnType<typeof vi.fn>).mock.calls;
+    // Record count after say() (which fires one initial setPosition).
+    const callsBefore = setPosCalls.length;
+
+    const charXs: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      c.tick(0.1);
+      charXs.push(c.x);
+    }
+
+    // tickBubble fires one setPosition per tick, so we expect exactly 10 calls.
+    const walkCalls = setPosCalls.slice(callsBefore);
+    expect(walkCalls.length).toBe(10);
+
+    // Each bubble x must equal character x at the same tick.
+    for (let i = 0; i < walkCalls.length; i++) {
+      expect(walkCalls[i][0]).toBe(charXs[i]);
+    }
+  });
+
+  it("bubble y always equals character y + BUBBLE.OFFSET_Y_PX", () => {
+    const bh = makeBubbleHandle();
+    const createBubble = (text: string): Bubble => makeBubble(text, bh);
+    const c = makeCharacter(createBubble);
+
+    c.say("test");
+
+    // Tick a few frames
+    for (let i = 0; i < 5; i++) c.tick(0.1);
+
+    const calls = (bh.setPosition as ReturnType<typeof vi.fn>).mock.calls;
+    for (const [, y] of calls) {
+      expect(y as number).toBe(1016 + BUBBLE_CFG.OFFSET_Y_PX);
+    }
   });
 });
