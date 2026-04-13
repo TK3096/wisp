@@ -1,4 +1,8 @@
-use tauri::Manager;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::TrayIconBuilder,
+    Emitter, Manager,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,6 +26,30 @@ pub fn run() {
 
             // Allow all mouse events to pass through the overlay
             window.set_ignore_cursor_events(true)?;
+
+            // System tray with Spawn / Despawn All / Quit
+            let spawn_item = MenuItem::with_id(app, "spawn", "Spawn", true, None::<&str>)?;
+            let despawn_item =
+                MenuItem::with_id(app, "despawn_all", "Despawn All", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+
+            let menu = Menu::with_items(app, &[&spawn_item, &despawn_item, &quit_item])?;
+
+            let _tray = TrayIconBuilder::new()
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "spawn" => {
+                        let _ = app.emit("spawn", ());
+                    }
+                    "despawn_all" => {
+                        let _ = app.emit("despawn-all", ());
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .build(app)?;
 
             Ok(())
         })

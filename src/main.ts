@@ -1,9 +1,8 @@
-import { Application, Sprite } from "pixi.js";
+import { Application } from "pixi.js";
+import { listen } from "@tauri-apps/api/event";
 import { ASSET_MANIFEST, FLOOR_BAND_PX } from "./config";
 import { loadAsset } from "./spriteLoader";
-import { Character, CharacterHandle } from "./character";
-
-const SPRITE_SCALE = 2;
+import { CharacterRegistry } from "./characterRegistry";
 
 async function init() {
   const app = new Application();
@@ -23,39 +22,31 @@ async function init() {
     app.renderer.resize(window.innerWidth, window.innerHeight);
   });
 
-  // --- Phase 2: single hardcoded idle character ---
-  const entry = ASSET_MANIFEST[0]; // mask-dude
-  const loaded = await loadAsset(entry);
-
-  const sprite = new Sprite(loaded.idleTextures[0]);
-  sprite.scale.set(SPRITE_SCALE);
-  sprite.anchor.set(0.5, 1);
-  app.stage.addChild(sprite);
-
-  const handle: CharacterHandle = {
-    setTexture(frameIndex) {
-      sprite.texture = loaded.idleTextures[frameIndex];
-    },
-    setPosition(x, y) {
-      sprite.x = x;
-      sprite.y = y;
-    },
-    setFlip(facingLeft) {
-      sprite.scale.x = facingLeft ? -SPRITE_SCALE : SPRITE_SCALE;
-    },
-    destroy() {
-      sprite.destroy();
-    },
-  };
-
-  const floorY = window.innerHeight - FLOOR_BAND_PX;
-  const character = new Character(
-    { x: 200, y: floorY, facing: "right", handle },
-    entry.idleFrames
+  // Pre-load all assets
+  const loadedAssets = new Map(
+    await Promise.all(
+      ASSET_MANIFEST.map(async (entry) => {
+        const loaded = await loadAsset(entry);
+        return [entry.name, loaded] as const;
+      })
+    )
   );
 
+  const registry = new CharacterRegistry({
+    stage: app.stage,
+    manifest: ASSET_MANIFEST,
+    loadedAssets,
+    rng: Math.random,
+    screenWidth: window.innerWidth,
+    floorY: window.innerHeight - FLOOR_BAND_PX,
+  });
+
+  // Tray / hotkey events
+  await listen("spawn", () => registry.spawn());
+  await listen("despawn-all", () => registry.despawnAll());
+
   app.ticker.add((ticker) => {
-    character.tick(ticker.deltaMS / 1000);
+    registry.tick(ticker.deltaMS / 1000);
   });
 }
 
