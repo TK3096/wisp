@@ -3,11 +3,13 @@ use tauri::{
     tray::TrayIconBuilder,
     Emitter, Manager,
 };
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
 
@@ -27,7 +29,7 @@ pub fn run() {
             // Allow all mouse events to pass through the overlay
             window.set_ignore_cursor_events(true)?;
 
-            // System tray with Spawn / Despawn All / Quit
+            // System tray: Spawn / Despawn All / Quit
             let spawn_item = MenuItem::with_id(app, "spawn", "Spawn", true, None::<&str>)?;
             let despawn_item =
                 MenuItem::with_id(app, "despawn_all", "Despawn All", true, None::<&str>)?;
@@ -50,6 +52,16 @@ pub fn run() {
                     _ => {}
                 })
                 .build(app)?;
+
+            // Global hotkey: Cmd+Shift+W (macOS) / Ctrl+Shift+W (other) → spawn
+            #[cfg(target_os = "macos")]
+            let modifier = Modifiers::SUPER | Modifiers::SHIFT;
+            #[cfg(not(target_os = "macos"))]
+            let modifier = Modifiers::CONTROL | Modifiers::SHIFT;
+            let shortcut = Shortcut::new(Some(modifier), Code::KeyW);
+            app.global_shortcut().on_shortcut(shortcut, move |app, _shortcut, _event| {
+                let _ = app.emit("spawn", ());
+            })?;
 
             Ok(())
         })
