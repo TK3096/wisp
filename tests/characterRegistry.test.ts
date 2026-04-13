@@ -77,7 +77,8 @@ describe("CharacterRegistry", () => {
       stage: makeStage() as any,
       manifest: FAKE_MANIFEST,
       loadedAssets: makeLoadedAssets(),
-      rng: makeRng([0, 0.5]),
+      // rng calls per spawn: [asset, x, greeting]
+      rng: makeRng([0, 0.5, 0]),
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
@@ -91,7 +92,8 @@ describe("CharacterRegistry", () => {
       stage: makeStage() as any,
       manifest: FAKE_MANIFEST,
       loadedAssets: makeLoadedAssets(),
-      rng: makeRng([0, 0.1, 0, 0.5, 0, 0.9]),
+      // rng calls per spawn: [asset, x, greeting] × 3 spawns
+      rng: makeRng([0, 0.1, 0, 0, 0.5, 0, 0, 0.9, 0]),
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
@@ -108,8 +110,10 @@ describe("CharacterRegistry", () => {
       stage: makeStage() as any,
       manifest: FAKE_MANIFEST,
       loadedAssets: makeLoadedAssets(),
-      // each spawn: first rng() call selects asset, second selects x
-      rng: makeRng([0.0, 0.5, 1 - Number.EPSILON, 0.5]),
+      // rng calls per spawn: [asset, x, greeting]
+      // spawn1: asset=0.0→"a", x=0.5, greeting=0
+      // spawn2: asset=1-ε→"b", x=0.5, greeting=0
+      rng: makeRng([0.0, 0.5, 0, 1 - Number.EPSILON, 0.5, 0]),
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: (ctx: SpawnContext) => {
@@ -129,7 +133,8 @@ describe("CharacterRegistry", () => {
       stage: makeStage() as any,
       manifest: FAKE_MANIFEST,
       loadedAssets: makeLoadedAssets(),
-      rng: makeRng([0, 0, 0, 0.25, 0, 0.5, 0, 0.75, 0, 1 - Number.EPSILON]),
+      // rng calls per spawn: [asset, x, greeting] × 5 spawns
+      rng: makeRng([0, 0, 0, 0, 0.25, 0, 0, 0.5, 0, 0, 0.75, 0, 0, 1 - Number.EPSILON, 0]),
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: (ctx: SpawnContext) => {
@@ -150,7 +155,8 @@ describe("CharacterRegistry", () => {
       stage: makeStage() as any,
       manifest: FAKE_MANIFEST,
       loadedAssets: makeLoadedAssets(),
-      rng: makeRng([0, 0.3, 0, 0.7]),
+      // rng calls per spawn: [asset, x, greeting] × 2 spawns
+      rng: makeRng([0, 0.3, 0, 0, 0.7, 0]),
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => {
@@ -176,7 +182,8 @@ describe("CharacterRegistry", () => {
       stage: makeStage() as any,
       manifest: FAKE_MANIFEST,
       loadedAssets: makeLoadedAssets(),
-      rng: makeRng([0, 0.5]),
+      // rng calls per spawn: [asset, x, greeting]
+      rng: makeRng([0, 0.5, 0]),
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => {

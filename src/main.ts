@@ -2,7 +2,7 @@ import { Application } from "pixi.js";
 import { listen } from "@tauri-apps/api/event";
 import { ASSET_MANIFEST, FLOOR_BAND_PX } from "./config";
 import { loadAsset } from "./spriteLoader";
-import { CharacterRegistry } from "./characterRegistry";
+import { CharacterRegistry, defaultCreateBubbleHandle } from "./characterRegistry";
 
 async function init() {
   const app = new Application();
@@ -39,6 +39,7 @@ async function init() {
     rng: Math.random,
     screenWidth: window.innerWidth,
     floorY: window.innerHeight - FLOOR_BAND_PX,
+    createBubbleHandle: defaultCreateBubbleHandle,
   });
 
   // Tray / hotkey events

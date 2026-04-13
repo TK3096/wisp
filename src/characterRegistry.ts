@@ -1,9 +1,82 @@
-import { Sprite, Container, Texture } from "pixi.js";
-import { AssetEntry } from "./config";
+import { Sprite, Container, Texture, Graphics, BitmapFont, BitmapText, TextStyle } from "pixi.js";
+import { AssetEntry, BUBBLE, GREETINGS } from "./config";
 import { Character, CharacterHandle, CharacterConfig, CharacterState } from "./character";
+import { BubbleHandle, Bubble } from "./bubble";
 import { LoadedAsset } from "./spriteLoader";
 
 const SPRITE_SCALE = 2;
+const BUBBLE_FONT = "WispBubble";
+const BUBBLE_FONT_SIZE = 10;
+const BUBBLE_PADDING = 5;
+const BUBBLE_TAIL_H = 6;
+
+let bubbleFontInstalled = false;
+
+function ensureBubbleFont(): void {
+  if (bubbleFontInstalled) return;
+  BitmapFont.install({
+    name: BUBBLE_FONT,
+    style: new TextStyle({
+      fontFamily: "monospace",
+      fontSize: BUBBLE_FONT_SIZE,
+      fill: "#222222",
+    }),
+    chars: [["a", "z"], ["A", "Z"], ["0", "9"], "!?.,;:*()[]-_' "],
+  });
+  bubbleFontInstalled = true;
+}
+
+export function defaultCreateBubbleHandle(stage: Container, text: string): BubbleHandle {
+  ensureBubbleFont();
+
+  const bitmapText = new BitmapText({
+    text,
+    style: { fontFamily: BUBBLE_FONT, fontSize: BUBBLE_FONT_SIZE },
+  });
+  // Access width to trigger synchronous glyph layout before we measure.
+
+  const bubbleW = Math.min(
+    Math.max(bitmapText.width + BUBBLE_PADDING * 2, 24),
+    BUBBLE.MAX_WIDTH_PX,
+  );
+  const bubbleH = bitmapText.height + BUBBLE_PADDING * 2;
+
+  bitmapText.x = BUBBLE_PADDING;
+  bitmapText.y = BUBBLE_PADDING;
+
+  const gfx = new Graphics();
+  // Bubble body: crisp rect with dark 1px border (pixel-art style, no smooth corners).
+  gfx.rect(0, 0, bubbleW, bubbleH).fill({ color: 0xf5f0e8 }).stroke({ color: 0x222222, width: 1 });
+  // Downward tail centered below bubble.
+  const tailX = Math.floor(bubbleW / 2);
+  gfx
+    .poly([tailX - 4, bubbleH, tailX + 4, bubbleH, tailX, bubbleH + BUBBLE_TAIL_H])
+    .fill({ color: 0xf5f0e8 });
+
+  const container = new Container();
+  container.addChild(gfx);
+  container.addChild(bitmapText);
+  // Pivot at tail tip so setPosition(charX, charY) anchors the tail to the character head.
+  container.pivot.set(tailX, bubbleH + BUBBLE_TAIL_H);
+  stage.addChild(container);
+
+  return {
+    setText(t: string) {
+      bitmapText.text = t;
+    },
+    setVisibleChars(n: number) {
+      bitmapText.text = text.slice(0, n);
+    },
+    setPosition(x: number, y: number) {
+      container.x = x;
+      container.y = y;
+    },
+    destroy() {
+      stage.removeChild(container);
+      container.destroy({ children: true });
+    },
+  };
+}
 
 export interface SpawnContext {
   entry: AssetEntry;
@@ -26,6 +99,12 @@ export interface RegistryOptions {
    * Override in tests to inject mocks.
    */
   createHandle?: (ctx: SpawnContext) => CharacterHandle;
+  /**
+   * Factory for creating a BubbleHandle given the stage and text.
+   * When undefined, no bubble is injected and say() is a no-op.
+   * Override in tests with a fake to avoid Pixi imports.
+   */
+  createBubbleHandle?: (stage: Container, text: string) => BubbleHandle;
 }
 
 function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
@@ -61,9 +140,13 @@ function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
   };
 }
 
+type ResolvedOptions = RegistryOptions & {
+  createHandle: (ctx: SpawnContext) => CharacterHandle;
+};
+
 export class CharacterRegistry {
   private readonly characters: Character[] = [];
-  private readonly opts: Required<RegistryOptions>;
+  private readonly opts: ResolvedOptions;
 
   constructor(opts: RegistryOptions) {
     this.opts = { createHandle: defaultCreateHandle, ...opts };
@@ -74,7 +157,7 @@ export class CharacterRegistry {
   }
 
   spawn(): void {
-    const { manifest, loadedAssets, rng, stage, screenWidth, floorY, createHandle } = this.opts;
+    const { manifest, loadedAssets, rng, stage, screenWidth, floorY, createHandle, createBubbleHandle } = this.opts;
 
     const entry = manifest[Math.floor(rng() * manifest.length)];
     const loaded = loadedAssets.get(entry.name)!;
@@ -82,10 +165,15 @@ export class CharacterRegistry {
 
     const handle = createHandle({ entry, loaded, stage, x, floorY });
 
+    const createBubble = createBubbleHandle
+      ? (text: string): Bubble => new Bubble(text, createBubbleHandle(stage, text))
+      : undefined;
+
     const cfg: Partial<CharacterConfig> = {
       rng,
       floorLeft: 0,
       floorRight: screenWidth,
+      createBubble,
     };
 
     const character = new Character(
@@ -94,6 +182,10 @@ export class CharacterRegistry {
       entry.walkFrames,
       cfg
     );
+
+    // Greeting bypasses global cooldown — spawn always produces visual feedback.
+    const greeting = GREETINGS[Math.floor(rng() * GREETINGS.length)];
+    character.say(greeting);
 
     this.characters.push(character);
   }
