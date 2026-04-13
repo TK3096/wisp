@@ -166,7 +166,14 @@ export class CharacterRegistry {
     const handle = createHandle({ entry, loaded, stage, x, floorY });
 
     const createBubble = createBubbleHandle
-      ? (text: string): Bubble => new Bubble(text, createBubbleHandle(stage, text))
+      ? (text: string): Bubble =>
+          new Bubble(
+            text,
+            createBubbleHandle(stage, text),
+            BUBBLE.TYPING_SPEED_CPS,
+            BUBBLE.LINGER_S,
+            BUBBLE.MAX_DURATION_S,
+          )
       : undefined;
 
     const cfg: Partial<CharacterConfig> = {

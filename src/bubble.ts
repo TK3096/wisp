@@ -13,27 +13,67 @@ export interface BubbleHandle {
 /**
  * Pure-logic speech bubble. No Pixi imports — all rendering delegated to BubbleHandle.
  *
- * Phase 1: shows all text immediately; never expires (tick is a no-op).
- * Phase 2: tick() gains typing animation and lifetime logic.
+ * Lifecycle: typing phase (chars revealed at TYPING_SPEED_CPS), then linger phase
+ * (fully typed text held for LINGER_S), then expired = true and handle destroyed.
+ * Total lifetime is capped at MAX_DURATION_S.
+ *
+ * Background is pre-sized to the full text at construction — only setVisibleChars
+ * changes during typing, never the geometry. This keeps per-frame cost O(1).
  */
 export class Bubble {
   readonly text: string;
-  /** Set to true when the bubble's lifetime has elapsed and it should be removed. */
+  /** True once the bubble's lifetime has elapsed and it should be removed. */
   expired = false;
 
   private readonly handle: BubbleHandle;
+  private elapsed = 0;
+  private visibleChars = 0;
+  private readonly typingDuration: number;
+  private readonly totalDuration: number;
 
-  constructor(text: string, handle: BubbleHandle) {
+  constructor(
+    text: string,
+    handle: BubbleHandle,
+    typingSpeedCps: number,
+    lingerS: number,
+    maxDurationS: number,
+  ) {
     this.text = text;
     this.handle = handle;
+    // Guard against zero-length text to avoid division by zero.
+    this.typingDuration = text.length > 0 ? text.length / typingSpeedCps : 0;
+    this.totalDuration = Math.min(this.typingDuration + lingerS, maxDurationS);
     handle.setText(text);
-    handle.setVisibleChars(text.length); // Phase 1: show all chars immediately
+    handle.setVisibleChars(0); // typing starts from 0
   }
 
-  /** Advance the bubble by dt seconds. Typing animation and lifetime added in Phase 2. */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  tick(_dt: number): void {
-    // no-op in Phase 1 — typing animation implemented in Phase 2
+  /** Advance the bubble by dt seconds. Updates visible chars and checks lifetime. */
+  tick(dt: number): void {
+    if (this.expired) return;
+    this.elapsed += dt;
+
+    // Typing phase: reveal characters proportionally to elapsed time.
+    if (this.typingDuration > 0) {
+      const newVisible = Math.min(
+        Math.ceil((this.elapsed / this.typingDuration) * this.text.length),
+        this.text.length,
+      );
+      if (newVisible !== this.visibleChars) {
+        this.visibleChars = newVisible;
+        this.handle.setVisibleChars(this.visibleChars);
+      }
+    } else {
+      // Zero-length text: show immediately.
+      if (this.visibleChars === 0) {
+        this.visibleChars = 0;
+        this.handle.setVisibleChars(0);
+      }
+    }
+
+    if (this.elapsed >= this.totalDuration) {
+      this.expired = true;
+      this.handle.destroy();
+    }
   }
 
   setPosition(x: number, y: number): void {
