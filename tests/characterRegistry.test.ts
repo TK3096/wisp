@@ -12,6 +12,7 @@ function makeHandle(): CharacterHandle {
     setTexture: vi.fn(),
     setPosition: vi.fn(),
     setFlip: vi.fn(),
+    setAirborneSprite: vi.fn(),
     destroy: vi.fn(),
   };
 }
@@ -36,8 +37,8 @@ function makeStage(): FakeStage {
 }
 
 const FAKE_MANIFEST = [
-  { name: "a", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "" },
-  { name: "b", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "" },
+  { name: "a", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "", jumpPath: "", fallPath: "" },
+  { name: "b", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "", jumpPath: "", fallPath: "" },
 ];
 
 function makeRng(sequence: number[]): () => number {
@@ -52,6 +53,8 @@ function makeLoadedAssets() {
       {
         idleTextures: Array(11).fill(null),
         walkTextures: Array(12).fill(null),
+        jumpTexture: null,
+        fallTexture: null,
       },
     ])
   );

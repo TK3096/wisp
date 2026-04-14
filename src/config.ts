@@ -13,6 +13,8 @@ export interface AssetEntry {
   name: string;
   idlePath: string;
   walkPath: string;
+  jumpPath: string;
+  fallPath: string;
   idleFrames: number;
   walkFrames: number;
   frameWidth: number;
@@ -58,6 +60,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "mask-dude",
     idlePath: "/assets/sprites/mask-dude/idle.png",
     walkPath: "/assets/sprites/mask-dude/walk.png",
+    jumpPath: "/assets/sprites/mask-dude/jump.png",
+    fallPath: "/assets/sprites/mask-dude/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,
@@ -67,6 +71,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "ninja-frog",
     idlePath: "/assets/sprites/ninja-frog/idle.png",
     walkPath: "/assets/sprites/ninja-frog/walk.png",
+    jumpPath: "/assets/sprites/ninja-frog/jump.png",
+    fallPath: "/assets/sprites/ninja-frog/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,
@@ -76,6 +82,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "pink-man",
     idlePath: "/assets/sprites/pink-man/idle.png",
     walkPath: "/assets/sprites/pink-man/walk.png",
+    jumpPath: "/assets/sprites/pink-man/jump.png",
+    fallPath: "/assets/sprites/pink-man/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,
@@ -85,6 +93,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "virtual-guy",
     idlePath: "/assets/sprites/virtual-guy/idle.png",
     walkPath: "/assets/sprites/virtual-guy/walk.png",
+    jumpPath: "/assets/sprites/virtual-guy/jump.png",
+    fallPath: "/assets/sprites/virtual-guy/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,

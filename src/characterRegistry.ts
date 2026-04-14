@@ -139,6 +139,11 @@ function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
     setFlip(facingLeft: boolean) {
       sprite.scale.x = facingLeft ? -SPRITE_SCALE : SPRITE_SCALE;
     },
+    setAirborneSprite(kind: "jump" | "fall" | null) {
+      if (kind === "jump") sprite.texture = loaded.jumpTexture as unknown as Texture;
+      else if (kind === "fall") sprite.texture = loaded.fallTexture as unknown as Texture;
+      // null: no-op — next setTexture call from ground tick restores the ground frame
+    },
     destroy() {
       stage.removeChild(sprite);
       sprite.destroy();
@@ -232,6 +237,13 @@ export class CharacterRegistry {
       entry.char.destroy();
     }
     this.entries.length = 0;
+  }
+
+  /** Trigger a jump on every live character. Already-airborne characters are unaffected (no-op). */
+  jumpAll(): void {
+    for (const entry of this.entries) {
+      entry.char.jump();
+    }
   }
 
   tick(dt: number): void {

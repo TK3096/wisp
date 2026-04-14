@@ -4,6 +4,8 @@ import { AssetEntry } from "./config";
 export interface LoadedAsset {
   idleTextures: Texture[];
   walkTextures: Texture[];
+  jumpTexture: Texture;
+  fallTexture: Texture;
 }
 
 /** Slice a horizontal sprite strip into individual frame textures. */
@@ -26,13 +28,17 @@ function sliceStrip(
 }
 
 export async function loadAsset(entry: AssetEntry): Promise<LoadedAsset> {
-  const [idleBase, walkBase] = await Promise.all([
+  const [idleBase, walkBase, jumpTexture, fallTexture] = await Promise.all([
     Assets.load<Texture>(entry.idlePath),
     Assets.load<Texture>(entry.walkPath),
+    Assets.load<Texture>(entry.jumpPath),
+    Assets.load<Texture>(entry.fallPath),
   ]);
 
   return {
     idleTextures: sliceStrip(idleBase, entry.idleFrames, entry.frameWidth, entry.frameHeight),
     walkTextures: sliceStrip(walkBase, entry.walkFrames, entry.frameWidth, entry.frameHeight),
+    jumpTexture,
+    fallTexture,
   };
 }

@@ -7,6 +7,7 @@ function makeHandle(): CharacterHandle {
     setTexture: vi.fn(),
     setPosition: vi.fn(),
     setFlip: vi.fn(),
+    setAirborneSprite: vi.fn(),
     destroy: vi.fn(),
   };
 }
@@ -201,5 +202,170 @@ describe("Character", () => {
     const calls = (h.setTexture as ReturnType<typeof vi.fn>).mock.calls;
     const lastFrame = calls[calls.length - 1][0] as number;
     expect(lastFrame).toBe(0); // wrapped back to 0
+  });
+});
+
+// Jump constants matching src/character.ts inline values.
+const JUMP_PEAK_HEIGHT_PX = 24;
+const JUMP_DURATION_S = 0.5;
+const JUMP_RISE_FRACTION = 0.45;
+
+describe("Character jump", () => {
+  it("starts grounded — airborne is false before jump()", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    expect(c.airborne).toBe(false);
+  });
+
+  it("jump() sets airborne true; completes after JUMP_DURATION_S and returns to grounded", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+
+    c.jump();
+    expect(c.airborne).toBe(true);
+
+    // Tick exactly the duration
+    c.tick(JUMP_DURATION_S);
+    expect(c.airborne).toBe(false);
+  });
+
+  it("jump() while already airborne is a no-op (no double-jump)", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+
+    c.jump();
+    c.jump(); // second call while airborne
+    expect(c.airborne).toBe(true);
+
+    // Should still land exactly once at JUMP_DURATION_S, not restart
+    c.tick(JUMP_DURATION_S);
+    expect(c.airborne).toBe(false);
+  });
+
+  it("setAirborneSprite('jump') called during rise, ('fall') during descent", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    const spy = h.setAirborneSprite as ReturnType<typeof vi.fn>;
+
+    c.jump();
+
+    // Tick into the rise phase (t = 0.1/0.5 = 0.2 < RISE_FRACTION 0.45)
+    c.tick(0.1);
+    const riseCalls = spy.mock.calls.map((call) => call[0]);
+    expect(riseCalls).toContain("jump");
+    expect(riseCalls).not.toContain("fall");
+
+    // Tick past the rise fraction (cumulative: 0.26s → t = 0.52 > 0.45)
+    spy.mockClear();
+    c.tick(0.16);
+    const fallCalls = spy.mock.calls.map((call) => call[0]);
+    expect(fallCalls).toContain("fall");
+    expect(fallCalls).not.toContain("jump");
+  });
+
+  it("setAirborneSprite(null) called on landing", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    const spy = h.setAirborneSprite as ReturnType<typeof vi.fn>;
+
+    c.jump();
+    c.tick(JUMP_DURATION_S + 0.01); // tick past full duration
+    expect(c.airborne).toBe(false);
+
+    const lastCall = spy.mock.calls[spy.mock.calls.length - 1][0];
+    expect(lastCall).toBeNull();
+  });
+
+  it("logical y is unchanged throughout the airborne window", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    const groundY = c.y;
+
+    c.jump();
+    c.tick(JUMP_DURATION_S / 2); // mid-air
+    expect(c.y).toBe(groundY);
+
+    c.tick(JUMP_DURATION_S); // past landing
+    expect(c.y).toBe(groundY);
+  });
+
+  it("setPosition is called with displayY < y at arc midpoint", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    const groundY = c.y;
+    const spy = h.setPosition as ReturnType<typeof vi.fn>;
+
+    c.jump();
+    spy.mockClear();
+    // Tick to arc midpoint (t ≈ 0.5 → peak offset = 24 * 4 * 0.5 * 0.5 = 24)
+    c.tick(JUMP_DURATION_S / 2);
+
+    const yValues = spy.mock.calls.map((call) => call[1] as number);
+    const minY = Math.min(...yValues);
+    expect(minY).toBeLessThan(groundY);
+    // At t=0.5 the peak offset is exactly JUMP_PEAK_HEIGHT_PX
+    expect(minY).toBeCloseTo(groundY - JUMP_PEAK_HEIGHT_PX, 0);
+  });
+
+  it("setPosition returns to groundY on landing", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    const groundY = c.y;
+    const spy = h.setPosition as ReturnType<typeof vi.fn>;
+
+    c.jump();
+    spy.mockClear();
+    c.tick(JUMP_DURATION_S + 0.01);
+
+    const lastY = spy.mock.calls[spy.mock.calls.length - 1][1] as number;
+    expect(lastY).toBe(groundY);
+  });
+
+  it("broad jump: x advances while airborne when character was walking", () => {
+    const h = makeHandle();
+    // rng=0.5 → walk target=960, starting at x=500 (target to the right)
+    const c = makeCharacter(h, () => 0.5, 500);
+
+    // Trigger walk
+    c.tick(2.76);
+    expect(c.state).toBe("walk");
+
+    const xBeforeJump = c.x;
+    c.jump();
+    expect(c.airborne).toBe(true);
+
+    // Walk for half the jump duration while airborne
+    c.tick(JUMP_DURATION_S / 2);
+    // x should have advanced (walk continues during airborne)
+    expect(c.x).toBeGreaterThan(xBeforeJump);
+    expect(c.airborne).toBe(true);
+  });
+
+  it("can jump again after landing", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+
+    c.jump();
+    c.tick(JUMP_DURATION_S + 0.01);
+    expect(c.airborne).toBe(false);
+
+    // Second jump should work
+    c.jump();
+    expect(c.airborne).toBe(true);
+  });
+
+  it("rise fraction boundary: exactly at RISE_FRACTION uses fall pose", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    const spy = h.setAirborneSprite as ReturnType<typeof vi.fn>;
+
+    c.jump();
+    spy.mockClear();
+    // Tick to exactly the rise fraction boundary
+    c.tick(JUMP_RISE_FRACTION * JUMP_DURATION_S);
+
+    const calls = spy.mock.calls.map((call) => call[0]);
+    // At t = RISE_FRACTION, condition is t < RISE_FRACTION = false → fall pose
+    expect(calls[calls.length - 1]).toBe("fall");
   });
 });
