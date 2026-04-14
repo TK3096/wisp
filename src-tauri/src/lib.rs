@@ -1,5 +1,5 @@
 use tauri::{
-    menu::{Menu, MenuItem, Submenu},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{TrayIcon, TrayIconBuilder},
     Emitter, Manager,
 };
@@ -39,6 +39,18 @@ fn build_despawn_submenu<R: tauri::Runtime>(
         let all_item =
             MenuItem::with_id(manager, "despawn_all", "All", true, None::<&str>)?;
         submenu.append(&all_item)?;
+        let sep = PredefinedMenuItem::separator(manager)?;
+        submenu.append(&sep)?;
+        for item in items {
+            let char_item = MenuItem::with_id(
+                manager,
+                format!("despawn:{}", item.id),
+                &item.label,
+                true,
+                None::<&str>,
+            )?;
+            submenu.append(&char_item)?;
+        }
     }
     Ok(submenu)
 }

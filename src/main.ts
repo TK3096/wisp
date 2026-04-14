@@ -55,6 +55,7 @@ async function init() {
   try {
     await listen("spawn", () => registry.spawn());
     await listen("despawn-all", () => registry.despawnAll());
+    await listen<number>("despawn-one", (event) => registry.despawn(event.payload));
   } catch (err) {
     console.warn("Tauri event bridge unavailable:", err);
   }
