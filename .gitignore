@@ -25,4 +25,4 @@ dist-ssr
 
 .claude
 CLAUDE.local.md
-plans
+plans/*

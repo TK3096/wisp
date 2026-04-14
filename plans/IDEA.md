@@ -28,7 +28,8 @@ A standalone desktop overlay app built with **Tauri** (Rust backend) + **Vanilla
 - [X] speech bubble (greething when spawn and random after spawned)
 - [ ] more action (jump)
 - [ ] despawn one character
-- [ ] despawn effect
-- [ ] more character
-- [ ] select spawn character
+- [ ] spawn/despawn effect
+- [ ] more character (added sprited, unimplement specific behavior for each character)
+- [ ] select spawn character, character list
 - [ ] naming chracter
+- [ ] comunicate with user (p2p)
