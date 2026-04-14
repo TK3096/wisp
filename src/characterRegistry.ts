@@ -110,6 +110,12 @@ export interface RegistryOptions {
    * Override in tests with a fake to avoid Pixi imports.
    */
   createBubbleHandle?: (stage: Container, text: string) => BubbleHandle;
+  /**
+   * Called after every mutation (spawn, despawn, despawnAll) with a full
+   * snapshot of the live character list. Use to sync external state (e.g.
+   * the Tauri tray submenu). Omit in tests or when no external sync needed.
+   */
+  onChange?: (items: { id: number; label: string }[]) => void;
 }
 
 function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
@@ -157,6 +163,8 @@ type ResolvedOptions = RegistryOptions & {
 
 interface CharEntry {
   char: Character;
+  id: number;
+  displayName: string;
   /** Seconds until this character's next idle-line roll. */
   rollTimer: number;
   /** Seconds until this character's next jump roll. */
@@ -170,6 +178,8 @@ export class CharacterRegistry {
   private elapsed = 0;
   /** Elapsed time at which the last bubble was emitted (idle rolls only). */
   private lastBubbleAt = -Infinity;
+  /** Monotonically increasing ID counter; never resets within a session. */
+  private nextId = 1;
 
   constructor(opts: RegistryOptions) {
     this.opts = { createHandle: defaultCreateHandle, ...opts };
@@ -177,6 +187,27 @@ export class CharacterRegistry {
 
   get count(): number {
     return this.entries.length;
+  }
+
+  /** Returns the current live character list in insertion order. */
+  snapshot(): { id: number; label: string }[] {
+    return this.entries.map((e) => ({
+      id: e.id,
+      label: `${e.displayName} #${e.id}`,
+    }));
+  }
+
+  /**
+   * Removes the character with the given ID.
+   * Returns true on success, false if the ID is not found (silent no-op).
+   */
+  despawn(id: number): boolean {
+    const idx = this.entries.findIndex((e) => e.id === id);
+    if (idx === -1) return false;
+    this.entries[idx].char.destroy();
+    this.entries.splice(idx, 1);
+    this.opts.onChange?.(this.snapshot());
+    return true;
   }
 
   spawn(): void {
@@ -230,9 +261,12 @@ export class CharacterRegistry {
     // After the first roll fires, subsequent timers are randomized via rng().
     this.entries.push({
       char: character,
+      id: this.nextId++,
+      displayName: entry.displayName,
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
     });
+    this.opts.onChange?.(this.snapshot());
   }
 
   despawnAll(): void {
@@ -240,6 +274,7 @@ export class CharacterRegistry {
       entry.char.destroy();
     }
     this.entries.length = 0;
+    this.opts.onChange?.([]);
   }
 
   /** Trigger a jump on every live character. Already-airborne characters are unaffected (no-op). */

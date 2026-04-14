@@ -1,5 +1,6 @@
 import { Application } from "pixi.js";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { ASSET_MANIFEST, FLOOR_BAND_PX } from "./config";
 import { loadAsset } from "./spriteLoader";
 import { CharacterRegistry, defaultCreateBubbleHandle } from "./characterRegistry";
@@ -40,6 +41,9 @@ async function init() {
     screenWidth: window.innerWidth,
     floorY: window.innerHeight - FLOOR_BAND_PX,
     createBubbleHandle: defaultCreateBubbleHandle,
+    onChange: (items) => {
+      invoke("update_character_list", { items }).catch(console.error);
+    },
   });
 
   app.ticker.add((ticker) => {

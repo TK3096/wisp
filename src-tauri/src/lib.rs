@@ -1,9 +1,58 @@
 use tauri::{
-    menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
+    menu::{Menu, MenuItem, Submenu},
+    tray::{TrayIcon, TrayIconBuilder},
     Emitter, Manager,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+
+// Fields are deserialized from JS; `id` and `label` are used directly in Phase 2.
+#[allow(dead_code)]
+#[derive(serde::Deserialize)]
+struct CharacterItem {
+    id: u32,
+    label: String,
+}
+
+/// Holds the tray icon so `update_character_list` can swap the menu.
+struct AppTray(TrayIcon);
+
+fn build_tray_menu<R: tauri::Runtime>(
+    manager: &impl tauri::Manager<R>,
+    items: &[CharacterItem],
+) -> tauri::Result<Menu<R>> {
+    let spawn_item = MenuItem::with_id(manager, "spawn", "Spawn", true, None::<&str>)?;
+    let despawn_submenu = build_despawn_submenu(manager, items)?;
+    let quit_item = MenuItem::with_id(manager, "quit", "Quit", true, None::<&str>)?;
+    Menu::with_items(manager, &[&spawn_item, &despawn_submenu, &quit_item])
+}
+
+fn build_despawn_submenu<R: tauri::Runtime>(
+    manager: &impl tauri::Manager<R>,
+    items: &[CharacterItem],
+) -> tauri::Result<Submenu<R>> {
+    let submenu = Submenu::with_id(manager, "despawn", "Despawn", true)?;
+    if items.is_empty() {
+        let none_item =
+            MenuItem::with_id(manager, "despawn_none", "(none)", false, None::<&str>)?;
+        submenu.append(&none_item)?;
+    } else {
+        let all_item =
+            MenuItem::with_id(manager, "despawn_all", "All", true, None::<&str>)?;
+        submenu.append(&all_item)?;
+    }
+    Ok(submenu)
+}
+
+#[tauri::command]
+fn update_character_list(
+    items: Vec<CharacterItem>,
+    app: tauri::AppHandle,
+    tray: tauri::State<AppTray>,
+) -> Result<(), String> {
+    let menu = build_tray_menu(&app, &items).map_err(|e| e.to_string())?;
+    tray.0.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -30,15 +79,10 @@ pub fn run() {
             // Allow all mouse events to pass through the overlay
             window.set_ignore_cursor_events(true)?;
 
-            // System tray: Spawn / Despawn All / Quit
-            let spawn_item = MenuItem::with_id(app, "spawn", "Spawn", true, None::<&str>)?;
-            let despawn_item =
-                MenuItem::with_id(app, "despawn_all", "Despawn All", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            // Build initial menu: no characters alive → Despawn ▸ shows (none)
+            let menu = build_tray_menu(app, &[])?;
 
-            let menu = Menu::with_items(app, &[&spawn_item, &despawn_item, &quit_item])?;
-
-            let _tray = TrayIconBuilder::new()
+            let tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -51,9 +95,17 @@ pub fn run() {
                     "quit" => {
                         app.exit(0);
                     }
+                    // Phase 2: per-character despawn items use "despawn:{id}" IDs
+                    id if id.starts_with("despawn:") => {
+                        if let Ok(n) = id["despawn:".len()..].parse::<u32>() {
+                            let _ = app.emit("despawn-one", n);
+                        }
+                    }
                     _ => {}
                 })
                 .build(app)?;
+
+            app.manage(AppTray(tray));
 
             // Global hotkey: Cmd+Shift+W (macOS) / Ctrl+Shift+W (other) → spawn
             #[cfg(target_os = "macos")]
@@ -68,10 +120,9 @@ pub fn run() {
                     }
                 })?;
 
-
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![])
+        .invoke_handler(tauri::generate_handler![update_character_list])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

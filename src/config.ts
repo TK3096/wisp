@@ -11,6 +11,7 @@ export const HOTKEY = "CommandOrControl+Shift+W";
 
 export interface AssetEntry {
   name: string;
+  displayName: string;
   idlePath: string;
   walkPath: string;
   jumpPath: string;
@@ -71,6 +72,7 @@ export const IDLE_LINES = [
 export const ASSET_MANIFEST: AssetEntry[] = [
   {
     name: "mask-dude",
+    displayName: "Mask Dude",
     idlePath: "/assets/sprites/mask-dude/idle.png",
     walkPath: "/assets/sprites/mask-dude/walk.png",
     jumpPath: "/assets/sprites/mask-dude/jump.png",
@@ -82,6 +84,7 @@ export const ASSET_MANIFEST: AssetEntry[] = [
   },
   {
     name: "ninja-frog",
+    displayName: "Ninja Frog",
     idlePath: "/assets/sprites/ninja-frog/idle.png",
     walkPath: "/assets/sprites/ninja-frog/walk.png",
     jumpPath: "/assets/sprites/ninja-frog/jump.png",
@@ -93,6 +96,7 @@ export const ASSET_MANIFEST: AssetEntry[] = [
   },
   {
     name: "pink-man",
+    displayName: "Pink Man",
     idlePath: "/assets/sprites/pink-man/idle.png",
     walkPath: "/assets/sprites/pink-man/walk.png",
     jumpPath: "/assets/sprites/pink-man/jump.png",
@@ -104,6 +108,7 @@ export const ASSET_MANIFEST: AssetEntry[] = [
   },
   {
     name: "virtual-guy",
+    displayName: "Virtual Guy",
     idlePath: "/assets/sprites/virtual-guy/idle.png",
     walkPath: "/assets/sprites/virtual-guy/walk.png",
     jumpPath: "/assets/sprites/virtual-guy/jump.png",

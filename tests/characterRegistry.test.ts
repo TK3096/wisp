@@ -37,8 +37,8 @@ function makeStage(): FakeStage {
 }
 
 const FAKE_MANIFEST = [
-  { name: "a", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "", jumpPath: "", fallPath: "" },
-  { name: "b", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "", jumpPath: "", fallPath: "" },
+  { name: "a", displayName: "A", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "", jumpPath: "", fallPath: "" },
+  { name: "b", displayName: "B", idleFrames: 11, walkFrames: 12, frameWidth: 32, frameHeight: 32, idlePath: "", walkPath: "", jumpPath: "", fallPath: "" },
 ];
 
 function makeRng(sequence: number[]): () => number {
@@ -468,5 +468,183 @@ describe("CharacterRegistry jump scheduler (Phase 5)", () => {
     reg.tick(0.01); // let tickAirborne emit setAirborneSprite
 
     expect(jumpSpy.mock.calls.some((c) => c[0] === "jump")).toBe(true);
+  });
+});
+
+// ─── Phase 6: Identity & despawn-one ─────────────────────────────────────────
+
+function makeIdentityRegistry(rng: () => number = makeRng([0, 0.5, 0])) {
+  const reg = new CharacterRegistry({
+    stage: makeStage() as any,
+    manifest: FAKE_MANIFEST,
+    loadedAssets: makeLoadedAssets(),
+    rng,
+    screenWidth: SCREEN_W,
+    floorY: FLOOR_Y,
+    createHandle: () => makeHandle(),
+  });
+  return reg;
+}
+
+describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
+  it("IDs are monotonically increasing and never reused after despawn", () => {
+    // rng per spawn: [asset, x, greeting]
+    const reg = makeIdentityRegistry(makeRng([0, 0.5, 0, 0, 0.5, 0, 0, 0.5, 0]));
+
+    reg.spawn(); // id=1
+    reg.spawn(); // id=2
+    const snap1 = reg.snapshot();
+    expect(snap1.map((s) => s.id)).toEqual([1, 2]);
+
+    reg.despawn(1); // remove id=1
+    reg.spawn();    // id=3 (not 1)
+    const snap2 = reg.snapshot();
+    expect(snap2.map((s) => s.id)).toEqual([2, 3]);
+  });
+
+  it("despawn(id) happy path: removes the targeted character and returns true", () => {
+    const handles: CharacterHandle[] = [];
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0, 0, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => {
+        const h = makeHandle();
+        handles.push(h);
+        return h;
+      },
+    });
+
+    reg.spawn(); // id=1, handles[0]
+    reg.spawn(); // id=2, handles[1]
+    expect(reg.count).toBe(2);
+
+    const result = reg.despawn(1);
+
+    expect(result).toBe(true);
+    expect(reg.count).toBe(1);
+    expect((handles[0].destroy as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
+    expect((handles[1].destroy as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(reg.snapshot().map((s) => s.id)).toEqual([2]);
+  });
+
+  it("despawn(id) with unknown ID returns false and does not mutate state", () => {
+    const onChange = vi.fn();
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      onChange,
+    });
+
+    reg.spawn(); // id=1
+    onChange.mockClear(); // reset after spawn onChange call
+
+    const result = reg.despawn(99);
+
+    expect(result).toBe(false);
+    expect(reg.count).toBe(1);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("onChange fires on spawn with correct snapshot payload", () => {
+    const onChange = vi.fn();
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      // rng always 0: asset=0→"a"(displayName "A"), x=0, dwell=0, greeting=0 for every spawn
+      rng: () => 0,
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      onChange,
+    });
+
+    reg.spawn(); // id=1, displayName="A"
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith([{ id: 1, label: "A #1" }]);
+
+    reg.spawn(); // id=2, displayName="A"
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith([
+      { id: 1, label: "A #1" },
+      { id: 2, label: "A #2" },
+    ]);
+  });
+
+  it("onChange fires on successful despawn(id) with updated snapshot", () => {
+    const onChange = vi.fn();
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      // rng always 0: both spawns get displayName "A"
+      rng: () => 0,
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      onChange,
+    });
+
+    reg.spawn(); // id=1
+    reg.spawn(); // id=2
+    onChange.mockClear();
+
+    reg.despawn(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith([{ id: 2, label: "A #2" }]);
+  });
+
+  it("despawnAll() fires onChange exactly once with empty array", () => {
+    const onChange = vi.fn();
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0, 0, 0.5, 0, 0, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      onChange,
+    });
+
+    reg.spawn();
+    reg.spawn();
+    reg.spawn();
+    onChange.mockClear();
+
+    reg.despawnAll();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("snapshot() returns entries in insertion order with correct label format", () => {
+    // rng: [asset=0→"a", x, greeting, asset=1→"b", x, greeting]
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0, 1 - Number.EPSILON, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+    });
+
+    reg.spawn(); // id=1, displayName="A"
+    reg.spawn(); // id=2, displayName="B"
+
+    const snap = reg.snapshot();
+    expect(snap).toEqual([
+      { id: 1, label: "A #1" },
+      { id: 2, label: "B #2" },
+    ]);
   });
 });
