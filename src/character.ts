@@ -7,16 +7,13 @@ import {
   WALK_DWELL_MS_MIN,
   WALK_DWELL_MS_MAX,
   BUBBLE,
+  JUMP,
 } from "./config";
 import { Bubble } from "./bubble";
 
 export type Facing = "right" | "left";
 export type CharacterState = "idle" | "walk";
 
-// Jump tuning constants (inline for Phase 1; move to config in Phase 2).
-const JUMP_PEAK_HEIGHT_PX = 24;
-const JUMP_DURATION_S = 0.5;
-const JUMP_RISE_FRACTION = 0.45;
 
 export interface CharacterHandle {
   setAnimation(anim: CharacterState): void;
@@ -147,7 +144,7 @@ export class Character {
   private tickAirborne(dt: number): void {
     this.airborneTimer += dt;
 
-    if (this.airborneTimer >= JUMP_DURATION_S) {
+    if (this.airborneTimer >= JUMP.DURATION_S) {
       this._airborne = false;
       this.airborneTimer = 0;
       this.displayY = this.y;
@@ -156,9 +153,9 @@ export class Character {
       return;
     }
 
-    const t = this.airborneTimer / JUMP_DURATION_S;
-    this.displayY = this.y - JUMP_PEAK_HEIGHT_PX * 4 * t * (1 - t);
-    this.handle.setAirborneSprite(t < JUMP_RISE_FRACTION ? "jump" : "fall");
+    const t = this.airborneTimer / JUMP.DURATION_S;
+    this.displayY = this.y - JUMP.PEAK_HEIGHT_PX * 4 * t * (1 - t);
+    this.handle.setAirborneSprite(t < JUMP.RISE_FRACTION ? "jump" : "fall");
     this.handle.setPosition(this.x, this.displayY);
   }
 

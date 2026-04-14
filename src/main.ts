@@ -51,8 +51,6 @@ async function init() {
   try {
     await listen("spawn", () => registry.spawn());
     await listen("despawn-all", () => registry.despawnAll());
-    // TEMPORARY (Phase 1 scaffold): removed in Phase 2.
-    await listen("jump-all", () => registry.jumpAll());
   } catch (err) {
     console.warn("Tauri event bridge unavailable:", err);
   }

@@ -21,6 +21,19 @@ export interface AssetEntry {
   frameHeight: number;
 }
 
+export const JUMP = {
+  /** Pixels above the floor at the arc peak. */
+  PEAK_HEIGHT_PX: 24,
+  /** Total airtime in seconds. */
+  DURATION_S: 0.5,
+  /** Fraction of airtime spent in the rise pose (remaining fraction uses fall pose). */
+  RISE_FRACTION: 0.45,
+  /** Average seconds between per-character jump rolls. */
+  PER_CHAR_AVG_INTERVAL_S: 20,
+  /** ± jitter on the per-character interval in seconds. */
+  PER_CHAR_JITTER_S: 10,
+};
+
 export const BUBBLE = {
   /** Pixels above character's foot position where the bubble tail tip appears. Negative = up. */
   OFFSET_Y_PX: -72,

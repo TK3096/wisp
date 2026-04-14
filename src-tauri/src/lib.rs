@@ -68,15 +68,6 @@ pub fn run() {
                     }
                 })?;
 
-            // TEMPORARY (Phase 1 scaffold): Cmd+Shift+J / Ctrl+Shift+J → jump all characters.
-            // Removed in Phase 2 when ambient scheduling takes over.
-            let jump_shortcut = Shortcut::new(Some(modifier), Code::KeyJ);
-            app.global_shortcut()
-                .on_shortcut(jump_shortcut, move |app, _shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        let _ = app.emit("jump-all", ());
-                    }
-                })?;
 
             Ok(())
         })

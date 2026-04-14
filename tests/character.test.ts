@@ -205,10 +205,11 @@ describe("Character", () => {
   });
 });
 
-// Jump constants matching src/character.ts inline values.
-const JUMP_PEAK_HEIGHT_PX = 24;
-const JUMP_DURATION_S = 0.5;
-const JUMP_RISE_FRACTION = 0.45;
+import { JUMP } from "../src/config";
+
+const JUMP_PEAK_HEIGHT_PX = JUMP.PEAK_HEIGHT_PX;
+const JUMP_DURATION_S = JUMP.DURATION_S;
+const JUMP_RISE_FRACTION = JUMP.RISE_FRACTION;
 
 describe("Character jump", () => {
   it("starts grounded — airborne is false before jump()", () => {
