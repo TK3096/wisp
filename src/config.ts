@@ -13,11 +13,26 @@ export interface AssetEntry {
   name: string;
   idlePath: string;
   walkPath: string;
+  jumpPath: string;
+  fallPath: string;
   idleFrames: number;
   walkFrames: number;
   frameWidth: number;
   frameHeight: number;
 }
+
+export const JUMP = {
+  /** Pixels above the floor at the arc peak. */
+  PEAK_HEIGHT_PX: 24,
+  /** Total airtime in seconds. */
+  DURATION_S: 0.5,
+  /** Fraction of airtime spent in the rise pose (remaining fraction uses fall pose). */
+  RISE_FRACTION: 0.45,
+  /** Average seconds between per-character jump rolls. */
+  PER_CHAR_AVG_INTERVAL_S: 20,
+  /** ± jitter on the per-character interval in seconds. */
+  PER_CHAR_JITTER_S: 10,
+};
 
 export const BUBBLE = {
   /** Pixels above character's foot position where the bubble tail tip appears. Negative = up. */
@@ -58,6 +73,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "mask-dude",
     idlePath: "/assets/sprites/mask-dude/idle.png",
     walkPath: "/assets/sprites/mask-dude/walk.png",
+    jumpPath: "/assets/sprites/mask-dude/jump.png",
+    fallPath: "/assets/sprites/mask-dude/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,
@@ -67,6 +84,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "ninja-frog",
     idlePath: "/assets/sprites/ninja-frog/idle.png",
     walkPath: "/assets/sprites/ninja-frog/walk.png",
+    jumpPath: "/assets/sprites/ninja-frog/jump.png",
+    fallPath: "/assets/sprites/ninja-frog/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,
@@ -76,6 +95,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "pink-man",
     idlePath: "/assets/sprites/pink-man/idle.png",
     walkPath: "/assets/sprites/pink-man/walk.png",
+    jumpPath: "/assets/sprites/pink-man/jump.png",
+    fallPath: "/assets/sprites/pink-man/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,
@@ -85,6 +106,8 @@ export const ASSET_MANIFEST: AssetEntry[] = [
     name: "virtual-guy",
     idlePath: "/assets/sprites/virtual-guy/idle.png",
     walkPath: "/assets/sprites/virtual-guy/walk.png",
+    jumpPath: "/assets/sprites/virtual-guy/jump.png",
+    fallPath: "/assets/sprites/virtual-guy/fall.png",
     idleFrames: 11,
     walkFrames: 12,
     frameWidth: 32,

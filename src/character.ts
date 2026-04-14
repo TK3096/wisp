@@ -7,17 +7,21 @@ import {
   WALK_DWELL_MS_MIN,
   WALK_DWELL_MS_MAX,
   BUBBLE,
+  JUMP,
 } from "./config";
 import { Bubble } from "./bubble";
 
 export type Facing = "right" | "left";
 export type CharacterState = "idle" | "walk";
 
+
 export interface CharacterHandle {
   setAnimation(anim: CharacterState): void;
   setTexture(frameIndex: number): void;
   setPosition(x: number, y: number): void;
   setFlip(facingLeft: boolean): void;
+  /** Push an airborne sprite override. null = clear; next setTexture call from ground tick restores the ground frame. */
+  setAirborneSprite(kind: "jump" | "fall" | null): void;
   destroy(): void;
 }
 
@@ -68,6 +72,11 @@ export class Character {
   private walkTargetX = 0;
   private bubble: Bubble | null = null;
 
+  /** Render-only Y; equals y when grounded, arcs above y while airborne. */
+  private displayY: number;
+  private _airborne = false;
+  private airborneTimer = 0;
+
   private readonly handle: CharacterHandle;
   private readonly idleFrameCount: number;
   private readonly walkFrameCount: number;
@@ -81,6 +90,7 @@ export class Character {
   ) {
     this.x = opts.x;
     this.y = opts.y;
+    this.displayY = opts.y;
     this.facing = opts.facing;
     this.handle = opts.handle;
     this.idleFrameCount = idleFrameCount;
@@ -90,9 +100,23 @@ export class Character {
     this.dwellTimer = this.randomDwell("idle");
 
     this.handle.setAnimation("idle");
-    this.handle.setPosition(this.x, this.y);
+    this.handle.setPosition(this.x, this.displayY);
     this.handle.setFlip(this.facing === "left");
     this.handle.setTexture(this.frameIndex);
+  }
+
+  get airborne(): boolean {
+    return this._airborne;
+  }
+
+  /**
+   * Trigger a jump. No-op if already airborne.
+   * Can be called imperatively by external systems (registry, events, etc.).
+   */
+  jump(): void {
+    if (this._airborne) return;
+    this._airborne = true;
+    this.airborneTimer = 0;
   }
 
   /**
@@ -113,7 +137,26 @@ export class Character {
     } else {
       this.tickWalk(dt);
     }
+    if (this._airborne) this.tickAirborne(dt);
     this.tickBubble(dt);
+  }
+
+  private tickAirborne(dt: number): void {
+    this.airborneTimer += dt;
+
+    if (this.airborneTimer >= JUMP.DURATION_S) {
+      this._airborne = false;
+      this.airborneTimer = 0;
+      this.displayY = this.y;
+      this.handle.setAirborneSprite(null);
+      this.handle.setPosition(this.x, this.displayY);
+      return;
+    }
+
+    const t = this.airborneTimer / JUMP.DURATION_S;
+    this.displayY = this.y - JUMP.PEAK_HEIGHT_PX * 4 * t * (1 - t);
+    this.handle.setAirborneSprite(t < JUMP.RISE_FRACTION ? "jump" : "fall");
+    this.handle.setPosition(this.x, this.displayY);
   }
 
   private tickBubble(dt: number): void {
@@ -123,7 +166,7 @@ export class Character {
       this.bubble = null;
       return;
     }
-    this.bubble.setPosition(this.x, this.y + BUBBLE.OFFSET_Y_PX);
+    this.bubble.setPosition(this.x, this.displayY + BUBBLE.OFFSET_Y_PX);
   }
 
   private tickIdle(dt: number): void {

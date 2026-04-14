@@ -1,5 +1,5 @@
 import { Sprite, Container, Texture, Graphics, Text } from "pixi.js";
-import { AssetEntry, BUBBLE, GREETINGS, IDLE_LINES } from "./config";
+import { AssetEntry, BUBBLE, GREETINGS, IDLE_LINES, JUMP } from "./config";
 import {
   Character,
   CharacterHandle,
@@ -139,6 +139,11 @@ function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
     setFlip(facingLeft: boolean) {
       sprite.scale.x = facingLeft ? -SPRITE_SCALE : SPRITE_SCALE;
     },
+    setAirborneSprite(kind: "jump" | "fall" | null) {
+      if (kind === "jump") sprite.texture = loaded.jumpTexture as unknown as Texture;
+      else if (kind === "fall") sprite.texture = loaded.fallTexture as unknown as Texture;
+      // null: no-op — next setTexture call from ground tick restores the ground frame
+    },
     destroy() {
       stage.removeChild(sprite);
       sprite.destroy();
@@ -154,6 +159,8 @@ interface CharEntry {
   char: Character;
   /** Seconds until this character's next idle-line roll. */
   rollTimer: number;
+  /** Seconds until this character's next jump roll. */
+  jumpRollTimer: number;
 }
 
 export class CharacterRegistry {
@@ -219,11 +226,12 @@ export class CharacterRegistry {
     const greeting = GREETINGS[Math.floor(rng() * GREETINGS.length)];
     character.say(greeting);
 
-    // Fixed initial roll timer so characters don't lock-step on the first roll.
+    // Fixed initial roll timers so characters don't lock-step on the first roll.
     // After the first roll fires, subsequent timers are randomized via rng().
     this.entries.push({
       char: character,
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
+      jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
     });
   }
 
@@ -232,6 +240,13 @@ export class CharacterRegistry {
       entry.char.destroy();
     }
     this.entries.length = 0;
+  }
+
+  /** Trigger a jump on every live character. Already-airborne characters are unaffected (no-op). */
+  jumpAll(): void {
+    for (const entry of this.entries) {
+      entry.char.jump();
+    }
   }
 
   tick(dt: number): void {
@@ -255,6 +270,17 @@ export class CharacterRegistry {
           entry.char.say(line);
           this.lastBubbleAt = this.elapsed;
         }
+      }
+
+      entry.jumpRollTimer -= dt;
+      if (entry.jumpRollTimer <= 0) {
+        // Always reschedule with jitter. jump() is a no-op if already airborne — no special skip needed.
+        entry.jumpRollTimer =
+          JUMP.PER_CHAR_AVG_INTERVAL_S -
+          JUMP.PER_CHAR_JITTER_S +
+          rng() * (2 * JUMP.PER_CHAR_JITTER_S);
+
+        entry.char.jump();
       }
     }
   }
