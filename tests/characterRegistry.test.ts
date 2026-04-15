@@ -684,27 +684,33 @@ function makeEffectRegistry(rng: () => number = makeRng([0, 0.5, 0])) {
   return { reg, effectCaptures };
 }
 
+const SPAWN_EFFECT_DUR = EFFECT.FRAME_COUNT / EFFECT.FPS;
+
 describe("CharacterRegistry Phase 7: despawn effects", () => {
   it("despawn(id) creates one despawn effect", () => {
     const { reg, effectCaptures } = makeEffectRegistry(makeRng([0, 0.5, 0]));
     reg.spawn();
+    // Materialize the pending character
+    reg.tick(SPAWN_EFFECT_DUR + 0.01);
     const id = reg.snapshot()[0].id;
 
     reg.despawn(id);
 
-    expect(effectCaptures.length).toBe(1);
-    expect(effectCaptures[0].kind).toBe("despawn");
+    const despawnEffects = effectCaptures.filter((e) => e.kind === "despawn");
+    expect(despawnEffects.length).toBe(1);
   });
 
   it("despawn(id) positions effect at character x and floor y when grounded", () => {
-    // rng: asset=0, x=0.5→ 960, greeting=0
+    // rng: asset=0, x=0.5→960, greeting=0
     const { reg, effectCaptures } = makeEffectRegistry(makeRng([0, 0.5, 0]));
     reg.spawn();
+    reg.tick(SPAWN_EFFECT_DUR + 0.01); // materialize
     const id = reg.snapshot()[0].id;
 
     reg.despawn(id);
 
-    const setPosCalls = (effectCaptures[0].handle.setPosition as ReturnType<typeof vi.fn>).mock.calls;
+    const despawnHandle = effectCaptures.find((e) => e.kind === "despawn")!.handle;
+    const setPosCalls = (despawnHandle.setPosition as ReturnType<typeof vi.fn>).mock.calls;
     expect(setPosCalls.length).toBeGreaterThan(0);
     const [x, y] = setPosCalls[0] as [number, number];
     expect(x).toBeCloseTo(0.5 * SCREEN_W);
@@ -715,7 +721,7 @@ describe("CharacterRegistry Phase 7: despawn effects", () => {
     const { reg, effectCaptures } = makeEffectRegistry(() => 0.5);
     reg.spawn();
 
-    // Tick past jump roll interval so jump() is triggered
+    // Tick past spawn effect + jump roll interval so jump() is triggered mid-tick
     reg.tick(JUMP.PER_CHAR_AVG_INTERVAL_S + 0.01);
     // Tick a bit so airborneTimer > 0 and displayY < floorY
     reg.tick(0.1);
@@ -723,7 +729,8 @@ describe("CharacterRegistry Phase 7: despawn effects", () => {
     const id = reg.snapshot()[0].id;
     reg.despawn(id);
 
-    const setPosCalls = (effectCaptures[0].handle.setPosition as ReturnType<typeof vi.fn>).mock.calls;
+    const despawnHandle = effectCaptures.find((e) => e.kind === "despawn")!.handle;
+    const setPosCalls = (despawnHandle.setPosition as ReturnType<typeof vi.fn>).mock.calls;
     const [, effectY] = setPosCalls[0] as [number, number];
     expect(effectY).toBeLessThan(FLOOR_Y);
   });
@@ -733,26 +740,28 @@ describe("CharacterRegistry Phase 7: despawn effects", () => {
     reg.spawn();
     reg.spawn();
     reg.spawn();
+    // Materialize all three
+    reg.tick(SPAWN_EFFECT_DUR + 0.01);
+    expect(reg.count).toBe(3);
 
     reg.despawnAll();
 
-    expect(effectCaptures.length).toBe(3);
-    for (const cap of effectCaptures) {
-      expect(cap.kind).toBe("despawn");
-    }
+    const despawnEffects = effectCaptures.filter((e) => e.kind === "despawn");
+    expect(despawnEffects.length).toBe(3);
   });
 
   it("despawn effect is removed after its duration elapses", () => {
     const { reg, effectCaptures } = makeEffectRegistry(makeRng([0, 0.5, 0]));
     reg.spawn();
+    reg.tick(SPAWN_EFFECT_DUR + 0.01); // materialize
     const id = reg.snapshot()[0].id;
     reg.despawn(id);
 
-    // Tick past full effect duration: FRAME_COUNT frames at FPS
-    const effectDuration = EFFECT.FRAME_COUNT / EFFECT.FPS;
-    reg.tick(effectDuration + 0.01);
+    // The despawn effect handle — tick past its full duration
+    const despawnHandle = effectCaptures.find((e) => e.kind === "despawn")!.handle;
+    reg.tick(SPAWN_EFFECT_DUR + 0.01);
 
-    expect(effectCaptures[0].handle.destroy).toHaveBeenCalledTimes(1);
+    expect(despawnHandle.destroy).toHaveBeenCalledTimes(1);
   });
 
   it("no effect is created for despawn(id) when createEffectHandle is not provided", () => {
@@ -773,5 +782,153 @@ describe("CharacterRegistry Phase 7: despawn effects", () => {
     // Should not throw; effect simply not created
     expect(() => reg.despawn(id)).not.toThrow();
     expect(effectCreated).toBe(false);
+  });
+});
+
+// ─── Phase 8: Serial spawn (deferred construction) ────────────────────────────
+
+function makePhase8Registry(
+  rng: () => number = () => 0.5,
+  onChange?: (items: { id: number; label: string }[]) => void,
+) {
+  const effectCaptures: EffectCapture[] = [];
+  const bubbleHandles: BubbleHandle[] = [];
+  const reg = new CharacterRegistry({
+    stage: makeStage() as any,
+    manifest: FAKE_MANIFEST,
+    loadedAssets: makeLoadedAssets(),
+    rng,
+    screenWidth: SCREEN_W,
+    floorY: FLOOR_Y,
+    createHandle: () => makeHandle(),
+    createBubbleHandle: (_stage, _text) => {
+      const h = makeFakeBubbleHandle();
+      bubbleHandles.push(h);
+      return h;
+    },
+    createEffectHandle: (kind) => {
+      const handle = makeEffectHandle();
+      effectCaptures.push({ kind, handle });
+      return handle;
+    },
+    onChange,
+  });
+  return { reg, effectCaptures, bubbleHandles };
+}
+
+const SPAWN_EFFECT_DURATION = EFFECT.FRAME_COUNT / EFFECT.FPS;
+
+describe("CharacterRegistry Phase 8: serial spawn (deferred construction)", () => {
+  it("spawn() with createEffectHandle: count stays 0 before effect expires", () => {
+    const { reg } = makePhase8Registry();
+    reg.spawn();
+    expect(reg.count).toBe(0);
+  });
+
+  it("spawn() with createEffectHandle: snapshot() excludes pending characters", () => {
+    const { reg } = makePhase8Registry();
+    reg.spawn();
+    expect(reg.snapshot()).toEqual([]);
+  });
+
+  it("spawn() with createEffectHandle: onChange is NOT emitted immediately", () => {
+    const onChange = vi.fn();
+    const { reg } = makePhase8Registry(() => 0.5, onChange);
+    reg.spawn();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("character materializes after spawn effect expires: count=1 and onChange fires", () => {
+    const onChange = vi.fn();
+    const { reg } = makePhase8Registry(() => 0.5, onChange);
+    reg.spawn();
+
+    reg.tick(SPAWN_EFFECT_DURATION + 0.01);
+
+    expect(reg.count).toBe(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ id: 1 })]);
+  });
+
+  it("greeting fires on materialization, not on spawn call", () => {
+    const { reg, bubbleHandles } = makePhase8Registry();
+    reg.spawn();
+    expect(bubbleHandles.length).toBe(0); // no bubble yet
+
+    reg.tick(SPAWN_EFFECT_DURATION + 0.01);
+    expect(bubbleHandles.length).toBe(1); // greeting now
+  });
+
+  it("multiple pending entries promoting in the same tick emit onChange exactly once", () => {
+    const onChange = vi.fn();
+    // rng per spawn: [asset, x] x2 spawns, [greeting] x2 materializations
+    const { reg } = makePhase8Registry(makeRng([0, 0.5, 0, 0, 0.5, 0]), onChange);
+    reg.spawn();
+    reg.spawn();
+
+    reg.tick(SPAWN_EFFECT_DURATION + 0.01);
+
+    expect(reg.count).toBe(2);
+    expect(onChange).toHaveBeenCalledTimes(1); // batched, not per-promotion
+  });
+
+  it("rapid spawns produce independent pending entries at separate random positions", () => {
+    const { reg, effectCaptures } = makePhase8Registry(makeRng([0, 0.1, 0, 0.9, 0]));
+    reg.spawn();
+    reg.spawn();
+
+    // Both spawn effects created, neither promoted yet
+    expect(reg.count).toBe(0);
+    expect(effectCaptures.filter((e) => e.kind === "spawn").length).toBe(2);
+  });
+
+  it("despawnAll() with only pending: cancels silently, no despawn effect, calls onChange([])", () => {
+    const onChange = vi.fn();
+    const { reg, effectCaptures } = makePhase8Registry(() => 0.5, onChange);
+    reg.spawn();
+    reg.spawn();
+    onChange.mockClear();
+
+    reg.despawnAll();
+
+    // Spawn effect handles destroyed
+    for (const cap of effectCaptures.filter((e) => e.kind === "spawn")) {
+      expect(cap.handle.destroy).toHaveBeenCalled();
+    }
+    // No despawn effects created
+    expect(effectCaptures.filter((e) => e.kind === "despawn").length).toBe(0);
+    // onChange fires once with empty list
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith([]);
+    // Count remains 0
+    expect(reg.count).toBe(0);
+  });
+
+  it("despawnAll() with mixed pending + live: live get despawn fx, pending cancel silently", () => {
+    const onChange = vi.fn();
+    const { reg, effectCaptures } = makePhase8Registry(
+      makeRng([0, 0.5, 0, 0, 0.5, 0]),
+      onChange,
+    );
+
+    reg.spawn(); // A — pending
+    reg.tick(SPAWN_EFFECT_DURATION + 0.01); // A materializes (spawn effect expires naturally)
+
+    reg.spawn(); // B — still pending
+    onChange.mockClear();
+
+    reg.despawnAll();
+
+    // B's spawn effect cancelled
+    const spawnEffects = effectCaptures.filter((e) => e.kind === "spawn");
+    expect(spawnEffects.length).toBe(2); // A and B spawn effects
+    expect(spawnEffects[1].handle.destroy).toHaveBeenCalled(); // B cancelled
+
+    // A's despawn effect created
+    expect(effectCaptures.filter((e) => e.kind === "despawn").length).toBe(1);
+
+    // onChange fires once with empty list
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith([]);
   });
 });
