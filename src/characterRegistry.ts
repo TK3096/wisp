@@ -1,5 +1,5 @@
 import { Sprite, Container, Texture, Graphics, Text } from "pixi.js";
-import { AssetEntry, BUBBLE, GREETINGS, IDLE_LINES, JUMP } from "./config";
+import { AssetEntry, BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "./config";
 import {
   Character,
   CharacterHandle,
@@ -7,6 +7,7 @@ import {
   CharacterState,
 } from "./character";
 import { BubbleHandle, Bubble } from "./bubble";
+import { Effect, EffectHandle, EffectKind } from "./effect";
 import { LoadedAsset } from "./spriteLoader";
 
 const SPRITE_SCALE = 2;
@@ -116,6 +117,12 @@ export interface RegistryOptions {
    * the Tauri tray submenu). Omit in tests or when no external sync needed.
    */
   onChange?: (items: { id: number; label: string }[]) => void;
+  /**
+   * Factory for creating an EffectHandle for a given kind (spawn/despawn).
+   * When undefined, no visual effect is produced on spawn or despawn.
+   * Override in tests with a fake to avoid Pixi imports.
+   */
+  createEffectHandle?: (kind: EffectKind) => EffectHandle;
 }
 
 function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
@@ -173,6 +180,7 @@ interface CharEntry {
 
 export class CharacterRegistry {
   private readonly entries: CharEntry[] = [];
+  private readonly effects: Effect[] = [];
   private readonly opts: ResolvedOptions;
   /** Total elapsed seconds since the registry was created. */
   private elapsed = 0;
@@ -204,8 +212,12 @@ export class CharacterRegistry {
   despawn(id: number): boolean {
     const idx = this.entries.findIndex((e) => e.id === id);
     if (idx === -1) return false;
-    this.entries[idx].char.destroy();
+    const { char } = this.entries[idx];
+    const x = char.x;
+    const y = char.renderY;
+    char.destroy();
     this.entries.splice(idx, 1);
+    this.pushEffect("despawn", x, y);
     this.opts.onChange?.(this.snapshot());
     return true;
   }
@@ -271,7 +283,10 @@ export class CharacterRegistry {
 
   despawnAll(): void {
     for (const entry of this.entries) {
+      const x = entry.char.x;
+      const y = entry.char.renderY;
       entry.char.destroy();
+      this.pushEffect("despawn", x, y);
     }
     this.entries.length = 0;
     this.opts.onChange?.([]);
@@ -284,9 +299,23 @@ export class CharacterRegistry {
     }
   }
 
+  private pushEffect(kind: EffectKind, x: number, y: number): void {
+    const handle = this.opts.createEffectHandle?.(kind);
+    if (!handle) return;
+    const effect = new Effect(handle, EFFECT.FPS, EFFECT.FRAME_COUNT);
+    effect.setPosition(x, y);
+    this.effects.push(effect);
+  }
+
   tick(dt: number): void {
     this.elapsed += dt;
     const { rng } = this.opts;
+
+    // Advance live effects and remove expired ones.
+    for (const e of this.effects) e.tick(dt);
+    for (let i = this.effects.length - 1; i >= 0; i--) {
+      if (this.effects[i].expired) this.effects.splice(i, 1);
+    }
 
     for (const entry of this.entries) {
       entry.char.tick(dt);

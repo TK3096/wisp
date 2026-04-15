@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { CharacterRegistry, SpawnContext } from "../src/characterRegistry";
 import { CharacterHandle } from "../src/character";
 import { BubbleHandle } from "../src/bubble";
-import { BUBBLE, GREETINGS, IDLE_LINES, JUMP } from "../src/config";
+import { EffectHandle, EffectKind } from "../src/effect";
+import { BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "../src/config";
 
 // --- Fakes ---
 
@@ -646,5 +647,131 @@ describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
       { id: 1, label: "A #1" },
       { id: 2, label: "B #2" },
     ]);
+  });
+});
+
+// ─── Phase 7: Despawn effects ──────────────────────────────────────────────────
+
+function makeEffectHandle(): EffectHandle {
+  return {
+    setTexture: vi.fn(),
+    setPosition: vi.fn(),
+    destroy: vi.fn(),
+  };
+}
+
+interface EffectCapture {
+  kind: EffectKind;
+  handle: EffectHandle;
+}
+
+function makeEffectRegistry(rng: () => number = makeRng([0, 0.5, 0])) {
+  const effectCaptures: EffectCapture[] = [];
+  const reg = new CharacterRegistry({
+    stage: makeStage() as any,
+    manifest: FAKE_MANIFEST,
+    loadedAssets: makeLoadedAssets(),
+    rng,
+    screenWidth: SCREEN_W,
+    floorY: FLOOR_Y,
+    createHandle: () => makeHandle(),
+    createEffectHandle: (kind) => {
+      const handle = makeEffectHandle();
+      effectCaptures.push({ kind, handle });
+      return handle;
+    },
+  });
+  return { reg, effectCaptures };
+}
+
+describe("CharacterRegistry Phase 7: despawn effects", () => {
+  it("despawn(id) creates one despawn effect", () => {
+    const { reg, effectCaptures } = makeEffectRegistry(makeRng([0, 0.5, 0]));
+    reg.spawn();
+    const id = reg.snapshot()[0].id;
+
+    reg.despawn(id);
+
+    expect(effectCaptures.length).toBe(1);
+    expect(effectCaptures[0].kind).toBe("despawn");
+  });
+
+  it("despawn(id) positions effect at character x and floor y when grounded", () => {
+    // rng: asset=0, x=0.5→ 960, greeting=0
+    const { reg, effectCaptures } = makeEffectRegistry(makeRng([0, 0.5, 0]));
+    reg.spawn();
+    const id = reg.snapshot()[0].id;
+
+    reg.despawn(id);
+
+    const setPosCalls = (effectCaptures[0].handle.setPosition as ReturnType<typeof vi.fn>).mock.calls;
+    expect(setPosCalls.length).toBeGreaterThan(0);
+    const [x, y] = setPosCalls[0] as [number, number];
+    expect(x).toBeCloseTo(0.5 * SCREEN_W);
+    expect(y).toBe(FLOOR_Y); // grounded — renderY equals y
+  });
+
+  it("despawn(id) mid-jump: effect anchored to airborne displayY, not floor", () => {
+    const { reg, effectCaptures } = makeEffectRegistry(() => 0.5);
+    reg.spawn();
+
+    // Tick past jump roll interval so jump() is triggered
+    reg.tick(JUMP.PER_CHAR_AVG_INTERVAL_S + 0.01);
+    // Tick a bit so airborneTimer > 0 and displayY < floorY
+    reg.tick(0.1);
+
+    const id = reg.snapshot()[0].id;
+    reg.despawn(id);
+
+    const setPosCalls = (effectCaptures[0].handle.setPosition as ReturnType<typeof vi.fn>).mock.calls;
+    const [, effectY] = setPosCalls[0] as [number, number];
+    expect(effectY).toBeLessThan(FLOOR_Y);
+  });
+
+  it("despawnAll() creates one despawn effect per live character", () => {
+    const { reg, effectCaptures } = makeEffectRegistry(makeRng([0, 0.5, 0, 0, 0.5, 0, 0, 0.5, 0]));
+    reg.spawn();
+    reg.spawn();
+    reg.spawn();
+
+    reg.despawnAll();
+
+    expect(effectCaptures.length).toBe(3);
+    for (const cap of effectCaptures) {
+      expect(cap.kind).toBe("despawn");
+    }
+  });
+
+  it("despawn effect is removed after its duration elapses", () => {
+    const { reg, effectCaptures } = makeEffectRegistry(makeRng([0, 0.5, 0]));
+    reg.spawn();
+    const id = reg.snapshot()[0].id;
+    reg.despawn(id);
+
+    // Tick past full effect duration: FRAME_COUNT frames at FPS
+    const effectDuration = EFFECT.FRAME_COUNT / EFFECT.FPS;
+    reg.tick(effectDuration + 0.01);
+
+    expect(effectCaptures[0].handle.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("no effect is created for despawn(id) when createEffectHandle is not provided", () => {
+    let effectCreated = false;
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      // no createEffectHandle
+    });
+    reg.spawn();
+    const id = reg.snapshot()[0].id;
+
+    // Should not throw; effect simply not created
+    expect(() => reg.despawn(id)).not.toThrow();
+    expect(effectCreated).toBe(false);
   });
 });

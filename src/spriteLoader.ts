@@ -27,6 +27,17 @@ function sliceStrip(
   return textures;
 }
 
+/** Load an effect sprite strip and slice it into individual frame textures. */
+export async function loadEffect(
+  path: string,
+  frameCount: number,
+  frameWidth: number,
+  frameHeight: number,
+): Promise<Texture[]> {
+  const base = await Assets.load<Texture>(path);
+  return sliceStrip(base, frameCount, frameWidth, frameHeight);
+}
+
 export async function loadAsset(entry: AssetEntry): Promise<LoadedAsset> {
   const [idleBase, walkBase, jumpTexture, fallTexture] = await Promise.all([
     Assets.load<Texture>(entry.idlePath),
