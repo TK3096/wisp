@@ -1,5 +1,5 @@
 import { Sprite, Container, Texture, Graphics, Text } from "pixi.js";
-import { AssetEntry, BUBBLE, GREETINGS, IDLE_LINES, JUMP } from "./config";
+import { AssetEntry, BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "./config";
 import {
   Character,
   CharacterHandle,
@@ -7,6 +7,7 @@ import {
   CharacterState,
 } from "./character";
 import { BubbleHandle, Bubble } from "./bubble";
+import { Effect, EffectHandle, EffectKind } from "./effect";
 import { LoadedAsset } from "./spriteLoader";
 
 const SPRITE_SCALE = 2;
@@ -116,6 +117,12 @@ export interface RegistryOptions {
    * the Tauri tray submenu). Omit in tests or when no external sync needed.
    */
   onChange?: (items: { id: number; label: string }[]) => void;
+  /**
+   * Factory for creating an EffectHandle for a given kind (spawn/despawn).
+   * When undefined, no visual effect is produced on spawn or despawn.
+   * Override in tests with a fake to avoid Pixi imports.
+   */
+  createEffectHandle?: (kind: EffectKind) => EffectHandle;
 }
 
 function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
@@ -171,8 +178,17 @@ interface CharEntry {
   jumpRollTimer: number;
 }
 
+interface PendingSpawn {
+  entry: AssetEntry;
+  loaded: LoadedAsset;
+  x: number;
+  effect: Effect;
+}
+
 export class CharacterRegistry {
   private readonly entries: CharEntry[] = [];
+  private readonly effects: Effect[] = [];
+  private readonly pending: PendingSpawn[] = [];
   private readonly opts: ResolvedOptions;
   /** Total elapsed seconds since the registry was created. */
   private elapsed = 0;
@@ -204,27 +220,43 @@ export class CharacterRegistry {
   despawn(id: number): boolean {
     const idx = this.entries.findIndex((e) => e.id === id);
     if (idx === -1) return false;
-    this.entries[idx].char.destroy();
+    const { char } = this.entries[idx];
+    const x = char.x;
+    const y = char.renderY;
+    char.destroy();
     this.entries.splice(idx, 1);
+    this.pushEffect("despawn", x, y);
     this.opts.onChange?.(this.snapshot());
     return true;
   }
 
   spawn(): void {
-    const {
-      manifest,
-      loadedAssets,
-      rng,
-      stage,
-      screenWidth,
-      floorY,
-      createHandle,
-      createBubbleHandle,
-    } = this.opts;
+    const { manifest, loadedAssets, rng, screenWidth, floorY, createEffectHandle } = this.opts;
 
     const entry = manifest[Math.floor(rng() * manifest.length)];
     const loaded = loadedAssets.get(entry.name)!;
     const x = rng() * screenWidth;
+
+    if (createEffectHandle) {
+      // Deferred: push to pending — Character constructed on effect expiry.
+      const handle = createEffectHandle("spawn");
+      const effect = new Effect(handle, EFFECT.FPS, EFFECT.FRAME_COUNT);
+      effect.setPosition(x, floorY);
+      this.pending.push({ entry, loaded, x, effect });
+      // No onChange — character is not yet visible in the tray.
+    } else {
+      // Immediate: construct character now (backward-compat when no effect factory).
+      this.materializeEntry(entry, loaded, x);
+      this.opts.onChange?.(this.snapshot());
+    }
+  }
+
+  /**
+   * Construct a Character from resolved asset data, push it into entries[],
+   * and fire a greeting bubble. Does NOT emit onChange — callers handle that.
+   */
+  private materializeEntry(entry: AssetEntry, loaded: LoadedAsset, x: number): void {
+    const { rng, stage, floorY, screenWidth, createHandle, createBubbleHandle } = this.opts;
 
     const handle = createHandle({ entry, loaded, stage, x, floorY });
 
@@ -258,7 +290,6 @@ export class CharacterRegistry {
     character.say(greeting);
 
     // Fixed initial roll timers so characters don't lock-step on the first roll.
-    // After the first roll fires, subsequent timers are randomized via rng().
     this.entries.push({
       char: character,
       id: this.nextId++,
@@ -266,12 +297,18 @@ export class CharacterRegistry {
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
     });
-    this.opts.onChange?.(this.snapshot());
   }
 
   despawnAll(): void {
+    // Cancel any pending spawns silently — no despawn effect for un-materialized characters.
+    for (const p of this.pending) p.effect.destroy();
+    this.pending.length = 0;
+
     for (const entry of this.entries) {
+      const x = entry.char.x;
+      const y = entry.char.renderY;
       entry.char.destroy();
+      this.pushEffect("despawn", x, y);
     }
     this.entries.length = 0;
     this.opts.onChange?.([]);
@@ -284,9 +321,38 @@ export class CharacterRegistry {
     }
   }
 
+  private pushEffect(kind: EffectKind, x: number, y: number): void {
+    const handle = this.opts.createEffectHandle?.(kind);
+    if (!handle) return;
+    const effect = new Effect(handle, EFFECT.FPS, EFFECT.FRAME_COUNT);
+    effect.setPosition(x, y);
+    this.effects.push(effect);
+  }
+
   tick(dt: number): void {
     this.elapsed += dt;
     const { rng } = this.opts;
+
+    // Advance live (despawn) effects and remove expired ones.
+    for (const e of this.effects) e.tick(dt);
+    for (let i = this.effects.length - 1; i >= 0; i--) {
+      if (this.effects[i].expired) this.effects.splice(i, 1);
+    }
+
+    // Advance pending spawn effects; collect expired ones for promotion.
+    for (const p of this.pending) p.effect.tick(dt);
+    const toPromote: PendingSpawn[] = [];
+    const stillPending: PendingSpawn[] = [];
+    for (const p of this.pending) {
+      if (p.effect.expired) toPromote.push(p);
+      else stillPending.push(p);
+    }
+    this.pending.length = 0;
+    for (const p of stillPending) this.pending.push(p);
+
+    // Materialize promoted characters and emit a single batched onChange.
+    for (const p of toPromote) this.materializeEntry(p.entry, p.loaded, p.x);
+    if (toPromote.length > 0) this.opts.onChange?.(this.snapshot());
 
     for (const entry of this.entries) {
       entry.char.tick(dt);

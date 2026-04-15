@@ -69,6 +69,15 @@ export const IDLE_LINES = [
   "😱",
 ];
 
+export const EFFECT = {
+  FPS: 10,
+  FRAME_WIDTH: 96,
+  FRAME_HEIGHT: 96,
+  FRAME_COUNT: 7,
+  SPAWN_PATH: "/assets/sprites/effects/spawn.png",
+  DESPAWN_PATH: "/assets/sprites/effects/despawn.png",
+};
+
 export const ASSET_MANIFEST: AssetEntry[] = [
   {
     name: "mask-dude",

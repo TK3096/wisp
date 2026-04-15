@@ -109,6 +109,11 @@ export class Character {
     return this._airborne;
   }
 
+  /** The rendered y position — equals y when grounded, arcs above y while airborne. */
+  get renderY(): number {
+    return this.displayY;
+  }
+
   /**
    * Trigger a jump. No-op if already airborne.
    * Can be called imperatively by external systems (registry, events, etc.).
