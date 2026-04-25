@@ -60,9 +60,9 @@ gh label create <name> --repo TK3096/second-brain --color <hex>
 
 ## Files Changed
 
-\`\`\`
+```
 A <added file>
 M <modified file>
 D <removed file>
-\`\`\`
+
 ```

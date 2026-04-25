@@ -3,6 +3,7 @@
 > Before starting any task: read `.claude/rules/learnings.md`
 > Before committing: run the checklist in `.claude/rules/eval.md`
 > After discovering something non-obvious: append it to `.claude/rules/learnings.md`
+> Before starting commit: read `.claude/rules/commit.md`
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -82,30 +83,3 @@ The tray "Gestures" CheckMenuItem toggles the sidecar on/off. The toggle reverts
 - `JUMP` — peak height, duration, rise fraction, per-character roll interval
 - `EFFECT` — fps, frame dimensions, frame count, sprite paths
 - `GREETINGS` / `IDLE_LINES` — text pools; emoji are code-point safe
-
-## Commit Rules
-
-Summarize commit message with clearly. For each commit, you must create github issue on TK3096/second-brain with devlog, side_projects and wisp labels, use gh for create issue. If the commit is about fix/hotfix/fixbug append "hotfix" label, other wise append "feature" label. If labels does not exist on github, create them first.
-
-## Issue Template
-
-use this as issue title for second-brain
-[${PROJECT_NAME}] ${WHAT_IS_THIS_ISSUES_ABOUT}
-
-use this issue template as content for second-brain
-
-- **Repo:** `${REPO_NAME}`
-- **Branch:** `${BRANCH}`
-- **Commit:** `${COMMIT_SHORT}`
-- **Author:** ${AUTHOR}
-- **Date:** ${DATE}
-
-## Message
-
-${COMMIT_MSG}
-
-## Files Changed
-
-```
-${FILES_CHANGED}
-```
