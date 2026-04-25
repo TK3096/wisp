@@ -22,7 +22,13 @@ impl SidecarProcess {
         self.child.lock().unwrap().is_some()
     }
 
-    pub fn start<R: Runtime + 'static>(&self, app: AppHandle<R>) -> Result<(), String> {
+    /// Start the sidecar. `on_crash` is called (on a background thread) if the
+    /// process exits unexpectedly so callers can revert UI state.
+    pub fn start<R, F>(&self, app: AppHandle<R>, on_crash: F) -> Result<(), String>
+    where
+        R: Runtime + 'static,
+        F: Fn() + Send + 'static,
+    {
         if self.is_running() {
             return Ok(());
         }
@@ -61,10 +67,14 @@ impl SidecarProcess {
             for line in reader.lines().flatten() {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) {
                     match val.get("event").and_then(|v| v.as_str()).unwrap_or("") {
-                        "spawn" => { let _ = app.emit("spawn", ()); }
+                        "spawn" => {
+                            let _ = app.emit("spawn", ());
+                        }
                         "error" => {
-                            let kind = val.get("kind").and_then(|v| v.as_str()).unwrap_or("unknown");
-                            let msg = val.get("message").and_then(|v| v.as_str()).unwrap_or("");
+                            let kind =
+                                val.get("kind").and_then(|v| v.as_str()).unwrap_or("unknown");
+                            let msg =
+                                val.get("message").and_then(|v| v.as_str()).unwrap_or("");
                             eprintln!("[sidecar] error kind={kind} message={msg}");
                             let _ = app.emit("sidecar-error", kind.to_string());
                         }
@@ -73,13 +83,13 @@ impl SidecarProcess {
                     }
                 }
             }
-            // stdout closed — process exited
+            // stdout EOF — process has exited
             *child_arc.lock().unwrap() = None;
             if expected_exit.load(Ordering::SeqCst) {
                 eprintln!("[sidecar] stopped");
             } else {
                 eprintln!("[sidecar] crashed — re-toggle to retry");
-                let _ = app.emit("sidecar-crashed", ());
+                on_crash();
             }
         });
 

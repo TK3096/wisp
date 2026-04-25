@@ -65,6 +65,15 @@ fn build_despawn_submenu<R: tauri::Runtime>(
     Ok(submenu)
 }
 
+fn rebuild_tray(app: &tauri::AppHandle, gestures_on: bool) {
+    let tray = app.state::<AppTray>();
+    let chars = app.state::<CharacterList>();
+    let items = chars.0.lock().unwrap().clone();
+    if let Ok(menu) = build_tray_menu(app, &items, gestures_on) {
+        let _ = tray.0.set_menu(Some(menu));
+    }
+}
+
 #[tauri::command]
 fn update_character_list(
     items: Vec<CharacterItem>,
@@ -85,6 +94,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.set_focus();
+            }
+        }))
         .setup(|app| {
             app.manage(SidecarProcess::new());
             app.manage(CharacterList(Mutex::new(vec![])));
@@ -119,22 +133,25 @@ pub fn run() {
                         let _ = app.emit("despawn-all", ());
                     }
                     "quit" => {
+                        app.state::<SidecarProcess>().stop();
                         app.exit(0);
                     }
                     "gestures" => {
                         let sidecar = app.state::<SidecarProcess>();
-                        let tray_state = app.state::<AppTray>();
-                        let char_list = app.state::<CharacterList>();
-
                         if sidecar.is_running() {
                             sidecar.stop();
-                        } else if let Err(e) = sidecar.start(app.clone()) {
-                            eprintln!("[sidecar] failed to start: {e}");
-                        }
-
-                        let items = char_list.0.lock().unwrap().clone();
-                        if let Ok(menu) = build_tray_menu(app, &items, sidecar.is_running()) {
-                            let _ = tray_state.0.set_menu(Some(menu));
+                            rebuild_tray(app, false);
+                        } else {
+                            let app2 = app.clone();
+                            let result = sidecar.start(app.clone(), move || {
+                                rebuild_tray(&app2, false);
+                            });
+                            if let Err(e) = result {
+                                eprintln!("[sidecar] failed to start: {e}");
+                                rebuild_tray(app, false);
+                            } else {
+                                rebuild_tray(app, true);
+                            }
                         }
                     }
                     id if id.starts_with("despawn:") => {
@@ -163,6 +180,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![update_character_list])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                app.state::<SidecarProcess>().stop();
+            }
+        });
 }
