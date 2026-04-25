@@ -1,28 +1,17 @@
-import sys
-import time
-import json
 import argparse
 
-
-def emit(event: dict) -> None:
-    print(json.dumps(event), flush=True)
+from detector import Detector
+from protocol import EventEmitter
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--simulate-error", action="store_true")
+    parser.add_argument("--debug", action="store_true", help="Print per-frame state to stderr")
     args = parser.parse_args()
 
-    emit({"event": "ready"})
-
-    if args.simulate_error:
-        time.sleep(2.0)
-        emit({"event": "error", "kind": "camera_unavailable", "message": "simulated failure"})
-        sys.exit(1)
-
-    while True:
-        time.sleep(1.0)
-        emit({"event": "spawn"})
+    emitter = EventEmitter()
+    detector = Detector(emitter=emitter, debug=args.debug)
+    detector.run()
 
 
 if __name__ == "__main__":
