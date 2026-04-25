@@ -64,6 +64,7 @@ impl SidecarProcess {
 
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
+            let mut error_received = false;
             for line in reader.lines().flatten() {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) {
                     match val.get("event").and_then(|v| v.as_str()).unwrap_or("") {
@@ -76,7 +77,11 @@ impl SidecarProcess {
                             let msg =
                                 val.get("message").and_then(|v| v.as_str()).unwrap_or("");
                             eprintln!("[sidecar] error kind={kind} message={msg}");
-                            let _ = app.emit("sidecar-error", kind.to_string());
+                            // Revert the UI immediately; process will exit after this.
+                            if !error_received {
+                                error_received = true;
+                                on_crash();
+                            }
                         }
                         "ready" => eprintln!("[sidecar] ready"),
                         _ => {}
@@ -87,8 +92,10 @@ impl SidecarProcess {
             *child_arc.lock().unwrap() = None;
             if expected_exit.load(Ordering::SeqCst) {
                 eprintln!("[sidecar] stopped");
+            } else if error_received {
+                eprintln!("[sidecar] exited after error");
             } else {
-                eprintln!("[sidecar] crashed — re-toggle to retry");
+                eprintln!("[sidecar] crashed unexpectedly — re-toggle to retry");
                 on_crash();
             }
         });
