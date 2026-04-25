@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+> Before starting any task: read `.claude/rules/learnings.md`
+> Before committing: run the checklist in `.claude/rules/eval.md`
+> After discovering something non-obvious: append it to `.claude/rules/learnings.md`
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What this is
