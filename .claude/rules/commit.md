@@ -48,9 +48,9 @@ gh label create <name> --repo TK3096/second-brain --color <hex>
 ### Issue Body
 
 ```markdown
-- **Repo:** `<owner>/<repo>`
-- **Branch:** `<branch>`
-- **Commit:** `<short-sha>`
+- **Repo:** <owner>/<repo>
+- **Branch:** <branch>
+- **Commit:** <short-sha>
 - **Author:** <git user>
 - **Date:** <YYYY-MM-DD>
 
@@ -60,9 +60,7 @@ gh label create <name> --repo TK3096/second-brain --color <hex>
 
 ## Files Changed
 
-```
-A <added file>
-M <modified file>
-D <removed file>
-
+A - <added file>
+M - <modified file>
+D - <removed file>
 ```
