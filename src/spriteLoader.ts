@@ -1,6 +1,13 @@
 import { Assets, Texture, Rectangle } from "pixi.js";
 import { AssetEntry } from "./config";
 
+// Pixi.js v8 mis-resolves paths under the tauri:// custom scheme, dropping the
+// host and producing tauri://assets/... instead of tauri://localhost/assets/...
+// Pre-expand every /path to an absolute URL so Pixi never needs to resolve it.
+function abs(path: string): string {
+  return `${window.location.origin}${path}`;
+}
+
 export interface LoadedAsset {
   idleTextures: Texture[];
   walkTextures: Texture[];
@@ -34,16 +41,16 @@ export async function loadEffect(
   frameWidth: number,
   frameHeight: number,
 ): Promise<Texture[]> {
-  const base = await Assets.load<Texture>(path);
+  const base = await Assets.load<Texture>(abs(path));
   return sliceStrip(base, frameCount, frameWidth, frameHeight);
 }
 
 export async function loadAsset(entry: AssetEntry): Promise<LoadedAsset> {
   const [idleBase, walkBase, jumpTexture, fallTexture] = await Promise.all([
-    Assets.load<Texture>(entry.idlePath),
-    Assets.load<Texture>(entry.walkPath),
-    Assets.load<Texture>(entry.jumpPath),
-    Assets.load<Texture>(entry.fallPath),
+    Assets.load<Texture>(abs(entry.idlePath)),
+    Assets.load<Texture>(abs(entry.walkPath)),
+    Assets.load<Texture>(abs(entry.jumpPath)),
+    Assets.load<Texture>(abs(entry.fallPath)),
   ]);
 
   return {

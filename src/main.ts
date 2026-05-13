@@ -1,4 +1,4 @@
-import { Application, Sprite, Texture } from "pixi.js";
+import { Application, Sprite, Texture, Assets } from "pixi.js";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { ASSET_MANIFEST, EFFECT, FLOOR_BAND_PX } from "./config";
@@ -7,6 +7,10 @@ import { CharacterRegistry, defaultCreateBubbleHandle } from "./characterRegistr
 import { EffectKind } from "./effect";
 
 async function init() {
+  // WKWebView (macOS) rejects createImageBitmap on tauri:// scheme responses;
+  // fall back to HTMLImageElement loading instead.
+  Assets.setPreferences({ preferCreateImageBitmap: false });
+
   const app = new Application();
 
   await app.init({
