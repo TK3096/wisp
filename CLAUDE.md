@@ -4,6 +4,7 @@
 > Before committing: run the checklist in `.claude/rules/eval.md`
 > After discovering something non-obvious: append it to `.claude/rules/learnings.md`
 > Before starting commit: read `.claude/rules/commit.md`
+> If `.claude/rules/learnings.md` has update, add it to commit too
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
