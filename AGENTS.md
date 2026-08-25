@@ -76,3 +76,17 @@ The tray "Gestures" CheckMenuItem toggles the sidecar on/off. The toggle reverts
 - `JUMP` — peak height, duration, rise fraction, per-character roll interval
 - `EFFECT` — fps, frame dimensions, frame count, sprite paths
 - `GREETINGS` / `IDLE_LINES` — text pools; emoji are code-point safe
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `TK3096/wisp`, using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the five default triage label strings verbatim: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
