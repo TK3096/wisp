@@ -56,6 +56,14 @@ _Avoid_: sprite, skin, class
 The deterministic seed used to specialize an individual within its archetype.
 _Avoid_: random number, nonce
 
+**Personality Dimension**:
+One of Wisp's four bounded individuality axes—Energy, Curiosity, Boldness, or Sociability—that shapes behavior tendencies without directly commanding an action.
+_Avoid_: mood, reward score, behavior override
+
+**Reward Drift**:
+A bounded adjustment to personality caused by explicit feedback about a recently expressed behavior.
+_Avoid_: mood, passive reward, permanent personality rewrite
+
 **Persistent Cognition State**:
 A versioned, serializable snapshot of one character's cognition state that TypeScript may store but cannot interpret.
 _Avoid_: save data, render state, personality profile
