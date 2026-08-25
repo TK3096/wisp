@@ -29,3 +29,5 @@ src-sidecar/.venv
 src-sidecar/__pycache__
 src-sidecar/**/__pycache__
 src-sidecar/.pytest_cache
+
+katgpt-rs
