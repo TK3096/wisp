@@ -6,6 +6,7 @@ import { loadAsset, loadEffect } from "./spriteLoader";
 import { CharacterRegistry } from "./characterRegistry";
 import { defaultCreateBubbleHandle, defaultCreateHandle } from "./rendering";
 import { EffectKind } from "./effect";
+import { connectShellEvents } from "./shellBridge";
 
 async function init() {
   // WKWebView (macOS) rejects createImageBitmap on tauri:// scheme responses;
@@ -22,7 +23,6 @@ async function init() {
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
   });
-
   document.body.appendChild(app.canvas);
 
   window.addEventListener("resize", () => {
@@ -74,7 +74,6 @@ async function init() {
       invoke("update_character_list", { items }).catch(console.error);
     },
   });
-
   app.ticker.add((ticker) => {
     registry.tick(ticker.deltaMS / 1000);
   });
@@ -82,9 +81,12 @@ async function init() {
   // Tray / hotkey events — guarded so a missing Tauri bridge (e.g. running
   // under plain `vite dev`) doesn't kill the render loop.
   try {
-    await listen("spawn", () => registry.spawn());
-    await listen("despawn-all", () => registry.despawnAll());
-    await listen<number>("despawn-one", (event) => registry.despawn(event.payload));
+    await connectShellEvents(
+      (event, onPayload) =>
+        listen(event, (shellEvent) => onPayload(shellEvent.payload)),
+      registry,
+      window,
+    );
   } catch (err) {
     console.warn("Tauri event bridge unavailable:", err);
   }

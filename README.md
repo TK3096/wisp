@@ -54,6 +54,8 @@ The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubbl
 
 - `src/config.ts` — tunables, asset manifest, greeting / idle line pools, `BUBBLE` and `JUMP` config.
 - `src/cognition.ts` — pure stimulus/Behavior Signal contract, fixed 10 Hz cadence limits, and neutral default handle.
+- `src/ingressBridge.ts` — validates real shell/sidecar payloads and converts accepted observations into Stimulus Envelopes.
+- `src/shellBridge.ts` — transport-free shell-event wiring around spawn/despawn commands and stimulus ingress.
 - `src/character.ts` — character state machine (idle ↔ walk), jump arc (`tickAirborne`), bubble ownership.
 - `src/characterRegistry.ts` — spawn/despawn, stimulus dispatch, fixed-cadence cognition, idle-bubble scheduler, jump scheduler, and `onChange` callback for tray sync.
 - `src/scenarioHarness.ts` — deterministic headless replay, canonical NDJSON cognition traces, frame-rate comparison projections, and lossy trace writing.
@@ -68,5 +70,5 @@ The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubbl
 npm test
 ```
 
-Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`) with fake RNG, fake clock, and mock handles — no WebGL or Tauri bridge required.
+Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`, `IngressBridge`) with fake RNG, fake clocks, mock handles, and injected shell events — no WebGL or Tauri bridge required.
 The Scenario Harness runs the same behavior orchestration headlessly and verifies that a seeded baseline produces the same cognition steps and decisions at 30, 60, and 120 fps.

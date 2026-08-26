@@ -22,6 +22,12 @@ export type Stimulus =
 
 export type StimulusTarget = "all" | { characterId: string };
 
+const ENVIRONMENT_CHANGES = new Set<EnvironmentChange>(["appFocus", "appBlur"]);
+
+export function isEnvironmentChange(change: unknown): change is EnvironmentChange {
+  return typeof change === "string" && ENVIRONMENT_CHANGES.has(change as EnvironmentChange);
+}
+
 export interface StimulusEnvelope {
   target: StimulusTarget;
   stimulus: Stimulus;
@@ -176,7 +182,7 @@ export function validateStimulusEnvelope(envelope: StimulusEnvelope): void {
       }
       break;
     case "environment":
-      if (stimulus.change !== "appFocus" && stimulus.change !== "appBlur") {
+      if (!isEnvironmentChange(stimulus.change)) {
         throw invalid();
       }
       break;

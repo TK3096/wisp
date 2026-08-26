@@ -1,9 +1,37 @@
+use serde::Serialize;
 use std::env;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Runtime};
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+struct GestureEvent {
+    gesture: &'static str,
+    confidence: f64,
+}
+
+fn parse_gesture_event(value: &serde_json::Value) -> Result<GestureEvent, String> {
+    let invalid = "gesture event must contain openPalm and confidence in [0, 1]";
+
+    if value.get("gesture").and_then(|gesture| gesture.as_str()) != Some("openPalm") {
+        return Err(invalid.to_string());
+    }
+
+    let confidence = value
+        .get("confidence")
+        .and_then(|confidence| confidence.as_f64())
+        .ok_or_else(|| invalid.to_string())?;
+    if !confidence.is_finite() || !(0.0..=1.0).contains(&confidence) {
+        return Err(invalid.to_string());
+    }
+
+    Ok(GestureEvent {
+        gesture: "openPalm",
+        confidence,
+    })
+}
 
 pub struct SidecarProcess {
     child: Arc<Mutex<Option<std::process::Child>>>,
@@ -68,14 +96,23 @@ impl SidecarProcess {
             for line in reader.lines().flatten() {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) {
                     match val.get("event").and_then(|v| v.as_str()).unwrap_or("") {
-                        "spawn" => {
-                            let _ = app.emit("spawn", ());
-                        }
+                        "gesture" => match parse_gesture_event(&val) {
+                            Ok(gesture) => {
+                                let _ = app.emit("gesture", gesture);
+                                // Gesture observation and spawn policy remain separate
+                                // frontend events; cognition never receives a spawn command.
+                                let _ = app.emit("spawn", ());
+                            }
+                            Err(error) => {
+                                eprintln!("[sidecar] dropped malformed gesture: {error}");
+                            }
+                        },
                         "error" => {
-                            let kind =
-                                val.get("kind").and_then(|v| v.as_str()).unwrap_or("unknown");
-                            let msg =
-                                val.get("message").and_then(|v| v.as_str()).unwrap_or("");
+                            let kind = val
+                                .get("kind")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown");
+                            let msg = val.get("message").and_then(|v| v.as_str()).unwrap_or("");
                             eprintln!("[sidecar] error kind={kind} message={msg}");
                             // Revert the UI immediately; process will exit after this.
                             if !error_received {
@@ -116,4 +153,36 @@ fn sidecar_dir() -> PathBuf {
         return PathBuf::from(dir);
     }
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src-sidecar")
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::parse_gesture_event;
+
+    #[test]
+    fn parses_a_bounded_open_palm_gesture() {
+        let event = parse_gesture_event(&json!({
+            "event": "gesture",
+            "gesture": "openPalm",
+            "confidence": 0.87
+        }))
+        .expect("valid gesture");
+
+        assert_eq!(event.gesture, "openPalm");
+        assert_eq!(event.confidence, 0.87);
+    }
+
+    #[test]
+    fn rejects_malformed_or_unbounded_gestures() {
+        for payload in [
+            json!({"event": "gesture", "gesture": "closedFist", "confidence": 0.8}),
+            json!({"event": "gesture", "gesture": "openPalm", "confidence": -0.1}),
+            json!({"event": "gesture", "gesture": "openPalm", "confidence": 1.1}),
+            json!({"event": "gesture", "gesture": "openPalm"}),
+        ] {
+            assert!(parse_gesture_event(&payload).is_err());
+        }
+    }
 }

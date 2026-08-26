@@ -31,6 +31,8 @@ src/
   effect.ts           — Effect class: one-shot frame animation (spawn/despawn visuals)
   scenarioHarness.ts  — headless deterministic replay, canonical NDJSON traces, lossy trace writer
   simulationAsset.ts  — renderer-agnostic LoadedAsset contract
+  ingressBridge.ts    — validates shell/sidecar ingress payloads and emits semantic Stimulus Envelopes
+  shellBridge.ts      — transport-free shell-event wiring injected around the registry
   rendering.ts        — concrete Pixi Character/Bubble handle factories
   spriteLoader.ts     — spritesheet slicing into Pixi textures
   main.ts             — wires everything: Pixi app, asset loading, Tauri event listeners
@@ -42,7 +44,7 @@ src-sidecar/
   detector.py         — frame loop: cv2 + MediaPipe → Debouncer → EventEmitter
   debouncer.py        — pure state machine (no cv2/mediapipe), injectable clock for testing
   protocol.py         — EventEmitter: NDJSON output to stdout
-  tests/              — pytest suite (debouncer only, no camera deps)
+  tests/              — pytest suite (debouncer and protocol, no camera deps)
 ```
 
 **Handle interfaces** (`CharacterHandle`, `BubbleHandle`, `EffectHandle`, `CognitionHandle`) are the seams between pure logic and rendering/cognition implementations. Concrete Pixi implementations live in `rendering.ts`; `main.ts` wires the effect handle. `cognition.ts` supplies the neutral default; tests inject `vi.fn()` mocks.
@@ -67,9 +69,9 @@ src-sidecar/.venv/bin/pip install -r src-sidecar/requirements.txt
 
 Download `gesture_recognizer.task` from the MediaPipe Model Hub and place it in `src-sidecar/`.
 
-**Events:** `{"event":"ready"}` · `{"event":"spawn"}` · `{"event":"error","kind":"...","message":"..."}`
+**Events:** `{"event":"ready"}` · `{"event":"gesture","gesture":"openPalm","confidence":0.0–1.0}` · `{"event":"error","kind":"...","message":"..."}`
 
-The tray "Gestures" CheckMenuItem toggles the sidecar on/off. The toggle reverts automatically if the sidecar crashes or emits an error event.
+The tray "Gestures" CheckMenuItem toggles the sidecar on/off. Rust forwards an accepted gesture separately to the frontend `gesture` cognition event and `spawn` policy event. The toggle reverts automatically if the sidecar crashes or emits an error event.
 
 ## Adding a character
 

@@ -279,7 +279,10 @@ export class CharacterRegistry {
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
     });
-    cognition.observe({ kind: "lifecycle", phase: "materialized" });
+    this.dispatch({
+      target: { characterId },
+      stimulus: { kind: "lifecycle", phase: "materialized" },
+    });
   }
 
   despawnAll(): void {
@@ -314,7 +317,10 @@ export class CharacterRegistry {
   }
 
   private observeVanishing(entry: CharEntry): void {
-    entry.cognition.observe({ kind: "lifecycle", phase: "vanishing" });
+    this.dispatch({
+      target: { characterId: entry.characterId },
+      stimulus: { kind: "lifecycle", phase: "vanishing" },
+    });
   }
 
   tick(dt: number): void {

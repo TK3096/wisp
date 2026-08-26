@@ -13,13 +13,7 @@ src-sidecar/.venv/bin/pip install -r src-sidecar/requirements.txt
 ## Run standalone
 
 ```bash
-# Stub mode (emits spawn every 1s)
-.venv/bin/python main.py
-
-# Simulate error after 2s
-.venv/bin/python main.py --simulate-error
-
-# Real gesture detection (slice 3+)
+# Real gesture detection
 .venv/bin/python main.py --debug   # prints per-frame state to stderr
 ```
 
@@ -30,7 +24,7 @@ All output is NDJSON (one JSON object per line) on stdout. The process reads `PY
 | Event | Meaning |
 |-------|---------|
 | `{"event":"ready"}` | Sidecar initialized, camera/model loaded |
-| `{"event":"spawn"}` | Open Palm gesture detected — summon a character |
+| `{"event":"gesture","gesture":"openPalm","confidence":0.9}` | Open Palm detected after debouncing; Rust forwards cognition observation and spawn policy separately |
 | `{"event":"error","kind":"...","message":"..."}` | Fatal error, process will exit |
 
 ## Tests
