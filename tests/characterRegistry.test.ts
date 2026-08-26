@@ -3,6 +3,13 @@ import { CharacterRegistry, SpawnContext } from "../src/characterRegistry";
 import { CharacterHandle } from "../src/character";
 import { BubbleHandle } from "../src/bubble";
 import { EffectHandle, EffectKind } from "../src/effect";
+import {
+  CognitionHandle,
+  CognitionInit,
+  BehaviorSignal,
+  BehaviorBias,
+  NEUTRAL_BEHAVIOR_SIGNAL,
+} from "../src/cognition";
 import { BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "../src/config";
 
 // --- Fakes ---
@@ -818,6 +825,15 @@ function makePhase8Registry(
 
 const SPAWN_EFFECT_DURATION = EFFECT.FRAME_COUNT / EFFECT.FPS;
 
+function makeCognitionHandle(): CognitionHandle {
+  return {
+    observe: vi.fn(),
+    tick: vi.fn(() => NEUTRAL_BEHAVIOR_SIGNAL),
+    snapshot: vi.fn(),
+    restore: vi.fn(),
+  };
+}
+
 describe("CharacterRegistry Phase 8: serial spawn (deferred construction)", () => {
   it("spawn() with createEffectHandle: count stays 0 before effect expires", () => {
     const { reg } = makePhase8Registry();
@@ -930,5 +946,281 @@ describe("CharacterRegistry Phase 8: serial spawn (deferred construction)", () =
     // onChange fires once with empty list
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+});
+
+describe("CharacterRegistry cognition (Phase 9)", () => {
+  function makeCognitionRegistry() {
+    const inits: CognitionInit[] = [];
+    const cognitionHandles: CognitionHandle[] = [];
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0, 1 - Number.EPSILON, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      createCognitionHandle: (init) => {
+        inits.push(init);
+        const handle = makeCognitionHandle();
+        cognitionHandles.push(handle);
+        return handle;
+      },
+    });
+    return { reg, inits, cognitionHandles };
+  }
+
+  function makeBiasSignal(overrides: Partial<BehaviorBias>): BehaviorSignal {
+    return {
+      affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+      behaviorBias: {
+        ...NEUTRAL_BEHAVIOR_SIGNAL.behaviorBias,
+        ...overrides,
+      },
+    };
+  }
+
+  function makeBiasSignalRegistry(
+    signal: BehaviorSignal,
+    rng: () => number,
+    withBubbles = false,
+  ) {
+    const bubbleHandles: BubbleHandle[] = [];
+    const renderHandles: CharacterHandle[] = [];
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng,
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => {
+        const handle = makeHandle();
+        renderHandles.push(handle);
+        return handle;
+      },
+      createBubbleHandle: withBubbles
+        ? (_stage, _text) => {
+            const handle = makeFakeBubbleHandle();
+            bubbleHandles.push(handle);
+            return handle;
+          }
+        : undefined,
+      createCognitionHandle: () => ({
+        ...makeCognitionHandle(),
+        tick: () => signal,
+      }),
+    });
+    return { reg, renderHandles, bubbleHandles };
+  }
+
+  it("creates one cognition handle per Materialized character with construction-time identity", () => {
+    const { reg, inits, cognitionHandles } = makeCognitionRegistry();
+
+    reg.spawn();
+    reg.spawn();
+
+    expect(inits).toHaveLength(2);
+    expect(new Set(inits.map((init) => init.characterId)).size).toBe(2);
+    expect(inits.map((init) => init.archetype)).toEqual(["a", "b"]);
+    expect(
+      inits.every(
+        (init) =>
+          Number.isFinite(init.personalitySeed) && Number.isInteger(init.personalitySeed),
+      ),
+    ).toBe(true);
+    expect(new Set(inits.map((init) => init.personalitySeed)).size).toBe(2);
+    expect(cognitionHandles).toHaveLength(2);
+  });
+
+  it("uses opaque UUID Character Identities instead of the session spawn counter", () => {
+    const { reg, inits } = makeCognitionRegistry();
+
+    reg.spawn();
+    reg.spawn();
+
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    expect(inits.every((init) => uuid.test(init.characterId))).toBe(true);
+  });
+
+  it("defers cognition creation until a serial spawn Materializes", () => {
+    const inits: CognitionInit[] = [];
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      createEffectHandle: () => makeEffectHandle(),
+      createCognitionHandle: (init) => {
+        inits.push(init);
+        return makeCognitionHandle();
+      },
+    });
+
+    reg.spawn();
+    expect(inits).toHaveLength(0);
+
+    reg.tick(EFFECT.FRAME_COUNT / EFFECT.FPS + 0.01);
+    expect(inits).toHaveLength(1);
+    expect(inits[0].schemaVersion).toBe(1);
+  });
+
+  it("dispatches targeted and global stimuli in arrival order after Materialized", () => {
+    const { reg, inits, cognitionHandles } = makeCognitionRegistry();
+    reg.spawn();
+    reg.spawn();
+
+    reg.dispatch({
+      target: { characterId: inits[0].characterId },
+      stimulus: { kind: "environment", change: "appFocus" },
+    });
+    reg.dispatch({
+      target: "all",
+      stimulus: { kind: "gesture", gesture: "openPalm", confidence: 1 },
+    });
+
+    expect(cognitionHandles[0].observe).toHaveBeenNthCalledWith(1, {
+      kind: "lifecycle",
+      phase: "materialized",
+    });
+    expect(cognitionHandles[0].observe).toHaveBeenNthCalledWith(2, {
+      kind: "environment",
+      change: "appFocus",
+    });
+    expect(cognitionHandles[0].observe).toHaveBeenNthCalledWith(3, {
+      kind: "gesture",
+      gesture: "openPalm",
+      confidence: 1,
+    });
+    expect(cognitionHandles[1].observe).toHaveBeenCalledTimes(2);
+    expect(cognitionHandles[1].observe).toHaveBeenNthCalledWith(1, {
+      kind: "lifecycle",
+      phase: "materialized",
+    });
+    expect(cognitionHandles[1].observe).toHaveBeenNthCalledWith(2, {
+      kind: "gesture",
+      gesture: "openPalm",
+      confidence: 1,
+    });
+  });
+
+  it("rejects malformed stimulus envelopes before dispatch", () => {
+    const { reg } = makeCognitionRegistry();
+    reg.spawn();
+
+    expect(() =>
+      reg.dispatch({
+        target: "all",
+        stimulus: {
+          kind: "gesture",
+          gesture: "openPalm",
+          confidence: Number.NaN,
+        },
+      }),
+    ).toThrow(/Stimulus Envelope is invalid/);
+  });
+
+  it("targets Vanishing at only the character beginning despawn", () => {
+    const { reg, cognitionHandles } = makeCognitionRegistry();
+    reg.spawn();
+    reg.spawn();
+
+    reg.despawn(1);
+
+    expect(cognitionHandles[0].observe).toHaveBeenCalledTimes(2);
+    expect(cognitionHandles[0].observe).toHaveBeenNthCalledWith(2, {
+      kind: "lifecycle",
+      phase: "vanishing",
+    });
+    expect(cognitionHandles[1].observe).toHaveBeenCalledTimes(1);
+  });
+
+  it("accumulates render time into fixed 100ms cognition steps", () => {
+    const { reg, cognitionHandles } = makeCognitionRegistry();
+    reg.spawn();
+    const tick = cognitionHandles[0].tick as ReturnType<typeof vi.fn>;
+
+    reg.tick(0.06);
+    expect(tick).not.toHaveBeenCalled();
+
+    reg.tick(0.04);
+    expect(tick).toHaveBeenCalledTimes(1);
+    expect(tick).toHaveBeenLastCalledWith(0.1);
+
+    reg.tick(0.34);
+    expect(tick).toHaveBeenCalledTimes(4);
+    expect(tick).toHaveBeenNthCalledWith(4, 0.1);
+  });
+
+  it("bounds cognition catch-up to ten steps and discards surplus time", () => {
+    const { reg, cognitionHandles } = makeCognitionRegistry();
+    reg.spawn();
+    const tick = cognitionHandles[0].tick as ReturnType<typeof vi.fn>;
+
+    reg.tick(60);
+    expect(tick).toHaveBeenCalledTimes(10);
+    expect(tick.mock.calls.every((call) => call[0] === 0.1)).toBe(true);
+
+    reg.tick(0.1);
+    expect(tick).toHaveBeenCalledTimes(11);
+  });
+
+  it("rejects invalid render time before advancing simulation state", () => {
+    const { reg } = makeCognitionRegistry();
+    reg.spawn();
+
+    expect(() => reg.tick(Number.NaN)).toThrow(
+      /Registry dt must be finite and non-negative/,
+    );
+  });
+
+  it("produces the same cognition steps at multiple render frame rates", () => {
+    const stepCounts: number[] = [];
+    for (const framesPerSecond of [32, 64, 128]) {
+      const { reg, cognitionHandles } = makeCognitionRegistry();
+      reg.spawn();
+      const tick = cognitionHandles[0].tick as ReturnType<typeof vi.fn>;
+
+      for (let i = 0; i < framesPerSecond; i++) {
+        reg.tick(1 / framesPerSecond);
+      }
+
+      stepCounts.push(tick.mock.calls.length);
+    }
+    expect(new Set(stepCounts).size).toBe(1);
+  });
+
+  it("passes each cognition signal to character behavior before the render tick", () => {
+    const { reg, renderHandles } = makeBiasSignalRegistry(
+      makeBiasSignal({ walkSpeed: 0 }),
+      makeRng([0, 0.25, 0, 0.5]),
+    );
+
+    reg.spawn();
+    reg.tick(1.6);
+    reg.tick(0.1);
+
+    const positions = (renderHandles[0].setPosition as ReturnType<typeof vi.fn>)
+      .mock.calls;
+    expect(positions.every((call) => call[0] === 480)).toBe(true);
+  });
+
+  it("applies behavior chance biases at existing scheduler rolls", () => {
+    const { reg, renderHandles, bubbleHandles } = makeBiasSignalRegistry(
+      makeBiasSignal({ jumpChance: 0, bubbleChance: 0 }),
+      makeRng([0, 0.5, 0]),
+      true,
+    );
+
+    reg.spawn();
+    reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 0.5);
+    reg.tick(0.01);
+
+    expect(bubbleHandles).toHaveLength(1); // greeting only
+    expect(renderHandles[0].setAirborneSprite).not.toHaveBeenCalled();
   });
 });

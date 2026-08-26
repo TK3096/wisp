@@ -24,8 +24,9 @@ The simulation layer is **pure TypeScript with no Pixi imports** — rendering i
 ```
 src/
   config.ts           — all tunables: ASSET_MANIFEST, BUBBLE, JUMP, EFFECT, GREETINGS, IDLE_LINES
+  cognition.ts        — pure Cognition Handle contract, fixed cadence limits, neutral implementation
   character.ts        — Character class: idle↔walk state machine, parabolic jump arc, bubble ownership
-  characterRegistry.ts — CharacterRegistry: spawn/despawn lifecycle, idle-bubble scheduler, jump scheduler
+  characterRegistry.ts — CharacterRegistry: spawn/despawn lifecycle, stimulus dispatch, 10 Hz cognition cadence, idle-bubble/jump schedulers
   bubble.ts           — Bubble class: typing animation, linger, lifetime cap
   effect.ts           — Effect class: one-shot frame animation (spawn/despawn visuals)
   spriteLoader.ts     — spritesheet slicing into Pixi textures
@@ -41,13 +42,13 @@ src-sidecar/
   tests/              — pytest suite (debouncer only, no camera deps)
 ```
 
-**Handle interfaces** (`CharacterHandle`, `BubbleHandle`, `EffectHandle`) are the seams between pure logic and Pixi rendering. Concrete Pixi implementations live in `characterRegistry.ts` (`defaultCreateHandle`, `defaultCreateBubbleHandle`) and `main.ts` (`createEffectHandle`). Tests inject `vi.fn()` mocks.
+**Handle interfaces** (`CharacterHandle`, `BubbleHandle`, `EffectHandle`, `CognitionHandle`) are the seams between pure logic and rendering/cognition implementations. Concrete Pixi implementations live in `characterRegistry.ts` (`defaultCreateHandle`, `defaultCreateBubbleHandle`) and `main.ts` (`createEffectHandle`). `cognition.ts` supplies the neutral default; tests inject `vi.fn()` mocks.
 
 **Spawn flow:** `registry.spawn()` → plays spawn `Effect` → on effect expiry `materializeEntry()` constructs the `Character` → greeting bubble fires → `onChange` syncs the tray menu.
 
-**Despawn flow:** `registry.despawn(id)` → `char.destroy()` → plays despawn `Effect` → `onChange` updates tray.
+**Despawn flow:** `registry.despawn(id)` → targeted Vanishing stimulus → `char.destroy()` → plays despawn `Effect` → `onChange` updates tray.
 
-**Tick loop:** `app.ticker` (Pixi) calls `registry.tick(dt)` every frame. The registry advances effects, promotes pending spawns, ticks each character, and runs the per-character idle-bubble and jump roll timers.
+**Tick loop:** `app.ticker` (Pixi) calls `registry.tick(dt)` every frame. The registry advances effects, promotes pending spawns, steps each character's Cognition Handle at the fixed 10 Hz cadence with bounded catch-up, applies its Behavior Signal, ticks the character, and runs the per-character idle-bubble and jump roll timers.
 
 ## Sidecar architecture
 

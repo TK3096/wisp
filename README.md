@@ -53,6 +53,7 @@ The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubbl
 **Key files**
 
 - `src/config.ts` — tunables, asset manifest, greeting / idle line pools, `BUBBLE` and `JUMP` config.
+- `src/cognition.ts` — pure stimulus/Behavior Signal contract, fixed 10 Hz cadence limits, and neutral default handle.
 - `src/character.ts` — character state machine (idle ↔ walk), jump arc (`tickAirborne`), bubble ownership.
 - `src/characterRegistry.ts` — spawn/despawn, idle-bubble scheduler, jump scheduler, `onChange` callback for tray sync, Pixi factories.
 - `src/bubble.ts` — pure-logic speech bubble (typing, lifetime).

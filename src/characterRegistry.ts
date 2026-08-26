@@ -9,6 +9,17 @@ import {
 import { BubbleHandle, Bubble } from "./bubble";
 import { Effect, EffectHandle, EffectKind } from "./effect";
 import { LoadedAsset } from "./spriteLoader";
+import {
+  COGNITION_CADENCE_S,
+  COGNITION_SCHEMA_VERSION,
+  MAX_COGNITION_CATCHUP_STEPS,
+  CognitionHandle,
+  CognitionInit,
+  StimulusEnvelope,
+  createNeutralCognitionHandle,
+  derivePersonalitySeed,
+  validateStimulusEnvelope,
+} from "./cognition";
 
 const SPRITE_SCALE = 2;
 const BUBBLE_FONT_SIZE = 12;
@@ -123,6 +134,12 @@ export interface RegistryOptions {
    * Override in tests with a fake to avoid Pixi imports.
    */
   createEffectHandle?: (kind: EffectKind) => EffectHandle;
+  /**
+   * Factory for a character-scoped cognition seam. The default is neutral;
+   * production may later inject a WASM-backed facade without changing the
+   * simulation's rendering or shell dependencies.
+   */
+  createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
 }
 
 function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
@@ -166,12 +183,18 @@ function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
 
 type ResolvedOptions = RegistryOptions & {
   createHandle: (ctx: SpawnContext) => CharacterHandle;
+  createCognitionHandle: (init: CognitionInit) => CognitionHandle;
 };
 
 interface CharEntry {
   char: Character;
   id: number;
+  /** Stable opaque Character Identity used by cognition and future persistence. */
+  characterId: string;
   displayName: string;
+  cognition: CognitionHandle;
+  /** Render time not yet consumed by a fixed cognition step. */
+  cognitionAccumulator: number;
   /** Seconds until this character's next idle-line roll. */
   rollTimer: number;
   /** Seconds until this character's next jump roll. */
@@ -198,7 +221,11 @@ export class CharacterRegistry {
   private nextId = 1;
 
   constructor(opts: RegistryOptions) {
-    this.opts = { createHandle: defaultCreateHandle, ...opts };
+    this.opts = {
+      createHandle: defaultCreateHandle,
+      createCognitionHandle: createNeutralCognitionHandle,
+      ...opts,
+    };
   }
 
   get count(): number {
@@ -213,6 +240,17 @@ export class CharacterRegistry {
     }));
   }
 
+  /** Deliver one envelope to eligible Materialized characters in registry order. */
+  dispatch(envelope: StimulusEnvelope): void {
+    validateStimulusEnvelope(envelope);
+    for (const entry of this.entries) {
+      const matches =
+        envelope.target === "all" ||
+        envelope.target.characterId === entry.characterId;
+      if (matches) entry.cognition.observe(envelope.stimulus);
+    }
+  }
+
   /**
    * Removes the character with the given ID.
    * Returns true on success, false if the ID is not found (silent no-op).
@@ -221,6 +259,7 @@ export class CharacterRegistry {
     const idx = this.entries.findIndex((e) => e.id === id);
     if (idx === -1) return false;
     const { char } = this.entries[idx];
+    this.observeVanishing(this.entries[idx]);
     const x = char.x;
     const y = char.renderY;
     char.destroy();
@@ -256,7 +295,19 @@ export class CharacterRegistry {
    * and fire a greeting bubble. Does NOT emit onChange — callers handle that.
    */
   private materializeEntry(entry: AssetEntry, loaded: LoadedAsset, x: number): void {
-    const { rng, stage, floorY, screenWidth, createHandle, createBubbleHandle } = this.opts;
+    const {
+      rng,
+      stage,
+      floorY,
+      screenWidth,
+      createHandle,
+      createBubbleHandle,
+      createCognitionHandle,
+    } = this.opts;
+
+    const id = this.nextId++;
+    // Opaque and stable across sessions; persistence will later standardize UUIDv7.
+    const characterId = crypto.randomUUID();
 
     const handle = createHandle({ entry, loaded, stage, x, floorY });
 
@@ -289,14 +340,25 @@ export class CharacterRegistry {
     const greeting = GREETINGS[Math.floor(rng() * GREETINGS.length)];
     character.say(greeting);
 
+    const cognition = createCognitionHandle({
+      schemaVersion: COGNITION_SCHEMA_VERSION,
+      characterId,
+      archetype: entry.name,
+      personalitySeed: derivePersonalitySeed(characterId, entry.name),
+    });
+
     // Fixed initial roll timers so characters don't lock-step on the first roll.
     this.entries.push({
       char: character,
-      id: this.nextId++,
+      id,
+      characterId,
       displayName: entry.displayName,
+      cognition,
+      cognitionAccumulator: 0,
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
     });
+    cognition.observe({ kind: "lifecycle", phase: "materialized" });
   }
 
   despawnAll(): void {
@@ -305,6 +367,7 @@ export class CharacterRegistry {
     this.pending.length = 0;
 
     for (const entry of this.entries) {
+      this.observeVanishing(entry);
       const x = entry.char.x;
       const y = entry.char.renderY;
       entry.char.destroy();
@@ -329,7 +392,14 @@ export class CharacterRegistry {
     this.effects.push(effect);
   }
 
+  private observeVanishing(entry: CharEntry): void {
+    entry.cognition.observe({ kind: "lifecycle", phase: "vanishing" });
+  }
+
   tick(dt: number): void {
+    if (!Number.isFinite(dt) || dt < 0) {
+      throw new Error("Registry dt must be finite and non-negative");
+    }
     this.elapsed += dt;
     const { rng } = this.opts;
 
@@ -355,6 +425,21 @@ export class CharacterRegistry {
     if (toPromote.length > 0) this.opts.onChange?.(this.snapshot());
 
     for (const entry of this.entries) {
+      entry.cognitionAccumulator += dt;
+      let cognitionSteps = 0;
+      while (
+        entry.cognitionAccumulator >= COGNITION_CADENCE_S &&
+        cognitionSteps < MAX_COGNITION_CATCHUP_STEPS
+      ) {
+        const signal = entry.cognition.tick(COGNITION_CADENCE_S);
+        entry.char.applyBehaviorSignal(signal);
+        entry.cognitionAccumulator -= COGNITION_CADENCE_S;
+        cognitionSteps++;
+      }
+      if (cognitionSteps === MAX_COGNITION_CATCHUP_STEPS) {
+        entry.cognitionAccumulator = 0;
+      }
+
       entry.char.tick(dt);
 
       entry.rollTimer -= dt;
@@ -366,7 +451,10 @@ export class CharacterRegistry {
           rng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
 
         // Respect global cooldown — drop the roll if a bubble just fired.
-        if (this.elapsed - this.lastBubbleAt >= BUBBLE.GLOBAL_COOLDOWN_S) {
+        if (
+          this.elapsed - this.lastBubbleAt >= BUBBLE.GLOBAL_COOLDOWN_S &&
+          entry.char.shouldSpeakOnRoll(rng)
+        ) {
           const line = IDLE_LINES[Math.floor(rng() * IDLE_LINES.length)];
           entry.char.say(line);
           this.lastBubbleAt = this.elapsed;
@@ -381,7 +469,7 @@ export class CharacterRegistry {
           JUMP.PER_CHAR_JITTER_S +
           rng() * (2 * JUMP.PER_CHAR_JITTER_S);
 
-        entry.char.jump();
+        if (entry.char.shouldJumpOnRoll(rng)) entry.char.jump();
       }
     }
   }
