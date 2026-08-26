@@ -48,14 +48,16 @@ Everything tunable lives in `src/config.ts`:
 
 ## Architecture
 
-The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubble.ts`) is pure logic with no Pixi imports — rendering is injected through `CharacterHandle` / `BubbleHandle` interfaces. That keeps the unit tests fast and WebGL-free. The Pixi-specific factories (`defaultCreateHandle`, `defaultCreateBubbleHandle`) live in `characterRegistry.ts` and are only wired up from `src/main.ts`.
+The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubble.ts`, `src/scenarioHarness.ts`) is pure logic with no Pixi imports — rendering is injected through `CharacterHandle` / `BubbleHandle` interfaces. That keeps the unit tests and deterministic replays fast and WebGL-free. The Pixi-specific factories (`defaultCreateHandle`, `defaultCreateBubbleHandle`) live in `src/rendering.ts` and are wired from `src/main.ts`.
 
 **Key files**
 
 - `src/config.ts` — tunables, asset manifest, greeting / idle line pools, `BUBBLE` and `JUMP` config.
 - `src/cognition.ts` — pure stimulus/Behavior Signal contract, fixed 10 Hz cadence limits, and neutral default handle.
 - `src/character.ts` — character state machine (idle ↔ walk), jump arc (`tickAirborne`), bubble ownership.
-- `src/characterRegistry.ts` — spawn/despawn, idle-bubble scheduler, jump scheduler, `onChange` callback for tray sync, Pixi factories.
+- `src/characterRegistry.ts` — spawn/despawn, stimulus dispatch, fixed-cadence cognition, idle-bubble scheduler, jump scheduler, and `onChange` callback for tray sync.
+- `src/scenarioHarness.ts` — deterministic headless replay, canonical NDJSON cognition traces, frame-rate comparison projections, and lossy trace writing.
+- `src/rendering.ts` — Pixi-backed character and bubble handle factories kept outside the pure simulation module.
 - `src/bubble.ts` — pure-logic speech bubble (typing, lifetime).
 - `src/spriteLoader.ts` — spritesheet slicing.
 - `src-tauri/src/lib.rs` — tray menu (with per-character Despawn submenu), hotkey, window config.
@@ -67,3 +69,4 @@ npm test
 ```
 
 Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`) with fake RNG, fake clock, and mock handles — no WebGL or Tauri bridge required.
+The Scenario Harness runs the same behavior orchestration headlessly and verifies that a seeded baseline produces the same cognition steps and decisions at 30, 60, and 120 fps.

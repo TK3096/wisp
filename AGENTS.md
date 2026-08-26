@@ -29,6 +29,9 @@ src/
   characterRegistry.ts — CharacterRegistry: spawn/despawn lifecycle, stimulus dispatch, 10 Hz cognition cadence, idle-bubble/jump schedulers
   bubble.ts           — Bubble class: typing animation, linger, lifetime cap
   effect.ts           — Effect class: one-shot frame animation (spawn/despawn visuals)
+  scenarioHarness.ts  — headless deterministic replay, canonical NDJSON traces, lossy trace writer
+  simulationAsset.ts  — renderer-agnostic LoadedAsset contract
+  rendering.ts        — concrete Pixi Character/Bubble handle factories
   spriteLoader.ts     — spritesheet slicing into Pixi textures
   main.ts             — wires everything: Pixi app, asset loading, Tauri event listeners
 src-tauri/
@@ -42,7 +45,9 @@ src-sidecar/
   tests/              — pytest suite (debouncer only, no camera deps)
 ```
 
-**Handle interfaces** (`CharacterHandle`, `BubbleHandle`, `EffectHandle`, `CognitionHandle`) are the seams between pure logic and rendering/cognition implementations. Concrete Pixi implementations live in `characterRegistry.ts` (`defaultCreateHandle`, `defaultCreateBubbleHandle`) and `main.ts` (`createEffectHandle`). `cognition.ts` supplies the neutral default; tests inject `vi.fn()` mocks.
+**Handle interfaces** (`CharacterHandle`, `BubbleHandle`, `EffectHandle`, `CognitionHandle`) are the seams between pure logic and rendering/cognition implementations. Concrete Pixi implementations live in `rendering.ts`; `main.ts` wires the effect handle. `cognition.ts` supplies the neutral default; tests inject `vi.fn()` mocks.
+
+**Scenario Harness:** `runScenario()` advances a seeded scenario on a virtual clock, splits scheduled events across render frames, injects deterministic Character Identities and scheduler rolls, and emits canonical trace records. The same seed/scenario/contract produces byte-identical NDJSON; 30/60/120 fps runs are compared through their cognition steps and behavior decisions. `LossyTraceWriter` writes asynchronously and drops oldest queued records rather than blocking the replay.
 
 **Spawn flow:** `registry.spawn()` → plays spawn `Effect` → on effect expiry `materializeEntry()` constructs the `Character` → greeting bubble fires → `onChange` syncs the tray menu.
 

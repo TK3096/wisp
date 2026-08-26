@@ -1,14 +1,12 @@
-import { Sprite, Container, Texture, Graphics, Text } from "pixi.js";
 import { AssetEntry, BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "./config";
 import {
   Character,
   CharacterHandle,
   CharacterConfig,
-  CharacterState,
 } from "./character";
 import { BubbleHandle, Bubble } from "./bubble";
 import { Effect, EffectHandle, EffectKind } from "./effect";
-import { LoadedAsset } from "./spriteLoader";
+import { LoadedAsset } from "./simulationAsset";
 import {
   COGNITION_CADENCE_S,
   COGNITION_SCHEMA_VERSION,
@@ -21,90 +19,23 @@ import {
   validateStimulusEnvelope,
 } from "./cognition";
 
-const SPRITE_SCALE = 2;
-const BUBBLE_FONT_SIZE = 12;
-const BUBBLE_PADDING = 5;
-const BUBBLE_TAIL_H = 6;
-
-export function defaultCreateBubbleHandle(
-  stage: Container,
-  text: string,
-): BubbleHandle {
-  const pixiText = new Text({
-    text,
-    style: {
-      fontFamily: '"Apple Color Emoji", monospace',
-      fontSize: BUBBLE_FONT_SIZE,
-      fill: "#222222",
-    },
-  });
-
-  const bubbleW = Math.min(
-    Math.max(pixiText.width + BUBBLE_PADDING * 2, 24),
-    BUBBLE.MAX_WIDTH_PX,
-  );
-  const bubbleH = pixiText.height + BUBBLE_PADDING * 2;
-
-  pixiText.x = BUBBLE_PADDING;
-  pixiText.y = BUBBLE_PADDING;
-
-  const gfx = new Graphics();
-  // Bubble body: crisp rect with dark 1px border (pixel-art style, no smooth corners).
-  gfx
-    .rect(0, 0, bubbleW, bubbleH)
-    .fill({ color: 0xf5f0e8 })
-    .stroke({ color: 0x222222, width: 1 });
-  // Downward tail centered below bubble.
-  const tailX = Math.floor(bubbleW / 2);
-  gfx
-    .poly([
-      tailX - 4,
-      bubbleH,
-      tailX + 4,
-      bubbleH,
-      tailX,
-      bubbleH + BUBBLE_TAIL_H,
-    ])
-    .fill({ color: 0xf5f0e8 });
-
-  const container = new Container();
-  container.addChild(gfx);
-  container.addChild(pixiText);
-  // Pivot at tail tip so setPosition(charX, charY) anchors the tail to the character head.
-  container.pivot.set(tailX, bubbleH + BUBBLE_TAIL_H);
-  stage.addChild(container);
-
-  // Code-point-safe character array so emoji (surrogate pairs) aren't split.
-  const codepoints = Array.from(text);
-
-  return {
-    setText(t: string) {
-      pixiText.text = t;
-    },
-    setVisibleChars(n: number) {
-      pixiText.text = codepoints.slice(0, n).join("");
-    },
-    setPosition(x: number, y: number) {
-      container.x = x;
-      container.y = y;
-    },
-    destroy() {
-      stage.removeChild(container);
-      container.destroy({ children: true });
-    },
-  };
+export interface RenderOwner {
+  registryId: number;
+  characterId: string;
 }
 
 export interface SpawnContext {
   entry: AssetEntry;
   loaded: LoadedAsset;
-  stage: Container;
+  stage: unknown;
   x: number;
   floorY: number;
+  registryId: number;
+  characterId: string;
 }
 
 export interface RegistryOptions {
-  stage: Container;
+  stage: unknown;
   manifest: AssetEntry[];
   loadedAssets: Map<string, LoadedAsset>;
   rng: () => number;
@@ -112,8 +43,7 @@ export interface RegistryOptions {
   floorY: number;
   /**
    * Factory for creating a CharacterHandle.
-   * Defaults to the real Pixi.js Sprite-based handle.
-   * Override in tests to inject mocks.
+   * Defaults to an inert headless handle; production wires the Pixi factory.
    */
   createHandle?: (ctx: SpawnContext) => CharacterHandle;
   /**
@@ -121,7 +51,11 @@ export interface RegistryOptions {
    * When undefined, no bubble is injected and say() is a no-op.
    * Override in tests with a fake to avoid Pixi imports.
    */
-  createBubbleHandle?: (stage: Container, text: string) => BubbleHandle;
+  createBubbleHandle?: (
+    stage: unknown,
+    text: string,
+    owner: RenderOwner,
+  ) => BubbleHandle;
   /**
    * Called after every mutation (spawn, despawn, despawnAll) with a full
    * snapshot of the live character list. Use to sync external state (e.g.
@@ -140,44 +74,20 @@ export interface RegistryOptions {
    * simulation's rendering or shell dependencies.
    */
   createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
+  /** Separate deterministic stream for idle-bubble and jump scheduler draws. */
+  schedulerRng?: () => number;
+  /** Deterministic identity source for replays; production uses random UUIDs. */
+  createCharacterId?: () => string;
 }
 
-function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
-  const sprite = loaded.idleTextures[0]
-    ? new Sprite(loaded.idleTextures[0] as unknown as Texture)
-    : new Sprite();
-
-  sprite.scale.set(SPRITE_SCALE);
-  sprite.anchor.set(0.5, 1);
-  stage.addChild(sprite);
-
-  let currentTextures: (Texture | null)[] = loaded.idleTextures;
-
+function createInertCharacterHandle(): CharacterHandle {
   return {
-    setAnimation(anim: CharacterState) {
-      currentTextures =
-        anim === "walk" ? loaded.walkTextures : loaded.idleTextures;
-    },
-    setTexture(frameIndex: number) {
-      const tex = currentTextures[frameIndex];
-      if (tex) sprite.texture = tex as unknown as Texture;
-    },
-    setPosition(x: number, y: number) {
-      sprite.x = x;
-      sprite.y = y;
-    },
-    setFlip(facingLeft: boolean) {
-      sprite.scale.x = facingLeft ? -SPRITE_SCALE : SPRITE_SCALE;
-    },
-    setAirborneSprite(kind: "jump" | "fall" | null) {
-      if (kind === "jump") sprite.texture = loaded.jumpTexture as unknown as Texture;
-      else if (kind === "fall") sprite.texture = loaded.fallTexture as unknown as Texture;
-      // null: no-op — next setTexture call from ground tick restores the ground frame
-    },
-    destroy() {
-      stage.removeChild(sprite);
-      sprite.destroy();
-    },
+    setAnimation() {},
+    setTexture() {},
+    setPosition() {},
+    setFlip() {},
+    setAirborneSprite() {},
+    destroy() {},
   };
 }
 
@@ -222,7 +132,7 @@ export class CharacterRegistry {
 
   constructor(opts: RegistryOptions) {
     this.opts = {
-      createHandle: defaultCreateHandle,
+      createHandle: createInertCharacterHandle,
       createCognitionHandle: createNeutralCognitionHandle,
       ...opts,
     };
@@ -303,19 +213,30 @@ export class CharacterRegistry {
       createHandle,
       createBubbleHandle,
       createCognitionHandle,
+      createCharacterId,
     } = this.opts;
 
     const id = this.nextId++;
     // Opaque and stable across sessions; persistence will later standardize UUIDv7.
-    const characterId = crypto.randomUUID();
+    const characterId = createCharacterId
+      ? createCharacterId()
+      : crypto.randomUUID();
 
-    const handle = createHandle({ entry, loaded, stage, x, floorY });
+    const handle = createHandle({
+      entry,
+      loaded,
+      stage,
+      x,
+      floorY,
+      registryId: id,
+      characterId,
+    });
 
     const createBubble = createBubbleHandle
       ? (text: string): Bubble =>
           new Bubble(
             text,
-            createBubbleHandle(stage, text),
+            createBubbleHandle(stage, text, { registryId: id, characterId }),
             BUBBLE.TYPING_SPEED_CPS,
             BUBBLE.LINGER_S,
             BUBBLE.MAX_DURATION_S,
@@ -401,7 +322,8 @@ export class CharacterRegistry {
       throw new Error("Registry dt must be finite and non-negative");
     }
     this.elapsed += dt;
-    const { rng } = this.opts;
+    const { rng, schedulerRng } = this.opts;
+    const behaviorRng = schedulerRng ?? rng;
 
     // Advance live (despawn) effects and remove expired ones.
     for (const e of this.effects) e.tick(dt);
@@ -448,14 +370,14 @@ export class CharacterRegistry {
         entry.rollTimer =
           BUBBLE.PER_CHAR_AVG_INTERVAL_S -
           BUBBLE.PER_CHAR_JITTER_S +
-          rng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
+          behaviorRng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
 
         // Respect global cooldown — drop the roll if a bubble just fired.
         if (
           this.elapsed - this.lastBubbleAt >= BUBBLE.GLOBAL_COOLDOWN_S &&
-          entry.char.shouldSpeakOnRoll(rng)
+          entry.char.shouldSpeakOnRoll(behaviorRng)
         ) {
-          const line = IDLE_LINES[Math.floor(rng() * IDLE_LINES.length)];
+          const line = IDLE_LINES[Math.floor(behaviorRng() * IDLE_LINES.length)];
           entry.char.say(line);
           this.lastBubbleAt = this.elapsed;
         }
@@ -467,9 +389,9 @@ export class CharacterRegistry {
         entry.jumpRollTimer =
           JUMP.PER_CHAR_AVG_INTERVAL_S -
           JUMP.PER_CHAR_JITTER_S +
-          rng() * (2 * JUMP.PER_CHAR_JITTER_S);
+          behaviorRng() * (2 * JUMP.PER_CHAR_JITTER_S);
 
-        if (entry.char.shouldJumpOnRoll(rng)) entry.char.jump();
+        if (entry.char.shouldJumpOnRoll(behaviorRng)) entry.char.jump();
       }
     }
   }

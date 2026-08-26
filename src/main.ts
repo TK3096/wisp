@@ -3,7 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { ASSET_MANIFEST, EFFECT, FLOOR_BAND_PX } from "./config";
 import { loadAsset, loadEffect } from "./spriteLoader";
-import { CharacterRegistry, defaultCreateBubbleHandle } from "./characterRegistry";
+import { CharacterRegistry } from "./characterRegistry";
+import { defaultCreateBubbleHandle, defaultCreateHandle } from "./rendering";
 import { EffectKind } from "./effect";
 
 async function init() {
@@ -47,6 +48,7 @@ async function init() {
     rng: Math.random,
     screenWidth: window.innerWidth,
     floorY: window.innerHeight - FLOOR_BAND_PX,
+    createHandle: defaultCreateHandle,
     createBubbleHandle: defaultCreateBubbleHandle,
     createEffectHandle: (kind: EffectKind) => {
       const textures = kind === "spawn" ? spawnTextures : despawnTextures;

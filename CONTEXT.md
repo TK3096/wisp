@@ -83,3 +83,7 @@ _Avoid_: character rest animation, idle behavior, offline-time replay
 **Cognition Cadence**:
 The fixed internal rate at which cognition advances independently of the render frame rate.
 _Avoid_: frame rate, ticker rate
+
+**Scenario Harness**:
+The deterministic headless replay that advances Wisp behavior on a virtual clock and records observable cognition/behavior traces without a renderer or shell.
+_Avoid_: integration test, browser harness, playback recorder
