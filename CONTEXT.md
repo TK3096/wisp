@@ -60,6 +60,26 @@ _Avoid_: random number, nonce
 A versioned, serializable snapshot of one character's cognition state that TypeScript may store but cannot interpret.
 _Avoid_: save data, render state, personality profile
 
+**Social Projection**:
+The bounded character-scoped cognition view that other characters may perceive and respond to during social influence.
+_Avoid_: raw cognition state, personality profile, durable memory
+
+**Social Influence**:
+The bounded cross-character effect derived from social projections and incorporated into a character's cognition before behavior signals are emitted.
+_Avoid_: behavior command, direct control, social override
+
+**Population Cognition Pass**:
+The fixed-cadence batch step through which materialized characters exchange bounded social influence without changing lifecycle or behavior ownership.
+_Avoid_: crowd control, global mood, render tick
+
+**Durable Memory**:
+Curated, character-scoped knowledge that remains meaningful across sessions and can influence future cognition.
+_Avoid_: save data, cognition snapshot, render state
+
+**Sleep Consolidation**:
+Deferred background work that prepares predictable future cognition from durable memory.
+_Avoid_: character rest animation, idle behavior, offline-time replay
+
 **Cognition Cadence**:
 The fixed internal rate at which cognition advances independently of the render frame rate.
 _Avoid_: frame rate, ticker rate
