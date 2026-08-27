@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BASELINE_SCENARIO,
+  HABITUATION_SCENARIO,
+  NOVEL_STRONG_GESTURE_SCENARIO,
   formatScenarioTraceNdjson,
   runScenario,
   LossyTraceWriter,
@@ -8,7 +10,11 @@ import {
   scenarioCognitionSteps,
 } from "../src/scenarioHarness";
 import { EFFECT, GREETINGS, IDLE_LINES } from "../src/config";
-import { COGNITION_SCHEMA_VERSION, CognitionHandle } from "../src/cognition";
+import {
+  COGNITION_SCHEMA_VERSION,
+  CognitionHandle,
+  NEUTRAL_BEHAVIOR_SIGNAL,
+} from "../src/cognition";
 
 describe("Scenario Harness baseline", () => {
   it("replays the current spawn, wander, jump, bubble, and despawn behavior", () => {
@@ -136,6 +142,7 @@ describe("Scenario Harness baseline", () => {
         const active = personalitySeed === 0;
         return {
           affect: { surprise: 0, valence: 0, arousal: 0 },
+          temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
           behaviorBias: active
             ? {
                 idleDwell: 0.5,
@@ -237,5 +244,211 @@ describe("Scenario Harness baseline", () => {
     await result.traceWriter?.flush();
 
     expect(written).toHaveLength(result.trace.length - result.traceWriter.droppedLines);
+  });
+});
+
+describe("Temporal Derivative acceptance scenarios", () => {
+  const sigmoid = (value: number): number =>
+    value >= 0 ? 1 / (1 + Math.exp(-value)) : Math.exp(value) / (1 + Math.exp(value));
+
+  /** Deterministic TypeScript reference used to test harness wiring, not math. */
+  function createTemporalMockCognition(): CognitionHandle {
+    let observation = [0, 1, 0];
+    let fast = [0, 1, 0];
+    let slow = [0, 1, 0];
+    let surprise = 0;
+    let arousal = 0;
+
+    const summary = () => {
+      const derivativeNorm = Math.sqrt(
+        fast.reduce((total, value, index) => total + (value - slow[index]) ** 2, 0),
+      );
+      const gate = sigmoid(6 * derivativeNorm);
+      return {
+        derivativeNorm,
+        gate,
+        centeredEnergy: Math.min(1, Math.max(0, 2 * gate - 1)),
+      };
+    };
+
+    return {
+      observe(stimulus) {
+        if (stimulus.kind === "gesture") observation[0] = stimulus.confidence;
+      },
+      tick(dt) {
+        const previousEnergy = summary().centeredEnergy;
+        fast = fast.map((value, index) => value + 0.3 * (observation[index] - value));
+        slow = slow.map((value, index) => value + 0.03 * (observation[index] - value));
+        const temporal = summary();
+        const rise = Math.max(0, temporal.centeredEnergy - previousEnergy);
+        surprise = Math.min(1, surprise * Math.exp(-dt / 0.6) + rise);
+        arousal = Math.min(1, arousal * Math.exp(-dt / 1.5) + rise);
+
+        return {
+          affect: { surprise, valence: 0, arousal },
+          temporalSurprise: temporal,
+          behaviorBias: {
+            idleDwell: 1,
+            walkSpeed: 1,
+            jumpChance: Math.min(1.8, 0.9346 * (1 + 0.55 * surprise)),
+            bubbleChance: 1,
+            animationPace: 1,
+          },
+        };
+      },
+      snapshot() {
+        return {
+          schemaVersion: COGNITION_SCHEMA_VERSION,
+          characterId: "temporal-mock",
+          cognition: null,
+        };
+      },
+      restore() {},
+    };
+  }
+
+  /**
+   * Event-ordered trace projection. Frame-local interleaving between render
+   * ticks legitimately differs by frame rate; stimulus and scheduler order
+   * must not.
+   */
+  function stableTraceEvents(
+    records: Record<string, unknown>[],
+  ): Record<string, unknown>[] {
+    return records
+      .filter((record) =>
+        ["stimulus_dispatch", "stimulus_observed", "scheduler_roll"].includes(
+          record.type as string,
+        ),
+      )
+      .map((record) => ({
+        type: record.type,
+        characterId: record.characterId,
+        envelope: record.envelope,
+        rollIndex: record.rollIndex,
+        value: record.value,
+      }));
+  }
+
+  it("records a novel gesture reaction that only the scheduler can turn into a jump", () => {
+    const result = runScenario(NOVEL_STRONG_GESTURE_SCENARIO, 60, {
+      createCognitionHandle: createTemporalMockCognition,
+    });
+    const steps = scenarioCognitionSteps(result);
+    const gestureDispatch = result.trace.find(
+      (record) => record.type === "stimulus_dispatch",
+    );
+    const schedulerRoll = result.trace.find(
+      (record) => record.type === "scheduler_roll",
+    );
+    const schedulerRollIndex = result.trace.findIndex(
+      (record) => record.type === "scheduler_roll",
+    );
+    const jumpStartedIndex = result.trace.findIndex(
+      (record) => record.type === "jump_started",
+    );
+    const beforeGesture = steps.find(
+      (step) => (step.elapsedCognitionS ?? 0) < 20,
+    ) as (typeof steps)[number];
+    const rollStep = steps.find((step) => step.elapsedCognitionS >= 20);
+
+    expect(gestureDispatch).toMatchObject({
+      envelope: NOVEL_STRONG_GESTURE_SCENARIO.stimuli?.[0]?.envelope,
+      recipientIds: ["novel-strong-gesture-character-1"],
+    });
+    expect(rollStep?.temporalSurprise).toMatchObject({
+      derivativeNorm: expect.any(Number),
+      gate: expect.any(Number),
+      centeredEnergy: expect.any(Number),
+    });
+    expect(rollStep?.boundedReaction).toMatchObject({
+      surpriseEnergy: expect.any(Number),
+      behaviorBias: expect.any(Object),
+    });
+    expect(
+      rollStep?.behaviorSignal.behaviorBias.jumpChance,
+    ).toBeGreaterThan(beforeGesture.behaviorSignal.behaviorBias.jumpChance);
+    expect(rollStep?.behaviorSignal.behaviorBias.jumpChance).toBeGreaterThanOrEqual(1);
+    expect(schedulerRoll).toMatchObject({ value: 0.99 });
+    expect(
+      (schedulerRoll?.clockS ?? Infinity) > (gestureDispatch?.clockS ?? -Infinity),
+    ).toBe(true);
+    expect(jumpStartedIndex).toBeGreaterThan(schedulerRollIndex);
+  });
+
+  it("declines the same roll after habituation while the gesture keeps arriving", () => {
+    const result = runScenario(HABITUATION_SCENARIO, 60, {
+      createCognitionHandle: createTemporalMockCognition,
+    });
+    const steps = scenarioCognitionSteps(result);
+    const surprises = steps.map(
+      (step) =>
+        (step.behaviorSignal as { affect: { surprise: number } }).affect.surprise,
+    );
+    const gestureObservations = result.trace.filter(
+      (record) =>
+        record.type === "stimulus_observed" &&
+        (record.envelope as { stimulus: { kind: string } }).stimulus.kind ===
+          "gesture",
+    );
+    const schedulerRolls = result.trace.filter(
+      (record) => record.type === "scheduler_roll",
+    );
+    const rollStep = steps.find((step) => step.elapsedCognitionS >= 20);
+
+    expect(gestureObservations).toHaveLength(99);
+    expect(Math.max(...surprises)).toBeGreaterThan(0.3);
+    expect(surprises[surprises.length - 1]).toBeLessThan(0.05);
+    expect(schedulerRolls.map((record) => record.value)).toEqual([0.99, 0.95]);
+    expect(rollStep?.behaviorSignal.behaviorBias.jumpChance).toBeLessThan(0.95);
+    expect(
+      scenarioBehaviorDecisions(result).some(
+        (decision) => decision.type === "jump_started",
+      ),
+    ).toBe(false);
+  });
+
+  it("makes a novel gesture visibly stronger than the habituated repetition", () => {
+    const options = { createCognitionHandle: createTemporalMockCognition };
+    const novel = runScenario(NOVEL_STRONG_GESTURE_SCENARIO, 60, options);
+    const habituated = runScenario(HABITUATION_SCENARIO, 60, options);
+
+    expect(
+      scenarioBehaviorDecisions(novel).some(
+        (decision) => decision.type === "jump_started",
+      ),
+    ).toBe(true);
+    expect(
+      scenarioBehaviorDecisions(habituated).some(
+        (decision) => decision.type === "jump_started",
+      ),
+    ).toBe(false);
+  });
+
+  it("replays both acceptance scenarios equivalently at 30, 60, and 120 fps", () => {
+    for (const scenario of [
+      NOVEL_STRONG_GESTURE_SCENARIO,
+      HABITUATION_SCENARIO,
+    ]) {
+      const cognitionSteps: unknown[][] = [];
+      const decisions: unknown[][] = [];
+      const stableEvents: Record<string, unknown>[][] = [];
+
+      for (const framesPerSecond of [30, 60, 120]) {
+        const result = runScenario(scenario, framesPerSecond, {
+          createCognitionHandle: createTemporalMockCognition,
+        });
+        cognitionSteps.push(scenarioCognitionSteps(result));
+        decisions.push(scenarioBehaviorDecisions(result));
+        stableEvents.push(stableTraceEvents(result.trace));
+      }
+
+      expect(cognitionSteps[1]).toEqual(cognitionSteps[0]);
+      expect(cognitionSteps[2]).toEqual(cognitionSteps[0]);
+      expect(decisions[1]).toEqual(decisions[0]);
+      expect(decisions[2]).toEqual(decisions[0]);
+      expect(stableEvents[1]).toEqual(stableEvents[0]);
+      expect(stableEvents[2]).toEqual(stableEvents[0]);
+    }
   });
 });

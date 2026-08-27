@@ -3,6 +3,8 @@ export const COGNITION_SCHEMA_VERSION = 1;
 export const COGNITION_CADENCE_S = 0.1;
 /** A single render tick may catch up at most one second of cognition. */
 export const MAX_COGNITION_CATCHUP_STEPS = 10;
+/** Absorbs render-frame floating-point drift without shifting the cadence. */
+export const COGNITION_CADENCE_EPSILON_S = 1e-9;
 
 export interface CognitionInit {
   schemaVersion: typeof COGNITION_SCHEMA_VERSION;
@@ -39,6 +41,16 @@ export interface Affect {
   arousal: number;
 }
 
+/** Bounded Temporal Derivative summary emitted by every Cognition step. */
+export interface TemporalSurprise {
+  /** L2 norm of the current fast/slow observation difference. */
+  derivativeNorm: number;
+  /** Raw sigmoid gate in [0, 1]; rests at 0.5 during inactivity. */
+  gate: number;
+  /** Recentred gate in [0, 1]; exactly zero for neutral inactivity. */
+  centeredEnergy: number;
+}
+
 export interface BehaviorBias {
   idleDwell: number;
   walkSpeed: number;
@@ -49,6 +61,7 @@ export interface BehaviorBias {
 
 export interface BehaviorSignal {
   affect: Affect;
+  temporalSurprise: TemporalSurprise;
   behaviorBias: BehaviorBias;
 }
 
@@ -70,6 +83,11 @@ export const NEUTRAL_BEHAVIOR_SIGNAL: BehaviorSignal = Object.freeze({
     surprise: 0,
     valence: 0,
     arousal: 0,
+  }),
+  temporalSurprise: Object.freeze({
+    derivativeNorm: 0,
+    gate: 0.5,
+    centeredEnergy: 0,
   }),
   behaviorBias: Object.freeze({
     idleDwell: 1,
@@ -130,6 +148,19 @@ export function validateBehaviorSignal(signal: BehaviorSignal): void {
     { name: "affect.surprise", value: signal.affect.surprise, min: 0, max: 1 },
     { name: "affect.valence", value: signal.affect.valence, min: -1, max: 1 },
     { name: "affect.arousal", value: signal.affect.arousal, min: 0, max: 1 },
+    {
+      name: "temporalSurprise.derivativeNorm",
+      value: signal.temporalSurprise.derivativeNorm,
+      min: 0,
+      max: 4,
+    },
+    { name: "temporalSurprise.gate", value: signal.temporalSurprise.gate, min: 0, max: 1 },
+    {
+      name: "temporalSurprise.centeredEnergy",
+      value: signal.temporalSurprise.centeredEnergy,
+      min: 0,
+      max: 1,
+    },
     { name: "behaviorBias.idleDwell", value: signal.behaviorBias.idleDwell, min: 0, max: 2 },
     { name: "behaviorBias.walkSpeed", value: signal.behaviorBias.walkSpeed, min: 0, max: 2 },
     { name: "behaviorBias.jumpChance", value: signal.behaviorBias.jumpChance, min: 0, max: 2 },

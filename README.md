@@ -65,7 +65,7 @@ The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubbl
 
 - `src/config.ts` — tunables, asset manifest, greeting / idle line pools, `BUBBLE` and `JUMP` config.
 - `src/cognition.ts` — pure stimulus/Behavior Signal contract, fixed 10 Hz cadence limits, and neutral default handle.
-- `crates/wisp-cognition-core` — Wisp-owned, renderer-independent static Personality cognition core.
+- `crates/wisp-cognition-core` — Wisp-owned, renderer-independent Personality + Temporal Derivative cognition core.
 - `crates/wisp-cognition-wasm` — coarse-grained `observe` / `tick` / `snapshot` / `restore` facade around that core.
 - `src/cognitionFacade.ts` — runtime loader that adapts the generated WASM facade to the injected Cognition Handle seam.
 - `src/ingressBridge.ts` — validates real shell/sidecar payloads and converts accepted observations into Stimulus Envelopes.
@@ -85,4 +85,4 @@ npm test
 ```
 
 Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`, `IngressBridge`) with fake RNG, fake clocks, mock handles, and injected shell events — no WebGL or Tauri bridge required.
-The Scenario Harness runs the same behavior orchestration headlessly and verifies that a seeded baseline produces the same cognition steps and decisions at 30, 60, and 120 fps.
+The Scenario Harness runs the same behavior orchestration headlessly and verifies that a seeded baseline produces the same cognition steps and decisions at 30, 60, and 120 fps. Its Novel Strong Gesture and Habituation scenarios prove that a novel gesture creates centered Temporal Derivative surprise and a visibly stronger scheduler-gated reaction than a habituated repetition, and that the reaction reaches behavior only through bounded Behavior Bias values.

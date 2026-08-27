@@ -20,6 +20,7 @@ class FakeWasmCognition {
     this.elapsed += dt;
     return {
       affect: { surprise: 0, valence: 0, arousal: 0 },
+      temporalSurprise: { derivativeNorm: 0.25, gate: 0.8, centeredEnergy: 0.6 },
       behaviorBias: {
         idleDwell: 1.1,
         walkSpeed: 0.9,

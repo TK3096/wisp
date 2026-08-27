@@ -117,11 +117,66 @@ export const BASELINE_SCENARIO: ScenarioDefinition = {
   despawns: [{ atS: 30.9, target: "oldest" }],
 };
 
+/**
+ * A novel strong gesture arrives before the scheduler's fixed jump roll. The
+ * raised bounded jump tendency meets the same roll that Habituation declines,
+ * so the visible reaction is stronger while the scheduler still owns the jump.
+ */
+export const NOVEL_STRONG_GESTURE_SCENARIO: ScenarioDefinition = {
+  name: "novel-strong-gesture",
+  seed: 0x4e4f564c,
+  durationS: 21.3,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25, 0, 0.5],
+  // 0.99 reschedules the jump timer. The raised tendency then accepts without
+  // needing the second scripted decline roll.
+  schedulerRolls: [0.99, 0.95],
+  personalitySeeds: [1],
+  stimuli: [
+    {
+      atS: 19.95,
+      envelope: {
+        target: "all",
+        stimulus: { kind: "gesture", gesture: "openPalm", confidence: 0.96 },
+      },
+    },
+  ],
+};
+
+/**
+ * The same strong gesture keeps arriving, then meets the same scheduler roll
+ * used by the novel scenario. Habituated cognition leaves the tendency at its
+ * Personality baseline, so roll 0.95 declines the jump.
+ */
+export const HABITUATION_SCENARIO: ScenarioDefinition = {
+  name: "habituation",
+  seed: 0x48414249,
+  // Same Personality as the novel scenario; only stimulus novelty differs.
+  personalitySeeds: [1],
+  durationS: 21.3,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25, 0, 0.5],
+  schedulerRolls: [0.99, 0.95],
+  stimuli: Array.from({ length: 99 }, (_, index) => ({
+    atS: 1.05 + index * 0.2,
+    envelope: {
+      target: "all" as const,
+      stimulus: {
+        kind: "gesture" as const,
+        gesture: "openPalm" as const,
+        confidence: 0.96,
+      },
+    },
+  })),
+};
+
 export interface ScenarioCognitionStep {
   characterId: string;
   cognitionStep: number;
   dtS: number;
   elapsedCognitionS: number;
+  temporalSurprise: unknown;
+  boundedReaction: unknown;
   behaviorSignal: unknown;
   appliedBiases: unknown;
   cognitionState: unknown;
@@ -278,6 +333,8 @@ export function scenarioCognitionSteps(
       cognitionStep: record.cognitionStep as number,
       dtS: record.dtS as number,
       elapsedCognitionS: record.elapsedCognitionS as number,
+      temporalSurprise: record.temporalSurprise,
+      boundedReaction: record.boundedReaction,
       behaviorSignal: record.behaviorSignal,
       appliedBiases: record.appliedBiases,
       cognitionState: record.cognitionState,
@@ -558,8 +615,16 @@ export function runScenario(
           cognitionStep,
           dtS: dt,
           elapsedCognitionS: cognitionStep * COGNITION_CADENCE_S,
+          temporalSurprise: { ...signal.temporalSurprise },
+          // The only reaction surface is the bounded bias set handed to the
+          // behavior orchestrator; cognition never selects a concrete action.
+          boundedReaction: {
+            surpriseEnergy: signal.temporalSurprise.centeredEnergy,
+            behaviorBias: { ...signal.behaviorBias },
+          },
           behaviorSignal: {
             affect: { ...signal.affect },
+            temporalSurprise: { ...signal.temporalSurprise },
             behaviorBias: { ...signal.behaviorBias },
           },
           appliedBiases: { ...signal.behaviorBias },

@@ -974,6 +974,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
   function makeBiasSignal(overrides: Partial<BehaviorBias>): BehaviorSignal {
     return {
       affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+      temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
       behaviorBias: {
         ...NEUTRAL_BEHAVIOR_SIGNAL.behaviorBias,
         ...overrides,

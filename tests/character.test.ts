@@ -215,6 +215,7 @@ describe("Character Behavior Signal", () => {
   ): BehaviorSignal {
     return {
       affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+      temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
       behaviorBias: {
         ...NEUTRAL_BEHAVIOR_SIGNAL.behaviorBias,
         ...behaviorBias,

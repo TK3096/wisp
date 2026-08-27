@@ -81,7 +81,24 @@ pub struct BehaviorBias {
 #[serde(rename_all = "camelCase")]
 pub struct BehaviorSignal {
     pub affect: Affect,
+    pub temporal_surprise: TemporalSurprise,
     pub behavior_bias: BehaviorBias,
+}
+
+/// The bounded Temporal Derivative summary emitted by each Cognition step.
+///
+/// `gate` is the raw sigmoid gate in `[0, 1]` and therefore rests at `0.5`
+/// during inactivity. `centered_energy` recentres that gate to `[0, 1]` so a
+/// stationary observation produces exactly zero surprise energy.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemporalSurprise {
+    /// L2 norm of the current `(fast - slow)` observation difference.
+    pub derivative_norm: f64,
+    /// `sigmoid(beta * derivative_norm)`.
+    pub gate: f64,
+    /// `clamp(2 * gate - 1, 0, 1)`; the derivative-derived surprise energy.
+    pub centered_energy: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -94,10 +111,16 @@ pub struct PersistentCognitionState {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct StaticPersonalityState {
+struct TemporalPersonalityState {
     kind: String,
     dimensions: PersonalityDimensions,
+    observation: ObservationVector,
+    fast: ObservationVector,
+    slow: ObservationVector,
+    affect: Affect,
 }
+
+type ObservationVector = [f64; OBSERVATION_DIMENSIONS];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CognitionError {
@@ -133,12 +156,44 @@ const NEUTRAL_AFFECT: Affect = Affect {
     arousal: 0.0,
 };
 const PERSONALITY_JITTER: f64 = 0.12;
+/// Number of bounded semantic observation channels fed to the derivative.
+const OBSERVATION_DIMENSIONS: usize = 3;
+const GESTURE_CHANNEL: usize = 0;
+const LIFECYCLE_CHANNEL: usize = 1;
+const ENVIRONMENT_CHANNEL: usize = 2;
+/// Canonical Temporal Derivative coefficients: fast ≈ 10× slow.
+const ALPHA_FAST: f64 = 0.3;
+const ALPHA_SLOW: f64 = 0.03;
+/// Sigmoid inverse temperature applied to the derivative norm.
+const SURPRISE_GATE_BETA: f64 = 6.0;
+/// Short-lived affect decay time constants, in seconds.
+const SURPRISE_DECAY_TAU_S: f64 = 0.6;
+const AROUSAL_DECAY_TAU_S: f64 = 1.5;
+const TEMPORAL_STATE_KIND: &str = "temporal-personality-v1";
 
 pub struct CognitionCore {
     schema_version: u32,
     character_id: String,
     dimensions: PersonalityDimensions,
+    temporal: TemporalState,
     signal: BehaviorSignal,
+}
+
+/// The mutable Temporal Derivative state that travels through every step.
+///
+/// `observation` holds the latest bounded semantic level per channel. Stimuli
+/// replace those levels immediately (last writer wins within a Cognition
+/// step), while the EMAs and short-lived affect advance only on `tick`.
+/// Replacing a level with the same value is intentionally a no-op, which is
+/// what makes repeated similar stimuli habituate.
+#[derive(Debug, Clone, Copy)]
+struct TemporalState {
+    /// Latest bounded semantic observation level. Stimuli replace channel
+    /// levels immediately; the derivative itself advances only on `tick`.
+    observation: ObservationVector,
+    fast: ObservationVector,
+    slow: ObservationVector,
+    affect: Affect,
 }
 
 impl CognitionCore {
@@ -154,12 +209,21 @@ impl CognitionCore {
         }
 
         let dimensions = compose_dimensions(&init.archetype, init.personality_seed);
-        let signal = behavior_signal(dimensions);
+        // A new character is already Materialized and has observed no gesture
+        // or environment change. Starting every EMA at that resting level
+        // removes the startup transient, so inactivity is exactly zero.
+        let temporal = TemporalState {
+            observation: [0.0, 1.0, 0.0],
+            fast: [0.0, 1.0, 0.0],
+            slow: [0.0, 1.0, 0.0],
+            affect: NEUTRAL_AFFECT,
+        };
         Ok(Self {
             schema_version: init.schema_version,
             character_id: init.character_id,
             dimensions,
-            signal,
+            temporal,
+            signal: Self::compose_signal(dimensions, &temporal),
         })
     }
 
@@ -173,8 +237,26 @@ impl CognitionCore {
                 return Err(CognitionError::InvalidStimulus);
             }
         }
-        // Static personality accepts semantic stimuli but does not change its durable
-        // composition. Dynamic cognition layers can consume them in later Phase 1 work.
+        // Stimuli update bounded observation levels. Replacing the same level
+        // with the same value is intentionally a no-op: repeated similar
+        // stimuli habituate instead of re-triggering novelty.
+        match stimulus {
+            Stimulus::Gesture { confidence, .. } => {
+                self.temporal.observation[GESTURE_CHANNEL] = confidence;
+            }
+            Stimulus::Lifecycle { phase } => {
+                self.temporal.observation[LIFECYCLE_CHANNEL] = match phase {
+                    LifecyclePhase::Materialized => 1.0,
+                    LifecyclePhase::Vanishing => -1.0,
+                };
+            }
+            Stimulus::Environment { change } => {
+                self.temporal.observation[ENVIRONMENT_CHANNEL] = match change {
+                    EnvironmentChange::AppFocus => 1.0,
+                    EnvironmentChange::AppBlur => -1.0,
+                };
+            }
+        }
         Ok(())
     }
 
@@ -182,6 +264,31 @@ impl CognitionCore {
         if !dt.is_finite() || dt < 0.0 {
             return Err(CognitionError::InvalidDt);
         }
+        let previous_energy =
+            temporal_surprise(&self.temporal.fast, &self.temporal.slow).centered_energy;
+        for channel in 0..OBSERVATION_DIMENSIONS {
+            self.temporal.fast[channel] +=
+                ALPHA_FAST * (self.temporal.observation[channel] - self.temporal.fast[channel]);
+            self.temporal.slow[channel] +=
+                ALPHA_SLOW * (self.temporal.observation[channel] - self.temporal.slow[channel]);
+        }
+
+        let temporal_surprise = temporal_surprise(&self.temporal.fast, &self.temporal.slow);
+        // Short-lived affect integrates only novelty *rises*, then leaks away
+        // on the accepted timescale. A sustained or repeated observation level
+        // therefore habituates instead of pinning surprise at its peak.
+        let novelty_rise = (temporal_surprise.centered_energy - previous_energy).max(0.0);
+        let surprise_decay = (-dt / SURPRISE_DECAY_TAU_S).exp();
+        let arousal_decay = (-dt / AROUSAL_DECAY_TAU_S).exp();
+        self.temporal.affect.surprise =
+            (self.temporal.affect.surprise * surprise_decay + novelty_rise).clamp(0.0, 1.0);
+        self.temporal.affect.arousal =
+            (self.temporal.affect.arousal * arousal_decay + novelty_rise).clamp(0.0, 1.0);
+        // Signed valence waits for the explicit-delight/dismiss reward work;
+        // surprise alone must not invent an unverifiable positive/negative mood.
+        self.temporal.affect.valence = 0.0;
+
+        self.signal = behavior_signal(self.dimensions, self.temporal.affect, temporal_surprise);
         Ok(self.signal)
     }
 
@@ -189,9 +296,13 @@ impl CognitionCore {
         PersistentCognitionState {
             schema_version: self.schema_version,
             character_id: self.character_id.clone(),
-            cognition: json!(StaticPersonalityState {
-                kind: "static-personality-v1".to_owned(),
+            cognition: json!(TemporalPersonalityState {
+                kind: TEMPORAL_STATE_KIND.to_owned(),
                 dimensions: self.dimensions,
+                observation: self.temporal.observation,
+                fast: self.temporal.fast,
+                slow: self.temporal.slow,
+                affect: self.temporal.affect,
             }),
         }
     }
@@ -204,18 +315,42 @@ impl CognitionCore {
             return Err(CognitionError::InvalidCognitionState);
         }
 
-        let restored: StaticPersonalityState = serde_json::from_value(state.cognition)
+        let restored: TemporalPersonalityState = serde_json::from_value(state.cognition)
             .map_err(|_| CognitionError::InvalidCognitionState)?;
-        if restored.kind != "static-personality-v1" || restored.dimensions != self.dimensions {
+        if restored.kind != TEMPORAL_STATE_KIND || restored.dimensions != self.dimensions {
             return Err(CognitionError::InvalidCognitionState);
         }
         if !valid_dimensions(restored.dimensions) {
             return Err(CognitionError::InvalidCognitionState);
         }
+        if !valid_observation_vector(restored.observation)
+            || !valid_observation_vector(restored.fast)
+            || !valid_observation_vector(restored.slow)
+            || !valid_affect(restored.affect)
+        {
+            return Err(CognitionError::InvalidCognitionState);
+        }
 
         self.dimensions = restored.dimensions;
-        self.signal = behavior_signal(self.dimensions);
+        self.temporal = TemporalState {
+            observation: restored.observation,
+            fast: restored.fast,
+            slow: restored.slow,
+            affect: restored.affect,
+        };
+        self.signal = Self::compose_signal(self.dimensions, &self.temporal);
         Ok(())
+    }
+
+    fn compose_signal(
+        dimensions: PersonalityDimensions,
+        temporal: &TemporalState,
+    ) -> BehaviorSignal {
+        behavior_signal(
+            dimensions,
+            temporal.affect,
+            temporal_surprise(&temporal.fast, &temporal.slow),
+        )
     }
 }
 
@@ -293,19 +428,84 @@ fn valid_dimensions(dimensions: PersonalityDimensions) -> bool {
     .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
 }
 
-fn behavior_signal(dimensions: PersonalityDimensions) -> BehaviorSignal {
+fn valid_observation_vector(vector: ObservationVector) -> bool {
+    vector
+        .iter()
+        .all(|value| value.is_finite() && (-1.0..=1.0).contains(value))
+}
+
+fn valid_affect(affect: Affect) -> bool {
+    affect.surprise.is_finite()
+        && (0.0..=1.0).contains(&affect.surprise)
+        && affect.valence.is_finite()
+        && (-1.0..=1.0).contains(&affect.valence)
+        && affect.arousal.is_finite()
+        && (0.0..=1.0).contains(&affect.arousal)
+}
+
+fn sigmoid(value: f64) -> f64 {
+    if value >= 0.0 {
+        1.0 / (1.0 + (-value).exp())
+    } else {
+        let exp = value.exp();
+        exp / (1.0 + exp)
+    }
+}
+
+fn temporal_surprise(fast: &ObservationVector, slow: &ObservationVector) -> TemporalSurprise {
+    let squared_norm = (0..OBSERVATION_DIMENSIONS)
+        .map(|channel| {
+            let derivative = fast[channel] - slow[channel];
+            derivative * derivative
+        })
+        .sum::<f64>();
+    // Defensive against a negative zero/rounding artifact; the square sum is
+    // otherwise non-negative for finite inputs.
+    let derivative_norm = squared_norm.max(0.0).sqrt();
+    let gate = (sigmoid(SURPRISE_GATE_BETA * derivative_norm)).clamp(0.0, 1.0);
+    TemporalSurprise {
+        derivative_norm,
+        gate,
+        centered_energy: (2.0 * gate - 1.0).clamp(0.0, 1.0),
+    }
+}
+
+fn behavior_signal(
+    dimensions: PersonalityDimensions,
+    affect: Affect,
+    temporal_surprise: TemporalSurprise,
+) -> BehaviorSignal {
     let energy = dimensions.energy;
     let curiosity = dimensions.curiosity;
     let engagement = energy * 0.7 + curiosity * 0.3;
+    let surprise = affect.surprise;
+    let arousal = affect.arousal;
 
     BehaviorSignal {
-        affect: NEUTRAL_AFFECT,
-        behavior_bias: BehaviorBias {
-            idle_dwell: 1.25 - 0.5 * engagement,
-            walk_speed: 0.8 + 0.4 * energy,
-            jump_chance: 0.6 + 0.8 * dimensions.boldness,
-            bubble_chance: 0.7 + 0.6 * dimensions.sociability,
-            animation_pace: 0.85 + 0.3 * energy,
-        },
+        affect,
+        temporal_surprise,
+        behavior_bias: reaction_bias(
+            BehaviorBias {
+                idle_dwell: 1.25 - 0.5 * engagement,
+                walk_speed: 0.8 + 0.4 * energy,
+                jump_chance: 0.6 + 0.8 * dimensions.boldness,
+                bubble_chance: 0.7 + 0.6 * dimensions.sociability,
+                animation_pace: 0.85 + 0.3 * energy,
+            },
+            surprise,
+            arousal,
+        ),
+    }
+}
+
+/// Map short-lived affect onto bounded behavior tendencies. Cognition never
+/// selects or commands an action; it only bends the scheduler's existing odds.
+fn reaction_bias(base: BehaviorBias, surprise: f64, arousal: f64) -> BehaviorBias {
+    BehaviorBias {
+        idle_dwell: (base.idle_dwell * (1.0 - 0.30 * arousal)).clamp(0.5, 1.5),
+        walk_speed: (base.walk_speed * (1.0 + 0.35 * arousal)).clamp(0.5, 1.75),
+        jump_chance: (base.jump_chance * (1.0 + 0.55 * surprise)).clamp(0.2, 1.8),
+        bubble_chance: (base.bubble_chance * (1.0 + 0.45 * surprise)).clamp(0.2, 1.8),
+        animation_pace: (base.animation_pace * (1.0 + 0.12 * arousal)).clamp(0.75, 1.25),
     }
 }

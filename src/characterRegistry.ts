@@ -9,6 +9,7 @@ import { Effect, EffectHandle, EffectKind } from "./effect";
 import { LoadedAsset } from "./simulationAsset";
 import {
   COGNITION_CADENCE_S,
+  COGNITION_CADENCE_EPSILON_S,
   COGNITION_SCHEMA_VERSION,
   MAX_COGNITION_CATCHUP_STEPS,
   CognitionHandle,
@@ -363,7 +364,8 @@ export class CharacterRegistry {
       entry.cognitionAccumulator += dt;
       let cognitionSteps = 0;
       while (
-        entry.cognitionAccumulator >= COGNITION_CADENCE_S &&
+        entry.cognitionAccumulator >=
+          COGNITION_CADENCE_S - COGNITION_CADENCE_EPSILON_S &&
         cognitionSteps < MAX_COGNITION_CATCHUP_STEPS
       ) {
         const signal = entry.cognition.tick(COGNITION_CADENCE_S);

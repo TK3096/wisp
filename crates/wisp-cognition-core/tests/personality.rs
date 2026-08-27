@@ -63,19 +63,23 @@ fn ticks_emit_only_bounded_behavior_biases() {
 }
 
 #[test]
-fn neutral_archetype_inputs_remain_in_accepted_behavior_bounds() {
+fn novel_environment_changes_stay_in_accepted_dynamic_behavior_bounds() {
     for seed in [0, u32::MAX] {
         let mut core = CognitionCore::new(init(seed, "neutral")).unwrap();
         core.observe(Stimulus::Environment {
             change: wisp_cognition_core::EnvironmentChange::AppFocus,
         })
         .unwrap();
-        let bias = core.tick(0.1).unwrap().behavior_bias;
+        let signal = core.tick(0.1).unwrap();
+        let bias = signal.behavior_bias;
 
-        assert!((0.75..=1.25).contains(&bias.idle_dwell));
-        assert!((0.8..=1.2).contains(&bias.walk_speed));
-        assert!((0.6..=1.4).contains(&bias.jump_chance));
-        assert!((0.7..=1.3).contains(&bias.bubble_chance));
+        assert!(signal.affect.surprise > 0.0);
+        assert!(signal.temporal_surprise.centered_energy > 0.0);
+
+        assert!((0.5..=1.5).contains(&bias.idle_dwell));
+        assert!((0.5..=1.75).contains(&bias.walk_speed));
+        assert!((0.2..=1.8).contains(&bias.jump_chance));
+        assert!((0.2..=1.8).contains(&bias.bubble_chance));
         assert!((0.75..=1.25).contains(&bias.animation_pace));
     }
 }
@@ -91,13 +95,17 @@ fn snapshots_are_versioned_opaque_and_restorable() {
     assert_eq!(
         snapshot.cognition,
         json!({
-            "kind": "static-personality-v1",
+            "kind": "temporal-personality-v1",
             "dimensions": {
                 "energy": core.dimensions().energy,
                 "curiosity": core.dimensions().curiosity,
                 "boldness": core.dimensions().boldness,
                 "sociability": core.dimensions().sociability,
-            }
+            },
+            "observation": [0.0, 1.0, 0.0],
+            "fast": [0.0, 1.0, 0.0],
+            "slow": [0.0, 1.0, 0.0],
+            "affect": { "surprise": 0.0, "valence": 0.0, "arousal": 0.0 },
         })
     );
 
