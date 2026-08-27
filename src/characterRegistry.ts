@@ -78,6 +78,11 @@ export interface RegistryOptions {
   schedulerRng?: () => number;
   /** Deterministic identity source for replays; production uses random UUIDs. */
   createCharacterId?: () => string;
+  /**
+   * Deterministic Personality Seed source for replays. Production derives it
+   * from the stable Character Identity and Archetype.
+   */
+  derivePersonalitySeed?: (characterId: string, archetype: string) => number;
 }
 
 function createInertCharacterHandle(): CharacterHandle {
@@ -214,6 +219,7 @@ export class CharacterRegistry {
       createBubbleHandle,
       createCognitionHandle,
       createCharacterId,
+      derivePersonalitySeed: deriveSeed,
     } = this.opts;
 
     const id = this.nextId++;
@@ -265,7 +271,8 @@ export class CharacterRegistry {
       schemaVersion: COGNITION_SCHEMA_VERSION,
       characterId,
       archetype: entry.name,
-      personalitySeed: derivePersonalitySeed(characterId, entry.name),
+      personalitySeed: deriveSeed?.(characterId, entry.name)
+        ?? derivePersonalitySeed(characterId, entry.name),
     });
 
     // Fixed initial roll timers so characters don't lock-step on the first roll.

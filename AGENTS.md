@@ -9,6 +9,8 @@ Wisp is a macOS desktop overlay app — pixel-art characters wander on your scre
 ```bash
 npm run tauri dev   # launch the full overlay app (starts vite dev server + Tauri)
 npm test            # run Vitest unit suite (no WebGL or Tauri required)
+npm run test:cognition # run Rust core tests and the Node-backed WASM facade test
+npm run build:cognition # regenerate public/cognition (build state; never commit)
 npm run build       # tsc + vite production build
 ```
 
@@ -39,6 +41,9 @@ src/
 src-tauri/
   src/lib.rs          — tray menu (per-character Despawn submenu, Gestures toggle), Cmd+Shift+W hotkey, window config
   src/sidecar.rs      — SidecarProcess: start/stop/is_running, stdout NDJSON reader, crash callback
+crates/
+  wisp-cognition-core/ — Wisp-owned pure Rust static Personality core (no shell, renderer, Python, DOM, or WASM dependencies)
+  wisp-cognition-wasm/ — coarse-grained wasm-bindgen facade exposing only the Cognition Handle shape
 src-sidecar/
   main.py             — entry point: argument parsing, constructs Detector
   detector.py         — frame loop: cv2 + MediaPipe → Debouncer → EventEmitter

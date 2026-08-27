@@ -8,7 +8,7 @@ import {
   scenarioCognitionSteps,
 } from "../src/scenarioHarness";
 import { EFFECT, GREETINGS, IDLE_LINES } from "../src/config";
-import { COGNITION_SCHEMA_VERSION } from "../src/cognition";
+import { COGNITION_SCHEMA_VERSION, CognitionHandle } from "../src/cognition";
 
 describe("Scenario Harness baseline", () => {
   it("replays the current spawn, wander, jump, bubble, and despawn behavior", () => {
@@ -123,6 +123,67 @@ describe("Scenario Harness baseline", () => {
     expect(cognitionSteps[2]).toEqual(cognitionSteps[0]);
     expect(decisions[1]).toEqual(decisions[0]);
     expect(decisions[2]).toEqual(decisions[0]);
+  });
+
+  it("shows legible differences from contrasting personality seeds without moving scheduler ownership", () => {
+    const createCognitionHandle = ({
+      personalitySeed,
+    }: {
+      personalitySeed: number;
+    }): CognitionHandle => ({
+      observe() {},
+      tick() {
+        const active = personalitySeed === 0;
+        return {
+          affect: { surprise: 0, valence: 0, arousal: 0 },
+          behaviorBias: active
+            ? {
+                idleDwell: 0.5,
+                walkSpeed: 1.5,
+                jumpChance: 1,
+                bubbleChance: 1,
+                animationPace: 1,
+              }
+            : {
+                idleDwell: 1.5,
+                walkSpeed: 0.5,
+                jumpChance: 0,
+                bubbleChance: 0,
+                animationPace: 1,
+              },
+        };
+      },
+      snapshot() {
+        return {
+          schemaVersion: COGNITION_SCHEMA_VERSION,
+          characterId: "ignored",
+          cognition: null,
+        };
+      },
+      restore() {},
+    });
+    const scenarioWithSeed = (personalitySeed: number) => ({
+      ...BASELINE_SCENARIO,
+      name: `personality-${personalitySeed}`,
+      personalitySeeds: [personalitySeed],
+    });
+    const quick = runScenario(scenarioWithSeed(0), 60, { createCognitionHandle });
+    const deliberate = runScenario(scenarioWithSeed(4294967295), 60, {
+      createCognitionHandle,
+    });
+    const quickDecisions = scenarioBehaviorDecisions(quick);
+    const deliberateDecisions = scenarioBehaviorDecisions(deliberate);
+
+    const walkCount = (decisions: ReturnType<typeof scenarioBehaviorDecisions>) =>
+      decisions.filter(
+        (decision) =>
+          decision.type === "animation_changed" && decision.to === "walk",
+      ).length;
+    expect(walkCount(quickDecisions)).toBeGreaterThan(walkCount(deliberateDecisions));
+    expect(quickDecisions.some((decision) => decision.type === "jump_started")).toBe(true);
+    expect(deliberateDecisions.some((decision) => decision.type === "jump_started")).toBe(false);
+    expect(quickDecisions.some((decision) => decision.type === "bubble_started" && decision.reason === "idle")).toBe(true);
+    expect(deliberateDecisions.some((decision) => decision.type === "bubble_started" && decision.reason === "idle")).toBe(false);
   });
 
   it("writes traces without blocking and drops oldest queued lines under pressure", async () => {

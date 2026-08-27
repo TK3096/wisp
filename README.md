@@ -22,7 +22,17 @@ A desktop overlay app where pixel-art characters wander around on your screen an
 npm install
 npm run tauri dev   # launch the overlay
 npm test            # run the Vitest suite
+npm run test:cognition  # run Rust core and Node-backed WASM facade tests
+npm run build:cognition # generate public/cognition (also part of npm run build)
 ```
+
+The WASM cognition package under `public/cognition/` is generated build state:
+do not commit it. `npm run build` regenerates it with wasm-pack before
+TypeScript compilation and the Vite production bundle. Plain Vite development
+should run `npm run build:cognition` first; `npm run tauri dev` does this
+automatically. The Vitest suite deliberately does not build or import WASM—it
+uses injected Cognition Handle mocks so simulation tests stay fast and
+renderer/Rust-toolchain free.
 
 ## Customizing
 
@@ -54,6 +64,9 @@ The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubbl
 
 - `src/config.ts` — tunables, asset manifest, greeting / idle line pools, `BUBBLE` and `JUMP` config.
 - `src/cognition.ts` — pure stimulus/Behavior Signal contract, fixed 10 Hz cadence limits, and neutral default handle.
+- `crates/wisp-cognition-core` — Wisp-owned, renderer-independent static Personality cognition core.
+- `crates/wisp-cognition-wasm` — coarse-grained `observe` / `tick` / `snapshot` / `restore` facade around that core.
+- `src/cognitionFacade.ts` — runtime loader that adapts the generated WASM facade to the injected Cognition Handle seam.
 - `src/ingressBridge.ts` — validates real shell/sidecar payloads and converts accepted observations into Stimulus Envelopes.
 - `src/shellBridge.ts` — transport-free shell-event wiring around spawn/despawn commands and stimulus ingress.
 - `src/character.ts` — character state machine (idle ↔ walk), jump arc (`tickAirborne`), bubble ownership.

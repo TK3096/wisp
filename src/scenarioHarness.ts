@@ -11,9 +11,12 @@ import {
   COGNITION_CADENCE_S,
   COGNITION_SCHEMA_VERSION,
   CognitionInit,
+  CognitionHandle,
   PersistentCognitionState,
+  Stimulus,
   StimulusEnvelope,
   createNeutralCognitionHandle,
+  derivePersonalitySeed,
 } from "./cognition";
 import { LoadedAsset } from "./simulationAsset";
 
@@ -38,6 +41,8 @@ export interface ScenarioDefinition {
   spawnRolls?: number[];
   /** Every scheduler draw, in consumption order. */
   schedulerRolls: number[];
+  /** Optional deterministic seeds in spawn order; defaults to identity-derived seeds. */
+  personalitySeeds?: number[];
   stimuli?: ScenarioStimulus[];
   despawns?: ScenarioDespawn[];
 }
@@ -89,6 +94,8 @@ export interface ScenarioResult {
 export interface ScenarioRunOptions {
   traceSink?: TraceSink;
   maxQueuedTraceLines?: number;
+  /** Injected cognition seam. Unit tests stay pure and never build WASM. */
+  createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
 }
 
 export const BASELINE_SCENARIO: ScenarioDefinition = {
@@ -434,6 +441,18 @@ function validateScenario(scenario: ScenarioDefinition, renderScheduleHz: number
       throw new Error("Scenario rolls must be finite and within [0, 1)");
     }
   }
+  if (scenario.personalitySeeds?.length !== undefined) {
+    if (scenario.personalitySeeds.length !== scenario.spawnTimes.length) {
+      throw new Error("Scenario personality seeds must align with spawn times");
+    }
+    if (
+      scenario.personalitySeeds.some(
+        (seed) => !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff,
+      )
+    ) {
+      throw new Error("Scenario personality seeds must be integers in [0, 2^32)");
+    }
+  }
 }
 
 function buildEventSchedule(scenario: ScenarioDefinition): ScheduledEvent[] {
@@ -506,9 +525,12 @@ export function runScenario(
 
   let characterIdentityIndex = 0;
   const nextCharacterId = () => `${scenario.name}-character-${++characterIdentityIndex}`;
+  let nextPersonalitySeedIndex = 0;
 
+  const createCognition =
+    options.createCognitionHandle ?? createNeutralCognitionHandle;
   const makeCognitionHandle = (init: CognitionInit) => {
-    const neutral = createNeutralCognitionHandle(init);
+    const cognition = createCognition(init);
     let cognitionStep = 0;
 
     const envelopeFor = (stimulus: unknown): StimulusEnvelope =>
@@ -518,8 +540,8 @@ export function runScenario(
       };
 
     return {
-      observe(stimulus: Parameters<typeof neutral.observe>[0]) {
-        neutral.observe(stimulus);
+      observe(stimulus: Stimulus) {
+        cognition.observe(stimulus);
         emit("stimulus_observed", {
           characterId: init.characterId,
           archetype: init.archetype,
@@ -527,8 +549,8 @@ export function runScenario(
         });
       },
       tick(dt: number) {
-        const signal = neutral.tick(dt);
-        const snapshot = neutral.snapshot();
+        const signal = cognition.tick(dt);
+        const snapshot = cognition.snapshot();
         cognitionStep++;
         emit("cognition_step", {
           characterId: init.characterId,
@@ -545,8 +567,9 @@ export function runScenario(
         });
         return signal;
       },
-      snapshot: () => neutral.snapshot(),
-      restore: neutral.restore.bind(neutral),
+      snapshot: () => cognition.snapshot(),
+      restore: (state: Parameters<CognitionHandle["restore"]>[0]) =>
+        cognition.restore(state),
     };
   };
 
@@ -671,6 +694,10 @@ export function runScenario(
     createEffectHandle: makeEffectHandle,
     createCognitionHandle: makeCognitionHandle,
     createCharacterId: nextCharacterId,
+    derivePersonalitySeed: (characterId, archetype) => {
+      const seed = scenario.personalitySeeds?.[nextPersonalitySeedIndex++];
+      return seed ?? derivePersonalitySeed(characterId, archetype);
+    },
   });
 
   const recipientsFor = (envelope: StimulusEnvelope): string[] =>

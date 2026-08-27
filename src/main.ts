@@ -7,6 +7,7 @@ import { CharacterRegistry } from "./characterRegistry";
 import { defaultCreateBubbleHandle, defaultCreateHandle } from "./rendering";
 import { EffectKind } from "./effect";
 import { connectShellEvents } from "./shellBridge";
+import { bindWasmCognition } from "./cognitionFacade";
 
 async function init() {
   // WKWebView (macOS) rejects createImageBitmap on tauri:// scheme responses;
@@ -50,6 +51,7 @@ async function init() {
     floorY: window.innerHeight - FLOOR_BAND_PX,
     createHandle: defaultCreateHandle,
     createBubbleHandle: defaultCreateBubbleHandle,
+    createCognitionHandle: await bindWasmCognition(),
     createEffectHandle: (kind: EffectKind) => {
       const textures = kind === "spawn" ? spawnTextures : despawnTextures;
       const sprite = new Sprite(textures[0] as unknown as Texture);
