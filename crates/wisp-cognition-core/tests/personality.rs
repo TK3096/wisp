@@ -63,6 +63,24 @@ fn ticks_emit_only_bounded_behavior_biases() {
 }
 
 #[test]
+fn neutral_archetype_inputs_remain_in_accepted_behavior_bounds() {
+    for seed in [0, u32::MAX] {
+        let mut core = CognitionCore::new(init(seed, "neutral")).unwrap();
+        core.observe(Stimulus::Environment {
+            change: wisp_cognition_core::EnvironmentChange::AppFocus,
+        })
+        .unwrap();
+        let bias = core.tick(0.1).unwrap().behavior_bias;
+
+        assert!((0.75..=1.25).contains(&bias.idle_dwell));
+        assert!((0.8..=1.2).contains(&bias.walk_speed));
+        assert!((0.6..=1.4).contains(&bias.jump_chance));
+        assert!((0.7..=1.3).contains(&bias.bubble_chance));
+        assert!((0.75..=1.25).contains(&bias.animation_pace));
+    }
+}
+
+#[test]
 fn snapshots_are_versioned_opaque_and_restorable() {
     let mut core = CognitionCore::new(init(0x10203040, "mask-dude")).unwrap();
     core.tick(0.1).unwrap();

@@ -6,6 +6,7 @@
   "scripts": {
     "build:cognition": "wasm-pack build crates/wisp-cognition-wasm --target web --out-dir ../../public/cognition --release",
     "test:cognition": "cargo test -p wisp-cognition-core && wasm-pack test --node crates/wisp-cognition-wasm",
+    "test:cognition:scenario": "npm run build:cognition && vitest run --config vitest.cognition.config.ts",
     "dev": "vite",
     "build": "npm run build:cognition && tsc && vite build",
     "preview": "vite preview",

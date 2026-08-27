@@ -23,6 +23,7 @@ npm install
 npm run tauri dev   # launch the overlay
 npm test            # run the Vitest suite
 npm run test:cognition  # run Rust core and Node-backed WASM facade tests
+npm run test:cognition:scenario # build and replay the generated facade in the Scenario Harness
 npm run build:cognition # generate public/cognition (also part of npm run build)
 ```
 
