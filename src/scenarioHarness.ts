@@ -158,7 +158,7 @@ export const HABITUATION_SCENARIO: ScenarioDefinition = {
   spawnRolls: [0, 0.25, 0.25, 0, 0.5],
   schedulerRolls: [0.99, 0.95],
   stimuli: Array.from({ length: 99 }, (_, index) => ({
-    atS: 1.05 + index * 0.2,
+    atS: 1.05 + index * 0.1,
     envelope: {
       target: "all" as const,
       stimulus: {
@@ -170,12 +170,104 @@ export const HABITUATION_SCENARIO: ScenarioDefinition = {
   })),
 };
 
+/** Neutral inactivity before the accepted Quiet Boredom threshold. */
+export const NEUTRAL_BASELINE_SCENARIO: ScenarioDefinition = {
+  name: "neutral-baseline",
+  seed: 0x4e455552,
+  durationS: 9.5,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25],
+  personalitySeeds: [17],
+  schedulerRolls: [],
+};
+
+/** Repeated caution observations, followed by the opposite environment change. */
+export const CAUTION_STARTLE_ARC_SCENARIO: ScenarioDefinition = {
+  name: "caution-startle-arc",
+  seed: 0x43555443,
+  durationS: 6.2,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25],
+  personalitySeeds: [17],
+  schedulerRolls: [],
+  stimuli: [
+    ...Array.from({ length: 50 }, (_, index) => ({
+      atS: 0.8 + index * 0.1,
+      envelope: {
+        target: "all" as const,
+        stimulus: { kind: "environment" as const, change: "appBlur" as const },
+      },
+    })),
+    {
+      atS: 5.8,
+      envelope: {
+        target: "all" as const,
+        stimulus: { kind: "environment" as const, change: "appFocus" as const },
+      },
+    },
+  ],
+};
+
+/** Quiet, low-arousal inactivity long enough to cross the boredom threshold. */
+export const QUIET_BOREDOM_SCENARIO: ScenarioDefinition = {
+  name: "quiet-boredom",
+  seed: 0x5142554f,
+  durationS: 11.5,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25],
+  personalitySeeds: [17],
+  schedulerRolls: [],
+};
+
+/** Two Personality Seeds see the same novel gesture but retain different bases. */
+export const PERSONALITY_CONTRAST_SCENARIO: ScenarioDefinition = {
+  name: "personality-contrast",
+  seed: 0x50435452,
+  durationS: 9.5,
+  spawnTimes: [0, 0.1],
+  spawnRolls: [0, 0.25, 0.25, 0, 0.75, 0.75],
+  schedulerRolls: [],
+  personalitySeeds: [17, 0x5f5f5f],
+  stimuli: [
+    {
+      atS: 8,
+      envelope: {
+        target: "all",
+        stimulus: { kind: "gesture", gesture: "openPalm", confidence: 0.96 },
+      },
+    },
+  ],
+};
+
+/** Dense Stimuli meet explicit scheduler rolls; cognition may only bias them. */
+export const REACTION_STORM_SCENARIO: ScenarioDefinition = {
+  name: "reaction-storm",
+  seed: 0x53544f52,
+  durationS: 32.0,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25],
+  personalitySeeds: [17],
+  schedulerRolls: Array.from({ length: 16 }, () => 0),
+  stimuli: Array.from({ length: 608 }, (_, index) => ({
+    atS: 0.8 + index * 0.05,
+    envelope: {
+      target: "all" as const,
+      stimulus: {
+        kind: "gesture" as const,
+        gesture: "openPalm" as const,
+        confidence: index % 2 === 0 ? 0.96 : 0.32,
+      },
+    },
+  })),
+};
+
 export interface ScenarioCognitionStep {
   characterId: string;
   cognitionStep: number;
   dtS: number;
   elapsedCognitionS: number;
   temporalSurprise: unknown;
+  microBelief: unknown;
   boundedReaction: unknown;
   behaviorSignal: unknown;
   appliedBiases: unknown;
@@ -334,6 +426,7 @@ export function scenarioCognitionSteps(
       dtS: record.dtS as number,
       elapsedCognitionS: record.elapsedCognitionS as number,
       temporalSurprise: record.temporalSurprise,
+      microBelief: record.microBelief,
       boundedReaction: record.boundedReaction,
       behaviorSignal: record.behaviorSignal,
       appliedBiases: record.appliedBiases,
@@ -616,15 +709,28 @@ export function runScenario(
           dtS: dt,
           elapsedCognitionS: cognitionStep * COGNITION_CADENCE_S,
           temporalSurprise: { ...signal.temporalSurprise },
+          microBelief: { ...signal.microBelief },
           // The only reaction surface is the bounded bias set handed to the
           // behavior orchestrator; cognition never selects a concrete action.
           boundedReaction: {
+            kind: signal.reaction.kind,
+            score: signal.reaction.score,
+            remainingS: signal.reaction.remainingS,
             surpriseEnergy: signal.temporalSurprise.centeredEnergy,
             behaviorBias: { ...signal.behaviorBias },
           },
           behaviorSignal: {
             affect: { ...signal.affect },
             temporalSurprise: { ...signal.temporalSurprise },
+            microBelief: { ...signal.microBelief },
+            reaction: {
+              kind: signal.reaction.kind,
+              score: signal.reaction.score,
+              remainingS: signal.reaction.remainingS,
+              candidates: signal.reaction.candidates.map((candidate) => ({
+                ...candidate,
+              })),
+            },
             behaviorBias: { ...signal.behaviorBias },
           },
           appliedBiases: { ...signal.behaviorBias },

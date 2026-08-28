@@ -1,4 +1,4 @@
-export const COGNITION_SCHEMA_VERSION = 1;
+export const COGNITION_SCHEMA_VERSION = 2;
 /** Cognition advances at 10 Hz, independently of the render ticker. */
 export const COGNITION_CADENCE_S = 0.1;
 /** A single render tick may catch up at most one second of cognition. */
@@ -51,6 +51,32 @@ export interface TemporalSurprise {
   centeredEnergy: number;
 }
 
+/** Slow, bounded LeakyIntegrator projections emitted by every Cognition step. */
+export interface MicroBeliefProjection {
+  novelty: number;
+  familiarity: number;
+  socialPositivity: number;
+  caution: number;
+}
+
+export type ReactionKind = "curiosity" | "startle" | "excitement" | "boredom";
+export type Reaction = ReactionKind | "none";
+
+export interface ReactionCandidate {
+  kind: ReactionKind;
+  score: number;
+  threshold: number;
+  eligible: boolean;
+  requiresStimulus: boolean;
+}
+
+export interface ReactionSignal {
+  kind: Reaction;
+  score: number;
+  remainingS: number;
+  candidates: ReactionCandidate[];
+}
+
 export interface BehaviorBias {
   idleDwell: number;
   walkSpeed: number;
@@ -62,6 +88,8 @@ export interface BehaviorBias {
 export interface BehaviorSignal {
   affect: Affect;
   temporalSurprise: TemporalSurprise;
+  microBelief: MicroBeliefProjection;
+  reaction: ReactionSignal;
   behaviorBias: BehaviorBias;
 }
 
@@ -88,6 +116,47 @@ export const NEUTRAL_BEHAVIOR_SIGNAL: BehaviorSignal = Object.freeze({
     derivativeNorm: 0,
     gate: 0.5,
     centeredEnergy: 0,
+  }),
+  microBelief: Object.freeze({
+    novelty: 0,
+    familiarity: 0,
+    socialPositivity: 0,
+    caution: 0,
+  }),
+  reaction: Object.freeze({
+    kind: "none",
+    score: 0,
+    remainingS: 0,
+    candidates: Object.freeze([
+      Object.freeze({
+        kind: "startle",
+        score: 0,
+        threshold: 0.58,
+        eligible: false,
+        requiresStimulus: true,
+      }),
+      Object.freeze({
+        kind: "excitement",
+        score: 0,
+        threshold: 0.62,
+        eligible: false,
+        requiresStimulus: true,
+      }),
+      Object.freeze({
+        kind: "curiosity",
+        score: 0,
+        threshold: 0.35,
+        eligible: false,
+        requiresStimulus: true,
+      }),
+      Object.freeze({
+        kind: "boredom",
+        score: 0,
+        threshold: 0.75,
+        eligible: false,
+        requiresStimulus: false,
+      }),
+    ]),
   }),
   behaviorBias: Object.freeze({
     idleDwell: 1,
@@ -144,6 +213,19 @@ export function derivePersonalitySeed(
 }
 
 export function validateBehaviorSignal(signal: BehaviorSignal): void {
+  const reactionKinds = new Set<Reaction>([
+    "none",
+    "curiosity",
+    "startle",
+    "excitement",
+    "boredom",
+  ]);
+  const candidateKinds = new Set<ReactionKind>([
+    "curiosity",
+    "startle",
+    "excitement",
+    "boredom",
+  ]);
   const boundedValues: { name: string; value: number; min: number; max: number }[] = [
     { name: "affect.surprise", value: signal.affect.surprise, min: 0, max: 1 },
     { name: "affect.valence", value: signal.affect.valence, min: -1, max: 1 },
@@ -161,6 +243,22 @@ export function validateBehaviorSignal(signal: BehaviorSignal): void {
       min: 0,
       max: 1,
     },
+    { name: "microBelief.novelty", value: signal.microBelief.novelty, min: 0, max: 1 },
+    {
+      name: "microBelief.familiarity",
+      value: signal.microBelief.familiarity,
+      min: 0,
+      max: 1,
+    },
+    {
+      name: "microBelief.socialPositivity",
+      value: signal.microBelief.socialPositivity,
+      min: 0,
+      max: 1,
+    },
+    { name: "microBelief.caution", value: signal.microBelief.caution, min: 0, max: 1 },
+    { name: "reaction.score", value: signal.reaction.score, min: 0, max: 1 },
+    { name: "reaction.remainingS", value: signal.reaction.remainingS, min: 0, max: 4 },
     { name: "behaviorBias.idleDwell", value: signal.behaviorBias.idleDwell, min: 0, max: 2 },
     { name: "behaviorBias.walkSpeed", value: signal.behaviorBias.walkSpeed, min: 0, max: 2 },
     { name: "behaviorBias.jumpChance", value: signal.behaviorBias.jumpChance, min: 0, max: 2 },
@@ -172,6 +270,30 @@ export function validateBehaviorSignal(signal: BehaviorSignal): void {
       max: 1.25,
     },
   ];
+
+  if (!reactionKinds.has(signal.reaction.kind)) {
+    throw new Error("reaction.kind must be a recognized reaction");
+  }
+  if (signal.reaction.candidates.length !== 4) {
+    throw new Error("reaction.candidates must contain exactly four scored candidates");
+  }
+  for (const [index, candidate] of signal.reaction.candidates.entries()) {
+    if (!candidateKinds.has(candidate.kind)) {
+      throw new Error(`reaction.candidates[${index}].kind is invalid`);
+    }
+    if (
+      !Number.isFinite(candidate.score) ||
+      candidate.score < 0 ||
+      candidate.score > 1 ||
+      !Number.isFinite(candidate.threshold) ||
+      candidate.threshold <= 0 ||
+      candidate.threshold > 1
+    ) {
+      throw new Error(
+        `reaction.candidates[${index}].score and threshold must be finite and within (0, 1]`,
+      );
+    }
+  }
 
   for (const { name, value, min, max } of boundedValues) {
     if (!Number.isFinite(value) || value < min || value > max) {

@@ -143,6 +143,8 @@ describe("Scenario Harness baseline", () => {
         return {
           affect: { surprise: 0, valence: 0, arousal: 0 },
           temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
+          microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,
+          reaction: NEUTRAL_BEHAVIOR_SIGNAL.reaction,
           behaviorBias: active
             ? {
                 idleDwell: 0.5,
@@ -263,11 +265,11 @@ describe("Temporal Derivative acceptance scenarios", () => {
       const derivativeNorm = Math.sqrt(
         fast.reduce((total, value, index) => total + (value - slow[index]) ** 2, 0),
       );
-      const gate = sigmoid(6 * derivativeNorm);
+      const gate = sigmoid(4 * derivativeNorm);
       return {
         derivativeNorm,
         gate,
-        centeredEnergy: Math.min(1, Math.max(0, 2 * gate - 1)),
+        centeredEnergy: Math.min(1, Math.max(0, 2.6 * (gate - 0.5))),
       };
     };
 
@@ -281,12 +283,14 @@ describe("Temporal Derivative acceptance scenarios", () => {
         slow = slow.map((value, index) => value + 0.03 * (observation[index] - value));
         const temporal = summary();
         const rise = Math.max(0, temporal.centeredEnergy - previousEnergy);
-        surprise = Math.min(1, surprise * Math.exp(-dt / 0.6) + rise);
+        surprise = Math.min(1, surprise * Math.exp(-dt / 0.65) + rise);
         arousal = Math.min(1, arousal * Math.exp(-dt / 1.5) + rise);
 
         return {
           affect: { surprise, valence: 0, arousal },
           temporalSurprise: temporal,
+          microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,
+          reaction: NEUTRAL_BEHAVIOR_SIGNAL.reaction,
           behaviorBias: {
             idleDwell: 1,
             walkSpeed: 1,

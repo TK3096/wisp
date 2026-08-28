@@ -3,13 +3,22 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import {
   BASELINE_SCENARIO,
+  CAUTION_STARTLE_ARC_SCENARIO,
   HABITUATION_SCENARIO,
   NOVEL_STRONG_GESTURE_SCENARIO,
+  NEUTRAL_BASELINE_SCENARIO,
+  PERSONALITY_CONTRAST_SCENARIO,
+  QUIET_BOREDOM_SCENARIO,
+  REACTION_STORM_SCENARIO,
   runScenario,
   scenarioBehaviorDecisions,
   scenarioCognitionSteps,
 } from "../src/scenarioHarness";
-import { BehaviorSignal, CognitionInit, CognitionHandle } from "../src/cognition";
+import {
+  BehaviorSignal,
+  CognitionInit,
+  CognitionHandle,
+} from "../src/cognition";
 
 type CognitionWasmModule = {
   WispCognition: new (init: CognitionInit) => CognitionHandle;
@@ -26,9 +35,7 @@ async function loadGeneratedCognition(): Promise<CognitionWasmModule> {
 }
 
 it("turns contrasting real Personality Seeds into different headless behavior decisions", async () => {
-  const wasm = await loadGeneratedCognition();
-  const createCognitionHandle = (init: CognitionInit): CognitionHandle =>
-    new wasm.WispCognition(init);
+  const createCognitionHandle = await createLiveCognition();
   const scenarioWithSeed = (personalitySeed: number) => ({
     ...BASELINE_SCENARIO,
     name: `live-personality-${personalitySeed}`,
@@ -96,10 +103,15 @@ function expectEquivalentFrameRateReplays(replay: LiveReplay): void {
   expect(replay.stableEvents[2]).toEqual(replay.stableEvents[0]);
 }
 
-it("passes the Novel Strong Gesture acceptance through the live cognition core", async () => {
+async function createLiveCognition(): Promise<
+  (init: CognitionInit) => CognitionHandle
+> {
   const wasm = await loadGeneratedCognition();
-  const createCognitionHandle = (init: CognitionInit): CognitionHandle =>
-    new wasm.WispCognition(init);
+  return (init: CognitionInit) => new wasm.WispCognition(init);
+}
+
+it("passes the Novel Strong Gesture acceptance through the live cognition core", async () => {
+  const createCognitionHandle = await createLiveCognition();
   const replay = replayAtAllFrameRates(
     NOVEL_STRONG_GESTURE_SCENARIO,
     createCognitionHandle,
@@ -152,9 +164,7 @@ it("passes the Novel Strong Gesture acceptance through the live cognition core",
 });
 
 it("passes the Habituation acceptance through the live cognition core", async () => {
-  const wasm = await loadGeneratedCognition();
-  const createCognitionHandle = (init: CognitionInit): CognitionHandle =>
-    new wasm.WispCognition(init);
+  const createCognitionHandle = await createLiveCognition();
   const replay = replayAtAllFrameRates(
     HABITUATION_SCENARIO,
     createCognitionHandle,
@@ -190,9 +200,7 @@ it("passes the Habituation acceptance through the live cognition core", async ()
 });
 
 it("makes the live novel gesture visibly stronger than its habituated repetition", async () => {
-  const wasm = await loadGeneratedCognition();
-  const createCognitionHandle = (init: CognitionInit): CognitionHandle =>
-    new wasm.WispCognition(init);
+  const createCognitionHandle = await createLiveCognition();
   const novel = runScenario(NOVEL_STRONG_GESTURE_SCENARIO, 60, {
     createCognitionHandle,
   });
@@ -210,4 +218,178 @@ it("makes the live novel gesture visibly stronger than its habituated repetition
       (decision) => decision.type === "jump_started",
     ),
   ).toBe(false);
+});
+
+it("passes the Neutral Baseline Micro-belief acceptance through live cognition", async () => {
+  const createCognitionHandle = await createLiveCognition();
+  const replay = replayAtAllFrameRates(
+    NEUTRAL_BASELINE_SCENARIO,
+    createCognitionHandle,
+  );
+  const steps = replay.steps[1];
+  const decisions = replay.decisions[1];
+
+  for (const step of steps) {
+    const signal = step.behaviorSignal as BehaviorSignal;
+    expect(signal.reaction.kind).toBe("none");
+    expect(signal.microBelief).toEqual({
+      novelty: 0,
+      familiarity: 0,
+      socialPositivity: 0,
+      caution: 0,
+    });
+    expect(signal.reaction.candidates).toHaveLength(4);
+  }
+  expect(
+    decisions.some((decision) => decision.type === "jump_started"),
+  ).toBe(false);
+  expect(
+    decisions.filter((decision) => decision.type === "bubble_started"),
+  ).toHaveLength(1);
+  expectEquivalentFrameRateReplays(replay);
+});
+
+it("passes the Caution/Startle Arc acceptance through live cognition", async () => {
+  const createCognitionHandle = await createLiveCognition();
+  const replay = replayAtAllFrameRates(
+    CAUTION_STARTLE_ARC_SCENARIO,
+    createCognitionHandle,
+  );
+  const steps = replay.steps[1];
+  const firstBlur = steps.find((step) => step.elapsedCognitionS === 0.8);
+  const startled = steps.find(
+    (step) => (step.behaviorSignal as BehaviorSignal).reaction.kind === "startle",
+  );
+  const startleSignal = startled?.behaviorSignal as BehaviorSignal;
+  const firstSignal = firstBlur?.behaviorSignal as BehaviorSignal;
+
+  expect(firstSignal.reaction.kind).toBe("curiosity");
+  expect(startleSignal.reaction.kind).toBe("startle");
+  expect(startleSignal.microBelief.caution).toBeGreaterThan(
+    startleSignal.microBelief.novelty,
+  );
+  expect(startleSignal.reaction.remainingS).toBeLessThanOrEqual(0.8);
+  expectEquivalentFrameRateReplays(replay);
+});
+
+it("passes the Quiet Boredom acceptance through live cognition", async () => {
+  const createCognitionHandle = await createLiveCognition();
+  const replay = replayAtAllFrameRates(
+    QUIET_BOREDOM_SCENARIO,
+    createCognitionHandle,
+  );
+  const steps = replay.steps[1];
+  const bored = steps.find(
+    (step) => (step.behaviorSignal as BehaviorSignal).reaction.kind === "boredom",
+  );
+
+  expect(bored).toBeDefined();
+  expect(bored?.elapsedCognitionS).toBeGreaterThan(8);
+  expect(bored?.elapsedCognitionS).toBeLessThanOrEqual(12);
+  expect((bored?.behaviorSignal as BehaviorSignal).reaction.remainingS).toBe(
+    4,
+  );
+  expectEquivalentFrameRateReplays(replay);
+});
+
+it("passes the Personality Contrast acceptance through live cognition", async () => {
+  const createCognitionHandle = await createLiveCognition();
+  const replay = replayAtAllFrameRates(
+    PERSONALITY_CONTRAST_SCENARIO,
+    createCognitionHandle,
+  );
+  const result = replay.results[1];
+  const gestureStep = replay.steps[1].filter(
+    (step) =>
+      ((step.behaviorSignal as BehaviorSignal).temporalSurprise.centeredEnergy ?? 0) >
+      0.3,
+  );
+  const first = gestureStep[0]?.behaviorSignal as BehaviorSignal;
+  const second = gestureStep[1]?.behaviorSignal as BehaviorSignal;
+  const walkCounts = replay.decisions[1].reduce<Record<string, number>>(
+    (counts, decision) => {
+      if (decision.type === "animation_changed" && decision.to === "walk") {
+        counts[decision.characterId] = (counts[decision.characterId] ?? 0) + 1;
+      }
+      return counts;
+    },
+    {},
+  );
+
+  expect(
+    result.trace.filter(
+      (record) =>
+        record.type === "stimulus_observed" &&
+        (record.envelope as { stimulus: { kind: string } }).stimulus.kind ===
+          "gesture",
+    ),
+  ).toHaveLength(2);
+  expect(first.reaction.kind).toBe("curiosity");
+  expect(second.reaction.kind).toBe("curiosity");
+  expect(first.behaviorBias.jumpChance).not.toBe(second.behaviorBias.jumpChance);
+  expect(new Set(Object.keys(walkCounts))).toEqual(
+    new Set(["personality-contrast-character-1", "personality-contrast-character-2"]),
+  );
+  expectEquivalentFrameRateReplays(replay);
+});
+
+it("passes the Reaction Storm acceptance without yielding scheduler ownership", async () => {
+  const createCognitionHandle = await createLiveCognition();
+  const replay = replayAtAllFrameRates(
+    REACTION_STORM_SCENARIO,
+    createCognitionHandle,
+  );
+  const result = replay.results[1];
+  const steps = replay.steps[1];
+  const observations = result.trace.filter(
+    (record) =>
+      record.type === "stimulus_observed" &&
+      (record.envelope as { stimulus: { kind: string } }).stimulus.kind ===
+        "gesture",
+  );
+  const starts: number[] = [];
+  let previous: Reaction = "none";
+  for (const step of steps) {
+    const kind = (step.behaviorSignal as BehaviorSignal).reaction.kind;
+    if (previous === "none" && kind !== "none") starts.push(step.elapsedCognitionS);
+    previous = kind;
+  }
+
+  expect(observations).toHaveLength(608);
+  expect(starts.length).toBeGreaterThan(1);
+  const orderedStarts = [...starts].sort((a, b) => a - b);
+  for (let index = 1; index < orderedStarts.length; index++) {
+    expect(orderedStarts[index] - orderedStarts[index - 1]).toBeGreaterThanOrEqual(0.6);
+  }
+  for (const decision of replay.decisions[1]) {
+    if (decision.type === "jump_started") {
+      const jumpIndex = result.trace.findIndex(
+        (record) =>
+          record.type === "jump_started" && record.characterId === decision.characterId,
+      );
+      const priorRoll = result.trace
+        .slice(0, jumpIndex)
+        .reverse()
+        .find((record) => record.type === "scheduler_roll");
+      expect(priorRoll).toBeDefined();
+    }
+  }
+  // Dense events can interleave differently inside a render frame. Cognition
+  // cadence, decisions, and the scheduler sequence—not frame-local event
+  // ordering—are the deterministic contract.
+  expect(replay.steps[1]).toEqual(replay.steps[0]);
+  expect(replay.steps[2]).toEqual(replay.steps[0]);
+  expect(replay.decisions[1]).toEqual(replay.decisions[0]);
+  expect(replay.decisions[2]).toEqual(replay.decisions[0]);
+  expect(
+    replay.results.map((result) =>
+      result.trace
+        .filter((record) => record.type === "scheduler_roll")
+        .map((record) => record.value),
+    ),
+  ).toEqual([
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ]);
 });

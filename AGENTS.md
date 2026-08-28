@@ -43,7 +43,7 @@ src-tauri/
   src/lib.rs          — tray menu (per-character Despawn submenu, Gestures toggle), Cmd+Shift+W hotkey, window config
   src/sidecar.rs      — SidecarProcess: start/stop/is_running, stdout NDJSON reader, crash callback
 crates/
-  wisp-cognition-core/ — Wisp-owned pure Rust Personality + Temporal Derivative core (no shell, renderer, Python, DOM, or WASM dependencies)
+  wisp-cognition-core/ — Wisp-owned pure Rust Personality + Temporal Derivative + LeakyIntegrator Micro-belief core (no shell, renderer, Python, DOM, or WASM dependencies)
   wisp-cognition-wasm/ — coarse-grained wasm-bindgen facade exposing only the Cognition Handle shape
 src-sidecar/
   main.py             — entry point: argument parsing, constructs Detector
@@ -55,9 +55,11 @@ src-sidecar/
 
 **Handle interfaces** (`CharacterHandle`, `BubbleHandle`, `EffectHandle`, `CognitionHandle`) are the seams between pure logic and rendering/cognition implementations. Concrete Pixi implementations live in `rendering.ts`; `main.ts` wires the effect handle. `cognition.ts` supplies the neutral default; tests inject `vi.fn()` mocks.
 
-**Scenario Harness:** `runScenario()` advances a seeded scenario on a virtual clock, splits scheduled events across render frames, injects deterministic Character Identities and scheduler rolls, and emits canonical trace records. The same seed/scenario/contract produces byte-identical NDJSON; 30/60/120 fps runs are compared through their cognition steps and behavior decisions. `LossyTraceWriter` writes asynchronously and drops oldest queued records rather than blocking the replay.
+**Scenario Harness:** `runScenario()` advances a seeded scenario on a virtual clock, splits scheduled events across render frames, injects deterministic Character Identities and scheduler rolls, and emits canonical trace records. The same seed/scenario/contract/frame rate produces byte-identical NDJSON; 30/60/120 fps runs are compared through their cognition steps and behavior decisions, not frame-local event interleaving. `LossyTraceWriter` writes asynchronously and drops oldest queued records rather than blocking the replay.
 
 **Temporal Derivative:** each 10 Hz Cognition step advances fast/slow observation EMAs, computes their difference's sigmoid gate, recentres it into surprise energy, and leaks short-lived affect. Repeated similar stimuli habituate; reactions only bend bounded Behavior Bias values and never command actions.
+
+**Micro-belief reactions:** slow LeakyIntegrator channels project novelty, familiarity, social positivity, and caution. Affect follows the accepted rise/decay timescales; exclusive startle → excitement → curiosity → boredom selection respects thresholds, durations, per-reaction cooldowns, and the global reaction lock. Boredom requires quiet low-arousal inactivity without a Stimulus; all other reactions require one. Reactions only multiply bounded Behavior Bias values—the registry and Character remain the sole behavior owners.
 
 **Spawn flow:** `registry.spawn()` → plays spawn `Effect` → on effect expiry `materializeEntry()` constructs the `Character` → greeting bubble fires → `onChange` syncs the tray menu.
 

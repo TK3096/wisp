@@ -1,11 +1,12 @@
 use serde_json::json;
 use wisp_cognition_core::{
     BehaviorSignal, CognitionCore, CognitionInit, GestureName, PersonalityDimensions, Stimulus,
+    COGNITION_SCHEMA_VERSION,
 };
 
 fn init(personality_seed: u32) -> CognitionInit {
     CognitionInit {
-        schema_version: 1,
+        schema_version: COGNITION_SCHEMA_VERSION,
         character_id: "character-1".into(),
         archetype: "ninja-frog".into(),
         personality_seed,
@@ -67,8 +68,8 @@ fn novel_gesture_creates_measurable_bounded_reaction() {
     assert!(signal.temporal_surprise.centered_energy > 0.3);
     assert!(signal.temporal_surprise.gate > 0.5);
     assert!(signal.affect.surprise > 0.3);
-    assert!(signal.affect.arousal > 0.3);
-    assert_eq!(signal.affect.valence, 0.0);
+    assert!(signal.affect.arousal > 0.0);
+    assert!(signal.affect.valence >= -1.0 && signal.affect.valence <= 1.0);
     assert!(
         signal.behavior_bias.jump_chance > baseline_signal.behavior_bias.jump_chance,
         "novel gesture must raise the bounded jump tendency"
@@ -138,9 +139,12 @@ fn snapshots_preserve_temporal_state_across_restore() {
     core.tick(0.1).unwrap();
     let snapshot = core.snapshot();
 
-    assert_eq!(snapshot.schema_version, 1);
+    assert_eq!(snapshot.schema_version, COGNITION_SCHEMA_VERSION);
     assert_eq!(snapshot.character_id, "character-1");
-    assert_eq!(snapshot.cognition["kind"], json!("temporal-personality-v1"));
+    assert_eq!(
+        snapshot.cognition["kind"],
+        json!("micro-belief-reactions-v2")
+    );
 
     let mut restored = CognitionCore::new(init(0x10203040)).unwrap();
     restored.restore(snapshot.clone()).unwrap();

@@ -1,9 +1,9 @@
 use serde_json::json;
-use wisp_cognition_core::{CognitionCore, CognitionInit, Stimulus};
+use wisp_cognition_core::{CognitionCore, CognitionInit, Stimulus, COGNITION_SCHEMA_VERSION};
 
 fn init(personality_seed: u32, archetype: &str) -> CognitionInit {
     CognitionInit {
-        schema_version: 1,
+        schema_version: COGNITION_SCHEMA_VERSION,
         character_id: "character-1".into(),
         archetype: archetype.into(),
         personality_seed,
@@ -90,12 +90,12 @@ fn snapshots_are_versioned_opaque_and_restorable() {
     core.tick(0.1).unwrap();
     let snapshot = core.snapshot();
 
-    assert_eq!(snapshot.schema_version, 1);
+    assert_eq!(snapshot.schema_version, COGNITION_SCHEMA_VERSION);
     assert_eq!(snapshot.character_id, "character-1");
     assert_eq!(
         snapshot.cognition,
         json!({
-            "kind": "temporal-personality-v1",
+            "kind": "micro-belief-reactions-v2",
             "dimensions": {
                 "energy": core.dimensions().energy,
                 "curiosity": core.dimensions().curiosity,
@@ -106,6 +106,16 @@ fn snapshots_are_versioned_opaque_and_restorable() {
             "fast": [0.0, 1.0, 0.0],
             "slow": [0.0, 1.0, 0.0],
             "affect": { "surprise": 0.0, "valence": 0.0, "arousal": 0.0 },
+            "microBelief": {
+                "clockS": 0.1,
+                "channels": [0.0, 0.0, 0.0, 0.0],
+                "pendingStimulus": null,
+                "stimulusCount": 0,
+                "boredom": 1.0 / 120.0,
+                "active": null,
+                "reactionLockS": 0.0,
+                "nextEligibleS": [0.0, 0.0, 0.0, 0.0],
+            },
         })
     );
 

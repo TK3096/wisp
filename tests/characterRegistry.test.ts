@@ -4,6 +4,7 @@ import { CharacterHandle } from "../src/character";
 import { BubbleHandle } from "../src/bubble";
 import { EffectHandle, EffectKind } from "../src/effect";
 import {
+  COGNITION_SCHEMA_VERSION,
   CognitionHandle,
   CognitionInit,
   BehaviorSignal,
@@ -975,6 +976,8 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
     return {
       affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
       temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
+      microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,
+      reaction: NEUTRAL_BEHAVIOR_SIGNAL.reaction,
       behaviorBias: {
         ...NEUTRAL_BEHAVIOR_SIGNAL.behaviorBias,
         ...overrides,
@@ -1067,7 +1070,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
 
     reg.tick(EFFECT.FRAME_COUNT / EFFECT.FPS + 0.01);
     expect(inits).toHaveLength(1);
-    expect(inits[0].schemaVersion).toBe(1);
+    expect(inits[0].schemaVersion).toBe(COGNITION_SCHEMA_VERSION);
   });
 
   it("dispatches targeted and global stimuli in arrival order after Materialized", () => {
