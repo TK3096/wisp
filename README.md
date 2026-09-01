@@ -25,6 +25,7 @@ npm test            # run the Vitest suite
 npm run test:cognition  # run Rust core and Node-backed WASM facade tests
 npm run test:cognition:scenario # build and replay the generated facade in the Scenario Harness
 npm run build:cognition # generate public/cognition (also part of npm run build)
+npm run build:debug # production-shaped frontend with the debug overlay mode
 ```
 
 The WASM cognition package under `public/cognition/` is generated build state:
@@ -73,10 +74,13 @@ The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubbl
 - `src/character.ts` — character state machine (idle ↔ walk), jump arc (`tickAirborne`), bubble ownership.
 - `src/characterRegistry.ts` — spawn/despawn, stimulus dispatch, fixed-cadence cognition, idle-bubble scheduler, jump scheduler, and `onChange` callback for tray sync.
 - `src/scenarioHarness.ts` — deterministic headless replay, canonical NDJSON cognition traces, frame-rate comparison projections, and lossy trace writing.
+- `src/cognitionDebugSnapshot.ts` / `src/cognitionDebug.ts` / `src/cognitionDebugView.ts` — bounded Cognition Debug Snapshots, development presenter, and compact overlay view.
 - `src/rendering.ts` — Pixi-backed character and bubble handle factories kept outside the pure simulation module.
 - `src/bubble.ts` — pure-logic speech bubble (typing, lifetime).
 - `src/spriteLoader.ts` — spritesheet slicing.
 - `src-tauri/src/lib.rs` — tray menu (with per-character Despawn submenu), hotkey, window config.
+
+Development and debug-mode frontends can enable the Cognition Debug Overlay from the tray. It shows the selected Materialized character's current reaction, affect summary, active Behavior Bias values, latest Stimulus, and Cognition Cadence lag. Its frame cost is measured against the accepted 0.20 ms p95 debug budget. Normal production builds compile the overlay out, while Rust debug builds alone expose its tray commands.
 
 ## Testing
 

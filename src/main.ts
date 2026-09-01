@@ -76,8 +76,27 @@ async function init() {
       invoke("update_character_list", { items }).catch(console.error);
     },
   });
+
+  // Compile-time gate: Vite replaces these constants, and a normal production
+  // build drops both dynamic imports. `--mode debug` is available for a debug
+  // frontend bundle without making the overlay runtime-enableable in release.
+  const cognitionDebug =
+    import.meta.env.DEV || import.meta.env.MODE === "debug"
+      ? new (
+          await import("./cognitionDebug")
+        ).CognitionDebugOverlay(
+          (
+            await import("./cognitionDebugView")
+          ).createCognitionDebugView<HTMLElement>(document),
+          { enabled: false },
+        )
+      : undefined;
+
   app.ticker.add((ticker) => {
     registry.tick(ticker.deltaMS / 1000);
+    if (cognitionDebug?.isEnabled) {
+      cognitionDebug.update(() => registry.debugSnapshots());
+    }
   });
 
   // Tray / hotkey events — guarded so a missing Tauri bridge (e.g. running
@@ -88,6 +107,7 @@ async function init() {
         listen(event, (shellEvent) => onPayload(shellEvent.payload)),
       registry,
       window,
+      cognitionDebug,
     );
   } catch (err) {
     console.warn("Tauri event bridge unavailable:", err);

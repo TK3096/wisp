@@ -84,6 +84,14 @@ _Avoid_: character rest animation, idle behavior, offline-time replay
 The fixed internal rate at which cognition advances independently of the render frame rate.
 _Avoid_: frame rate, ticker rate
 
+**Cognition Debug Snapshot**:
+A bounded, read-only projection of one Materialized character's latest observable cognition surface for development inspection.
+_Avoid_: raw Cognition State, trace record, telemetry payload
+
+**Cognition Debug Overlay**:
+A development-only presentation of selected Cognition Debug Snapshots; it never owns behavior, cognition, lifecycle, or persistence.
+_Avoid_: acceptance authority, release setting, debug brain
+
 **Scenario Harness**:
 The deterministic headless replay that advances Wisp behavior on a virtual clock and records observable cognition/behavior traces without a renderer or shell.
 _Avoid_: integration test, browser harness, playback recorder

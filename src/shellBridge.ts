@@ -1,11 +1,14 @@
 import { CharacterRegistry } from "./characterRegistry";
 import { IngressBridge } from "./ingressBridge";
+import { CognitionDebugSnapshot } from "./cognitionDebugSnapshot";
 
 export type ShellEventName =
   | "spawn"
   | "despawn-all"
   | "despawn-one"
-  | "gesture";
+  | "gesture"
+  | "toggle-cognition-debug"
+  | "select-next-cognition-debug";
 
 export type ShellListen = (
   event: ShellEventName,
@@ -16,10 +19,16 @@ export interface EnvironmentEventTarget {
   addEventListener(type: "focus" | "blur", listener: () => void): void;
 }
 
+export interface CognitionDebugCommands {
+  toggle(): void;
+  selectNext(snapshots: CognitionDebugSnapshot[]): void;
+}
+
 export async function connectShellEvents(
   listen: ShellListen,
   registry: CharacterRegistry,
   environmentTarget: EnvironmentEventTarget,
+  debugCommands?: CognitionDebugCommands,
 ): Promise<void> {
   const ingressBridge = new IngressBridge((envelope) => {
     registry.dispatch(envelope);
@@ -42,4 +51,10 @@ export async function connectShellEvents(
   await listen("gesture", (payload) => {
     ingressBridge.receiveGesture(payload);
   });
+  if (debugCommands) {
+    await listen("toggle-cognition-debug", () => debugCommands.toggle());
+    await listen("select-next-cognition-debug", () =>
+      debugCommands.selectNext(registry.debugSnapshots()),
+    );
+  }
 }

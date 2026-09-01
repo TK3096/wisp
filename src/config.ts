@@ -53,6 +53,16 @@ export const BUBBLE = {
   PER_CHAR_JITTER_S: 20,
 };
 
+/**
+ * Development-only Cognition Debug Overlay gates. The frame budget is the
+ * accepted trace/debug overhead budget; normal release builds do not wire it.
+ */
+export const COGNITION_DEBUG = {
+  FRAME_BUDGET_MS: 0.2,
+  /** The accepted 120-second stress replay at 60 fps. */
+  METRIC_WINDOW_FRAMES: 7200,
+};
+
 export const GREETINGS = ["hi!", "hello!", "hey!", "*waves*", "yo", "👋", "🫡"];
 
 export const IDLE_LINES = [

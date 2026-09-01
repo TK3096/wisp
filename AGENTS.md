@@ -12,6 +12,7 @@ npm test            # run Vitest unit suite (no WebGL or Tauri required)
 npm run test:cognition # run Rust core tests and the Node-backed WASM facade test
 npm run test:cognition:scenario # build WASM and replay it through the Scenario Harness
 npm run build:cognition # regenerate public/cognition (build state; never commit)
+npm run build:debug # build a debug-mode frontend that includes cognition inspection
 npm run build       # tsc + vite production build
 ```
 
@@ -33,6 +34,9 @@ src/
   bubble.ts           — Bubble class: typing animation, linger, lifetime cap
   effect.ts           — Effect class: one-shot frame animation (spawn/despawn visuals)
   scenarioHarness.ts  — headless deterministic replay, canonical NDJSON traces, lossy trace writer
+  cognitionDebugSnapshot.ts — bounded read-only Cognition Debug Snapshot projection
+  cognitionDebug.ts   — development overlay presenter and frame-cost metrics
+  cognitionDebugView.ts — DOM-backed compact overlay view (debug builds only)
   simulationAsset.ts  — renderer-agnostic LoadedAsset contract
   ingressBridge.ts    — validates shell/sidecar ingress payloads and emits semantic Stimulus Envelopes
   shellBridge.ts      — transport-free shell-event wiring injected around the registry
@@ -66,6 +70,8 @@ src-sidecar/
 **Despawn flow:** `registry.despawn(id)` → targeted Vanishing stimulus → `char.destroy()` → plays despawn `Effect` → `onChange` updates tray.
 
 **Tick loop:** `app.ticker` (Pixi) calls `registry.tick(dt)` every frame. The registry advances effects, promotes pending spawns, steps each character's Cognition Handle at the fixed 10 Hz cadence with bounded catch-up, applies its Behavior Signal, ticks the character, and runs the per-character idle-bubble and jump roll timers.
+
+**Cognition Debug Overlay:** development/debug-mode frontends dynamically import the DOM view, default it off, and enable it through Rust-debug-only tray commands. `CharacterRegistry.debugSnapshots()` projects only bounded reaction/affect/bias/latest-stimulus/cadence-lag fields; the overlay measures projection plus rendering against the accepted 0.20 ms p95 budget and never becomes an acceptance authority. Normal production builds compile the dynamic imports out.
 
 ## Sidecar architecture
 

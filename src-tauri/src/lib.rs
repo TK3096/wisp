@@ -2,7 +2,7 @@ mod sidecar;
 
 use std::sync::Mutex;
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{TrayIcon, TrayIconBuilder},
     Emitter, Manager,
 };
@@ -28,13 +28,46 @@ fn build_tray_menu<R: tauri::Runtime>(
     let spawn_item = MenuItem::with_id(manager, "spawn", "Spawn", true, None::<&str>)?;
     let despawn_submenu = build_despawn_submenu(manager, items)?;
     let sep = PredefinedMenuItem::separator(manager)?;
-    let gestures_item =
-        CheckMenuItem::with_id(manager, "gestures", "Gestures", true, gestures_on, None::<&str>)?;
-    let quit_item = MenuItem::with_id(manager, "quit", "Quit", true, None::<&str>)?;
-    Menu::with_items(
+    let gestures_item = CheckMenuItem::with_id(
         manager,
-        &[&spawn_item, &despawn_submenu, &sep, &gestures_item, &quit_item],
-    )
+        "gestures",
+        "Gestures",
+        true,
+        gestures_on,
+        None::<&str>,
+    )?;
+    let quit_item = MenuItem::with_id(manager, "quit", "Quit", true, None::<&str>)?;
+    #[cfg(debug_assertions)]
+    let (debug_sep, toggle_cognition_debug, next_debug_character) = (
+        PredefinedMenuItem::separator(manager)?,
+        MenuItem::with_id(
+            manager,
+            "toggle-cognition-debug",
+            "Toggle Cognition Debug",
+            true,
+            None::<&str>,
+        )?,
+        MenuItem::with_id(
+            manager,
+            "select-next-cognition-debug",
+            "Next Debug Character",
+            true,
+            None::<&str>,
+        )?,
+    );
+
+    let mut menu_items: Vec<&dyn IsMenuItem<R>> = vec![&spawn_item, &despawn_submenu, &sep];
+
+    #[cfg(debug_assertions)]
+    {
+        menu_items.push(&toggle_cognition_debug);
+        menu_items.push(&next_debug_character);
+        menu_items.push(&debug_sep);
+    }
+
+    menu_items.push(&gestures_item);
+    menu_items.push(&quit_item);
+    Menu::with_items(manager, &menu_items)
 }
 
 fn build_despawn_submenu<R: tauri::Runtime>(
@@ -43,8 +76,7 @@ fn build_despawn_submenu<R: tauri::Runtime>(
 ) -> tauri::Result<Submenu<R>> {
     let submenu = Submenu::with_id(manager, "despawn", "Despawn", true)?;
     if items.is_empty() {
-        let none_item =
-            MenuItem::with_id(manager, "despawn_none", "(none)", false, None::<&str>)?;
+        let none_item = MenuItem::with_id(manager, "despawn_none", "(none)", false, None::<&str>)?;
         submenu.append(&none_item)?;
     } else {
         let all_item = MenuItem::with_id(manager, "despawn_all", "All", true, None::<&str>)?;
@@ -83,8 +115,7 @@ fn update_character_list(
     char_list: tauri::State<CharacterList>,
 ) -> Result<(), String> {
     *char_list.0.lock().unwrap() = items.clone();
-    let menu =
-        build_tray_menu(&app, &items, sidecar.is_running()).map_err(|e| e.to_string())?;
+    let menu = build_tray_menu(&app, &items, sidecar.is_running()).map_err(|e| e.to_string())?;
     tray.0.set_menu(Some(menu)).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -153,6 +184,14 @@ pub fn run() {
                                 rebuild_tray(app, true);
                             }
                         }
+                    }
+                    #[cfg(debug_assertions)]
+                    "toggle-cognition-debug" => {
+                        let _ = app.emit("toggle-cognition-debug", ());
+                    }
+                    #[cfg(debug_assertions)]
+                    "select-next-cognition-debug" => {
+                        let _ = app.emit("select-next-cognition-debug", ());
                     }
                     id if id.starts_with("despawn:") => {
                         if let Ok(n) = id["despawn:".len()..].parse::<u32>() {

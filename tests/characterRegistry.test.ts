@@ -11,6 +11,7 @@ import {
   BehaviorBias,
   NEUTRAL_BEHAVIOR_SIGNAL,
 } from "../src/cognition";
+import { CognitionDebugSnapshot } from "../src/cognitionDebugSnapshot";
 import { BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "../src/config";
 
 // --- Fakes ---
@@ -1226,5 +1227,170 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
 
     expect(bubbleHandles).toHaveLength(1); // greeting only
     expect(renderHandles[0].setAirborneSprite).not.toHaveBeenCalled();
+  });
+});
+
+describe("CharacterRegistry Cognition Debug inspection", () => {
+  const debugSignal: BehaviorSignal = {
+    ...NEUTRAL_BEHAVIOR_SIGNAL,
+    affect: { surprise: 0.7, valence: -0.2, arousal: 0.8 },
+    reaction: {
+      ...NEUTRAL_BEHAVIOR_SIGNAL.reaction,
+      kind: "startle",
+      score: 0.66,
+      remainingS: 0.5,
+    },
+    behaviorBias: {
+      idleDwell: 1.4,
+      walkSpeed: 0.6,
+      jumpChance: 0.2,
+      bubbleChance: 1.2,
+      animationPace: 1.1,
+    },
+  };
+
+  function makeDebugRegistry() {
+    const cognitionTicks: number[] = [];
+    const renderHandles: CharacterHandle[] = [];
+    let nextIdentity = 0;
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.25, 0, 1 - Number.EPSILON, 0.75, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => {
+        const handle = makeHandle();
+        renderHandles.push(handle);
+        return handle;
+      },
+      createCharacterId: () => `debug-character-${++nextIdentity}`,
+      createCognitionHandle: () => ({
+        ...makeCognitionHandle(),
+        tick: (dt: number) => {
+          cognitionTicks.push(dt);
+          return debugSignal;
+        },
+      }),
+    });
+    return { reg, cognitionTicks, renderHandles };
+  }
+
+  it("projects bounded live cognition without substrate internals", () => {
+    const { reg } = makeDebugRegistry();
+    reg.spawn();
+    reg.spawn();
+
+    reg.dispatch({
+      target: { characterId: "debug-character-1" },
+      stimulus: { kind: "gesture", gesture: "openPalm", confidence: 0.9 },
+    });
+    reg.tick(0.11);
+    reg.tick(0.06);
+
+    const snapshots = reg.debugSnapshots();
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots[0]).toMatchObject({
+      registryId: 1,
+      characterId: "debug-character-1",
+      archetype: "a",
+      label: "A #1",
+      reaction: { kind: "startle", score: 0.66, remainingS: 0.5 },
+      affect: { surprise: 0.7, valence: -0.2, arousal: 0.8 },
+      behaviorBias: debugSignal.behaviorBias,
+      latestStimulus: {
+        observedAtS: 0,
+        stimulus: { kind: "gesture", gesture: "openPalm", confidence: 0.9 },
+      },
+    });
+    expect(snapshots[0].cadenceLagS).toBeCloseTo(0.07, 8);
+    expect(snapshots[1].latestStimulus?.stimulus).toEqual({
+      kind: "lifecycle",
+      phase: "materialized",
+    });
+    expect(Object.keys(snapshots[0])).toEqual([
+      "registryId",
+      "characterId",
+      "archetype",
+      "label",
+      "reaction",
+      "affect",
+      "behaviorBias",
+      "latestStimulus",
+      "cadenceLagS",
+    ]);
+    expect(JSON.stringify(snapshots)).not.toContain("temporalSurprise");
+    expect(JSON.stringify(snapshots)).not.toContain("microBelief");
+    expect(JSON.stringify(snapshots)).not.toContain("candidates");
+  });
+
+  it("reports the first cadence interval as pending without inventing a signal", () => {
+    const { reg } = makeDebugRegistry();
+    reg.spawn();
+
+    reg.tick(0.06);
+
+    const [snapshot] = reg.debugSnapshots();
+    expect(snapshot.reaction).toBeNull();
+    expect(snapshot.affect).toBeNull();
+    expect(snapshot.behaviorBias).toBeNull();
+    expect(snapshot.cadenceLagS).toBeCloseTo(0.06, 8);
+  });
+
+  it("excludes pending spawns and removed characters", () => {
+    const reg = new CharacterRegistry({
+      stage: makeStage() as any,
+      manifest: FAKE_MANIFEST,
+      loadedAssets: makeLoadedAssets(),
+      rng: makeRng([0, 0.5, 0, 0, 0.5, 0]),
+      screenWidth: SCREEN_W,
+      floorY: FLOOR_Y,
+      createHandle: () => makeHandle(),
+      createEffectHandle: () => makeEffectHandle(),
+      createCognitionHandle: () => makeCognitionHandle(),
+    });
+
+    reg.spawn();
+    expect(reg.debugSnapshots()).toEqual([]);
+
+    reg.tick(EFFECT.FRAME_COUNT / EFFECT.FPS + 0.01);
+    expect(reg.debugSnapshots()).toHaveLength(1);
+
+    reg.despawn(1);
+    expect(reg.debugSnapshots()).toEqual([]);
+  });
+
+  it("is read-only and does not advance cognition or behavior", () => {
+    const { reg, cognitionTicks } = makeDebugRegistry();
+    reg.spawn();
+    reg.tick(0.1);
+    const before: CognitionDebugSnapshot[] = reg.debugSnapshots();
+
+    const after = reg.debugSnapshots();
+    expect(after).toEqual(before);
+    expect(cognitionTicks).toEqual([0.1]);
+  });
+
+  it("does not change deterministic behavior when inspected every frame", () => {
+    const inspected = makeDebugRegistry();
+    const baseline = makeDebugRegistry();
+    inspected.reg.spawn();
+    baseline.reg.spawn();
+
+    for (let frame = 0; frame < 120; frame++) {
+      inspected.reg.tick(1 / 60);
+      baseline.reg.tick(1 / 60);
+      inspected.reg.debugSnapshots();
+    }
+
+    expect(inspected.cognitionTicks).toEqual(baseline.cognitionTicks);
+    const inspectedPositions = (
+      inspected.renderHandles[0].setPosition as ReturnType<typeof vi.fn>
+    ).mock.calls;
+    const baselinePositions = (
+      baseline.renderHandles[0].setPosition as ReturnType<typeof vi.fn>
+    ).mock.calls;
+    expect(inspectedPositions).toEqual(baselinePositions);
   });
 });

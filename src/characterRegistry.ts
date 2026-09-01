@@ -12,6 +12,7 @@ import {
   COGNITION_CADENCE_EPSILON_S,
   COGNITION_SCHEMA_VERSION,
   MAX_COGNITION_CATCHUP_STEPS,
+  BehaviorSignal,
   CognitionHandle,
   CognitionInit,
   StimulusEnvelope,
@@ -19,6 +20,11 @@ import {
   derivePersonalitySeed,
   validateStimulusEnvelope,
 } from "./cognition";
+import {
+  CognitionDebugSnapshot,
+  CognitionDebugStimulus,
+  projectCognitionDebugSnapshot,
+} from "./cognitionDebugSnapshot";
 
 export interface RenderOwner {
   registryId: number;
@@ -107,10 +113,17 @@ interface CharEntry {
   id: number;
   /** Stable opaque Character Identity used by cognition and future persistence. */
   characterId: string;
+  archetype: string;
   displayName: string;
   cognition: CognitionHandle;
   /** Render time not yet consumed by a fixed cognition step. */
   cognitionAccumulator: number;
+  /** Latest bounded Behavior Signal; null until the first fixed step. */
+  latestSignal: BehaviorSignal | null;
+  /** Latest semantic Stimulus accepted by this Materialized character. */
+  latestStimulus: CognitionDebugStimulus | null;
+  /** Virtual time at which the latest fixed cognition step completed. */
+  lastCognitionAtS: number;
   /** Seconds until this character's next idle-line roll. */
   rollTimer: number;
   /** Seconds until this character's next jump roll. */
@@ -156,6 +169,25 @@ export class CharacterRegistry {
     }));
   }
 
+  /**
+   * Read-only, bounded development inspection surface. Pending and Vanishing
+   * characters are intentionally absent, and no opaque Cognition State leaves
+   * the Cognition Handle boundary.
+   */
+  debugSnapshots(): CognitionDebugSnapshot[] {
+    return this.entries.map((entry) =>
+      projectCognitionDebugSnapshot({
+        registryId: entry.id,
+        characterId: entry.characterId,
+        archetype: entry.archetype,
+        label: `${entry.displayName} #${entry.id}`,
+        signal: entry.latestSignal,
+        latestStimulus: entry.latestStimulus,
+        cadenceLagS: this.elapsed - entry.lastCognitionAtS,
+      }),
+    );
+  }
+
   /** Deliver one envelope to eligible Materialized characters in registry order. */
   dispatch(envelope: StimulusEnvelope): void {
     validateStimulusEnvelope(envelope);
@@ -164,6 +196,12 @@ export class CharacterRegistry {
         envelope.target === "all" ||
         envelope.target.characterId === entry.characterId;
       if (matches) entry.cognition.observe(envelope.stimulus);
+      if (matches) {
+        entry.latestStimulus = {
+          observedAtS: this.elapsed,
+          stimulus: { ...envelope.stimulus },
+        };
+      }
     }
   }
 
@@ -281,9 +319,13 @@ export class CharacterRegistry {
       char: character,
       id,
       characterId,
+      archetype: entry.name,
       displayName: entry.displayName,
       cognition,
       cognitionAccumulator: 0,
+      latestSignal: null,
+      latestStimulus: null,
+      lastCognitionAtS: this.elapsed,
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
     });
@@ -370,7 +412,9 @@ export class CharacterRegistry {
       ) {
         const signal = entry.cognition.tick(COGNITION_CADENCE_S);
         entry.char.applyBehaviorSignal(signal);
+        entry.latestSignal = signal;
         entry.cognitionAccumulator -= COGNITION_CADENCE_S;
+        entry.lastCognitionAtS = this.elapsed - entry.cognitionAccumulator;
         cognitionSteps++;
       }
       if (cognitionSteps === MAX_COGNITION_CATCHUP_STEPS) {
