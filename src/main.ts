@@ -85,6 +85,14 @@ async function init() {
     },
   });
 
+  // Restore before the render loop starts so cognition cadence and scheduler
+  // timers begin at zero for the resumed session.
+  try {
+    await registry.restore();
+  } catch (error) {
+    console.error("Character restore failed:", error);
+  }
+
   // Compile-time gate: Vite replaces these constants, and a normal production
   // build drops both dynamic imports. `--mode debug` is available for a debug
   // frontend bundle without making the overlay runtime-enableable in release.

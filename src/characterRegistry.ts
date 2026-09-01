@@ -31,11 +31,17 @@ import {
 import { TaggedLine, selectTaggedLine } from "./speech";
 import {
   CHARACTER_AUTOSAVE_INTERVAL_S,
+  MAX_CHARACTER_PERSISTENCE_BYTES,
+  CharacterPersistenceQuarantineArea,
   CharacterPersistenceRecord,
   CharacterPersistenceStore,
   MAX_DURABLE_CHARACTERS,
   PersistenceReason,
+  characterPersistenceRecordSize,
+  classifyCharacterPersistenceRecord,
   createCharacterPersistenceRecord,
+  isBoundedPersonalitySeed,
+  verifyCharacterPersistenceRecord,
 } from "./characterPersistence";
 
 export interface RenderOwner {
@@ -330,7 +336,13 @@ export class CharacterRegistry {
     return true;
   }
 
-  private materializeEntry(entry: AssetEntry, loaded: LoadedAsset, x: number, characterId: string): void {
+  private materializeEntry(
+    entry: AssetEntry,
+    loaded: LoadedAsset,
+    x: number,
+    characterId: string,
+    restored?: CharacterPersistenceRecord,
+  ): CharEntry | null {
     const {
       rng,
       stage,
@@ -342,7 +354,7 @@ export class CharacterRegistry {
       derivePersonalitySeed: deriveSeed,
     } = this.opts;
 
-    const id = this.nextId++;
+    const id = this.nextId;
 
     const handle = createHandle({
       entry,
@@ -379,7 +391,8 @@ export class CharacterRegistry {
       cfg,
     );
 
-    const personalitySeed = deriveSeed?.(characterId, entry.name)
+    const personalitySeed = restored?.personalitySeed
+      ?? deriveSeed?.(characterId, entry.name)
       ?? derivePersonalitySeed(characterId, entry.name);
     const cognition = createCognitionHandle({
       schemaVersion: COGNITION_SCHEMA_VERSION,
@@ -388,12 +401,26 @@ export class CharacterRegistry {
       personalitySeed,
     });
 
-    // The initial read-only projection establishes personality/affect for tone
-    // selection without advancing the Temporal Derivative or cadence clock.
-    const initialState = this.opts.persistence ? cognition.snapshot() : null;
-    const toneSeed = cognition.toneSeed();
-    const greetingRoll = rng();
-    this.sayTagged(character, cognition, GREETINGS, toneSeed, greetingRoll);
+    let pendingInitialState: PersistentCognitionState | null = null;
+
+    if (restored) {
+      try {
+        cognition.restore(restored.cognitionState as PersistentCognitionState);
+      } catch {
+        character.destroy();
+        return null;
+      }
+    } else {
+      // The initial read-only projection establishes personality/affect for
+      // tone selection without advancing the Temporal Derivative or cadence.
+      const initialState = this.opts.persistence ? cognition.snapshot() : null;
+      const toneSeed = cognition.toneSeed();
+      const greetingRoll = rng();
+      this.sayTagged(character, cognition, GREETINGS, toneSeed, greetingRoll);
+      if (initialState) {
+        pendingInitialState = initialState;
+      }
+    }
 
     // Fixed initial roll timers so characters don't lock-step on the first roll.
     const newEntry: CharEntry = {
@@ -412,22 +439,122 @@ export class CharacterRegistry {
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
       dirty: false,
       dirtyGeneration: 0,
-      persistenceWriteCount: 0,
-      persistedCreatedAtMs: 0,
+      persistenceWriteCount: restored?.metadata.writeCount ?? 0,
+      persistedCreatedAtMs: restored?.metadata.createdAtMs ?? 0,
       nextAutosaveAtS: this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S,
       persistenceQueue: null,
     };
     this.entries.push(newEntry);
-    if (initialState) {
-      this.enqueuePersistence(newEntry, "materialization", initialState);
+    if (pendingInitialState) {
+      this.enqueuePersistence(newEntry, "materialization", pendingInitialState);
     }
     this.dispatch({
       target: { characterId },
       stimulus: { kind: "lifecycle", phase: "materialized" },
     });
-    newEntry.dirty = true;
-    newEntry.dirtyGeneration++;
-    newEntry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+    if (!restored) {
+      newEntry.dirty = true;
+      newEntry.dirtyGeneration++;
+      newEntry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+    } else {
+      // The restored Materialized lifecycle stimulus itself is a durable update.
+      this.markDirty(newEntry);
+      newEntry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+    }
+    this.nextId += 1;
+    return newEntry;
+  }
+
+  /** Restores only structurally and semantically safe durable records. */
+  async restore(records?: readonly unknown[]): Promise<number> {
+    const input = records ?? await this.opts.persistence?.load?.() ?? [];
+    const quarantine = this.opts.persistence?.quarantine?.bind(this.opts.persistence);
+    const quarantineRecord = async (
+      record: unknown,
+      area: CharacterPersistenceQuarantineArea,
+    ): Promise<void> => {
+      if (!quarantine) return;
+      try {
+        await quarantine(structuredClone(record), area);
+      } catch (error) {
+        this.opts.onPersistenceError?.(error);
+      }
+    };
+
+    const candidates: CharacterPersistenceRecord[] = [];
+    for (const record of input) {
+      const classification = classifyCharacterPersistenceRecord(record);
+      if (classification === "current") {
+        candidates.push(record as CharacterPersistenceRecord);
+      } else {
+        await quarantineRecord(record, classification === "future" ? "future" : "corruption");
+      }
+    }
+
+    candidates.sort((left, right) =>
+      left.characterId < right.characterId ? -1 : left.characterId > right.characterId ? 1 : 0,
+    );
+
+    const manifestEntries = new Map(this.opts.manifest.map((entry) => [entry.name, entry]));
+    const restoredIdentities = new Set<string>();
+    let restoredCount = 0;
+    for (const record of candidates) {
+      if (this.entries.length + this.pending.length + restoredCount >= MAX_DURABLE_CHARACTERS) {
+        this.opts.onPersistenceError?.(new Error("Durable character population is full"));
+        continue;
+      }
+      if (restoredIdentities.has(record.characterId)) {
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+      if (
+        !(await verifyCharacterPersistenceRecord(record)) ||
+        characterPersistenceRecordSize(record) > MAX_CHARACTER_PERSISTENCE_BYTES
+      ) {
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+      const entry = manifestEntries.get(record.archetype);
+      const seedValid = isBoundedPersonalitySeed(record.personalitySeed) &&
+        record.cognitionSnapshotVersion === COGNITION_SCHEMA_VERSION;
+      if (!entry || !seedValid) {
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+
+      const loaded = this.opts.loadedAssets.get(entry.name);
+      if (!loaded) {
+        this.opts.onPersistenceError?.(new Error("Archetype assets are not loaded"));
+        continue;
+      }
+
+      const x = this.opts.rng() * this.opts.screenWidth;
+      let restored: CharEntry | null;
+      try {
+        restored = this.materializeEntry(
+          entry,
+          loaded,
+          x,
+          record.characterId,
+          record,
+        );
+      } catch (error) {
+        this.opts.onPersistenceError?.(error);
+        continue;
+      }
+      if (!restored) {
+        // Only an unknown opaque snapshot reaches this path; the Cognition
+        // Handle rejected it, so the intact envelope is never inferred.
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+
+      restoredIdentities.add(record.characterId);
+      restoredCount++;
+    }
+
+    if (restoredCount > 0) this.opts.onChange?.(this.snapshot());
+    return restoredCount;
   }
 
   async flush(reason: PersistenceReason = "shutdown"): Promise<void> {

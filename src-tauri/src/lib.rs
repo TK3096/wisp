@@ -1,7 +1,7 @@
 mod persistence;
 mod sidecar;
 
-use persistence::{delete_record, persist_record};
+use persistence::{delete_record, load_records, persist_record, quarantine_record};
 use uuid::Uuid;
 
 use std::sync::Mutex;
@@ -194,6 +194,28 @@ fn delete_character_record(
     delete_record(&root, &character_id).map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn load_character_records(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    load_records(&root).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn quarantine_character_record(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+    record: serde_json::Value,
+    area: String,
+) -> Result<(), String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    quarantine_record(&root, &record, &area).map_err(|error| error.to_string())
+}
+
 fn persistence_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let base = app
         .path()
@@ -326,6 +348,8 @@ pub fn run() {
             create_character_identity,
             persist_character_record,
             delete_character_record,
+            load_character_records,
+            quarantine_character_record,
             exit_after_flush
         ])
         .build(tauri::generate_context!())

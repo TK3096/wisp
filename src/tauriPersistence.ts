@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
+  CharacterPersistenceQuarantineArea,
   CharacterPersistenceRecord,
   CharacterPersistenceStore,
 } from "./characterPersistence";
@@ -17,6 +18,15 @@ export function createTauriPersistence(
     },
     async delete(characterId: string): Promise<void> {
       await call("delete_character_record", { characterId });
+    },
+    async load(): Promise<unknown[]> {
+      return call<unknown[]>("load_character_records");
+    },
+    async quarantine(
+      record: unknown,
+      area: CharacterPersistenceQuarantineArea,
+    ): Promise<void> {
+      await call("quarantine_character_record", { record, area });
     },
   };
 }

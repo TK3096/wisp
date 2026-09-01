@@ -12,6 +12,7 @@ use uuid::Uuid;
 pub const CHARACTER_PERSISTENCE_ENVELOPE_VERSION: u64 = 1;
 pub const COGNITION_SNAPSHOT_VERSION: u64 = 3;
 pub const MAX_DURABLE_CHARACTERS: usize = 100;
+pub const MAX_RECORD_BYTES: usize = 256 * 1024;
 const MAX_METADATA_WRITE_COUNT: u64 = 1_000_000;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,16 +50,18 @@ pub enum PersistenceError {
     Identity,
     Integrity,
     PopulationCap,
+    QuarantineArea,
 }
 
 impl std::fmt::Display for PersistenceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Io(error) => write!(f, "Character persistence I/O failed: {error}"),
-            Self::Envelope => write!(f, "Character State envelope is invalid"),
+            Self::Envelope => write!(f, "Durable character record envelope is invalid"),
             Self::Identity => write!(f, "Character Identity must be a UUIDv7"),
-            Self::Integrity => write!(f, "Character State integrity check failed"),
+            Self::Integrity => write!(f, "Durable character record integrity check failed"),
             Self::PopulationCap => write!(f, "Durable character population is full"),
+            Self::QuarantineArea => write!(f, "Persistence quarantine area is invalid"),
         }
     }
 }
@@ -127,10 +130,150 @@ pub fn delete_record(root: &Path, character_id: &str) -> Result<(), PersistenceE
     }
 }
 
+/// Reads authoritative records, moving unsafe records out without rewriting
+/// their bytes. Current-version records are returned in file-name order.
+pub fn load_records(root: &Path) -> Result<Vec<Value>, PersistenceError> {
+    let future_root = root.join("future");
+    let corruption_root = root.join("corruption");
+    let mut records = Vec::new();
+    if !root.exists() {
+        return Ok(records);
+    }
+
+    let mut paths: Vec<PathBuf> = fs::read_dir(root)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension == "json")
+        })
+        .collect();
+    paths.sort();
+
+    for path in paths {
+        let size = match fs::metadata(&path) {
+            Ok(metadata) => metadata.len(),
+            Err(_) => continue,
+        };
+        if size > MAX_RECORD_BYTES as u64 {
+            let _ = quarantine_file(&path, &corruption_root);
+            continue;
+        }
+
+        let Ok(bytes) = fs::read(&path) else {
+            continue;
+        };
+        let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
+            let _ = quarantine_file(&path, &corruption_root);
+            continue;
+        };
+        let classification = classify_loadable_record(&value);
+        match classification {
+            "future" => {
+                let _ = quarantine_file(&path, &future_root);
+            }
+            "current" => {
+                let typed: Result<CharacterPersistenceRecord, _> = serde_json::from_slice(&bytes);
+                if typed
+                    .ok()
+                    .filter(|record| validate_record(record).is_ok())
+                    .is_some()
+                {
+                    if let Ok(record) = serde_json::from_slice::<Value>(&bytes) {
+                        if records.len() < MAX_DURABLE_CHARACTERS {
+                            records.push(record);
+                        }
+                    }
+                } else {
+                    let _ = quarantine_file(&path, &corruption_root);
+                }
+            }
+            _ => {
+                let _ = quarantine_file(&path, &corruption_root);
+            }
+        }
+    }
+
+    Ok(records)
+}
+
+fn classify_loadable_record(value: &Value) -> &'static str {
+    let Some(object) = value.as_object() else {
+        return "corrupt";
+    };
+    let envelope_version = object.get("envelopeVersion").and_then(Value::as_i64);
+    let cognition_version = object
+        .get("cognitionSnapshotVersion")
+        .and_then(Value::as_i64);
+    if envelope_version.is_some()
+        && envelope_version != Some(CHARACTER_PERSISTENCE_ENVELOPE_VERSION as i64)
+    {
+        return "future";
+    }
+    if cognition_version.is_some() && cognition_version != Some(COGNITION_SNAPSHOT_VERSION as i64) {
+        return "future";
+    }
+    "current"
+}
+
+fn quarantine_file(source: &Path, area_root: &Path) -> Result<(), PersistenceError> {
+    fs::create_dir_all(area_root)?;
+    let file_name = source
+        .file_name()
+        .ok_or(PersistenceError::Envelope)?
+        .to_os_string();
+    let mut destination = area_root.join(file_name);
+    if destination.exists() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let stem = destination
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("record");
+        destination = area_root.join(format!("{stem}-{unique}.json"));
+    }
+    fs::rename(source, &destination)?;
+    if let Some(parent) = destination.parent() {
+        File::open(parent)?.sync_all()?;
+    }
+    Ok(())
+}
+
+pub fn quarantine_record(root: &Path, record: &Value, area: &str) -> Result<(), PersistenceError> {
+    let area_root = match area {
+        "future" => root.join("future"),
+        "corruption" => root.join("corruption"),
+        _ => return Err(PersistenceError::QuarantineArea),
+    };
+    let character_id = record
+        .get("characterId")
+        .and_then(Value::as_str)
+        .ok_or(PersistenceError::Envelope)?;
+    let identity = Uuid::parse_str(character_id).map_err(|_| PersistenceError::Identity)?;
+    if identity.get_version() != Some(uuid::Version::SortRand) {
+        return Err(PersistenceError::Identity);
+    }
+    let source = root.join(format!("{character_id}.json"));
+    if !source.is_file() {
+        return Err(PersistenceError::Envelope);
+    }
+    let authoritative: Value =
+        serde_json::from_slice(&fs::read(&source)?).map_err(|_| PersistenceError::Envelope)?;
+    if &authoritative != record {
+        return Err(PersistenceError::Integrity);
+    }
+    quarantine_file(&source, &area_root)
+}
+
 fn validate_record(record: &CharacterPersistenceRecord) -> Result<(), PersistenceError> {
     if record.envelope_version != CHARACTER_PERSISTENCE_ENVELOPE_VERSION
         || record.archetype.trim().is_empty()
         || record.cognition_snapshot_version != COGNITION_SNAPSHOT_VERSION
+        || record.personality_seed > 0xffffffff
         || record.metadata.updated_at_ms < record.metadata.created_at_ms
         || record.metadata.write_count == 0
         || record.metadata.write_count > MAX_METADATA_WRITE_COUNT
@@ -291,6 +434,63 @@ mod tests {
             Err(PersistenceError::Integrity)
         ));
         assert_eq!(durable_record_count(root.path()).unwrap(), 0);
+    }
+
+    #[test]
+    fn load_moves_unsafe_records_without_rewriting_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let valid_path = persist_record(root.path(), &record_value()).unwrap();
+        let valid_bytes = fs::read(&valid_path).unwrap();
+
+        let mut future = record_value();
+        future["envelopeVersion"] = json!(2);
+        let future_path = root.path().join("future.json");
+        fs::write(&future_path, serde_json::to_vec(&future).unwrap()).unwrap();
+        let corrupt_path = root.path().join("corrupt.json");
+        fs::write(&corrupt_path, b"{not-json").unwrap();
+
+        let records = load_records(root.path()).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0], record_value());
+        assert!(root.path().join("future").join("future.json").is_file());
+        assert!(root
+            .path()
+            .join("corruption")
+            .join("corrupt.json")
+            .is_file());
+        assert_eq!(
+            fs::read(root.path().join("future/future.json")).unwrap(),
+            serde_json::to_vec(&future).unwrap()
+        );
+        assert_eq!(fs::read(valid_path).unwrap(), valid_bytes);
+    }
+
+    #[test]
+    fn quarantine_moves_only_the_matching_authoritative_record() {
+        let root = tempfile::tempdir().unwrap();
+        let path = persist_record(root.path(), &record_value()).unwrap();
+        let record = record_value();
+        let bytes = fs::read(&path).unwrap();
+
+        let mut mismatch = record.clone();
+        mismatch["metadata"]["writeCount"] = json!(999);
+        assert!(matches!(
+            quarantine_record(root.path(), &mismatch, "corruption"),
+            Err(PersistenceError::Integrity)
+        ));
+        assert!(path.is_file());
+
+        quarantine_record(root.path(), &record, "future").unwrap();
+        assert!(!path.exists());
+        let quarantined = root
+            .path()
+            .join("future")
+            .join(format!("{}.json", record["characterId"].as_str().unwrap()));
+        assert_eq!(fs::read(quarantined).unwrap(), bytes);
+        assert!(matches!(
+            quarantine_record(root.path(), &record, "nonsense"),
+            Err(PersistenceError::QuarantineArea)
+        ));
     }
 
     #[test]

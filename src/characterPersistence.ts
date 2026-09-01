@@ -2,10 +2,14 @@
 export const CHARACTER_PERSISTENCE_ENVELOPE_VERSION = 1;
 /** Accepted maximum durable population for the experimental single-window app. */
 export const MAX_DURABLE_CHARACTERS = 100;
+/** Accepted upper bound for one serialized durable record. */
+export const MAX_CHARACTER_PERSISTENCE_BYTES = 256 * 1024;
 /** Accepted dirty-snapshot cadence. Initial and user-driven writes bypass it. */
 export const CHARACTER_AUTOSAVE_INTERVAL_S = 30;
 /** Hard upper bound that prevents a corrupt envelope from becoming unbounded. */
 const MAX_METADATA_WRITE_COUNT = 1_000_000;
+/** Snapshot schema accepted by the current durable envelope. */
+const COGNITION_SNAPSHOT_VERSION = 3;
 
 export interface CharacterPersistenceMetadata {
   createdAtMs: number;
@@ -61,6 +65,14 @@ export function isUuidV7(value: string): boolean {
   );
 }
 
+export function isBoundedPersonalitySeed(value: unknown): value is number {
+  return (
+    Number.isInteger(value) &&
+    (value as number) >= 0 &&
+    (value as number) <= 0xffffffff
+  );
+}
+
 /** Integrity covers every protected durable field, not renderer metadata. */
 async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
@@ -96,7 +108,7 @@ export async function createCharacterPersistenceRecord(
   if (input.archetype.trim() === "") {
     throw new Error("Archetype must not be empty");
   }
-  if (!Number.isInteger(input.personalitySeed) || input.personalitySeed < 0 || input.personalitySeed > 0xffffffff) {
+  if (!isBoundedPersonalitySeed(input.personalitySeed)) {
     throw new Error("Personality Seed must be a bounded unsigned integer");
   }
   if (input.cognitionSnapshotVersion !== 3) {
@@ -152,18 +164,101 @@ export function isCharacterPersistenceRecord(
 ): value is CharacterPersistenceRecord {
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<CharacterPersistenceRecord>;
+  const requiredKeys = [
+    "archetype",
+    "characterId",
+    "cognitionSnapshotVersion",
+    "cognitionState",
+    "envelopeVersion",
+    "integrity",
+    "metadata",
+    "personalitySeed",
+  ];
+  if (
+    requiredKeys.some(
+      (key) => !Object.prototype.hasOwnProperty.call(record, key),
+    ) ||
+    Object.keys(record).some(
+      (key) => !requiredKeys.includes(key),
+    )
+  ) {
+    return false;
+  }
   return (
     record.envelopeVersion === CHARACTER_PERSISTENCE_ENVELOPE_VERSION &&
     typeof record.characterId === "string" &&
     isUuidV7(record.characterId) &&
     typeof record.archetype === "string" &&
     record.archetype.trim() !== "" &&
-    typeof record.personalitySeed === "number" &&
-    typeof record.cognitionSnapshotVersion === "number" &&
+    isBoundedPersonalitySeed(record.personalitySeed) &&
+    record.cognitionSnapshotVersion === 3 &&
     Object.prototype.hasOwnProperty.call(record, "cognitionState") &&
-    record.metadata !== undefined &&
-    record.integrity !== undefined
+    hasExactShape(record.metadata, [
+      "createdAtMs",
+      "updatedAtMs",
+      "writeCount",
+    ]) &&
+    hasExactShape(record.integrity, ["algorithm", "digest"])
   );
+}
+
+function hasExactShape(
+  value: unknown,
+  keys: readonly string[],
+): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const object = value as Record<string, unknown>;
+  return (
+    keys.every((key) => Object.prototype.hasOwnProperty.call(object, key)) &&
+    Object.keys(object).every((key) => keys.includes(key))
+  );
+}
+
+export type CharacterPersistenceQuarantineArea = "future" | "corruption";
+
+export type CharacterPersistenceClassification =
+  | "current"
+  | "future"
+  | "corrupt";
+
+/**
+ * Any numeric version outside the accepted schema is retained unchanged for
+ * migration/inspection. Malformed or integrity failures are corruption.
+ */
+export function classifyCharacterPersistenceRecord(
+  value: unknown,
+): CharacterPersistenceClassification {
+  if (!value || typeof value !== "object") return "corrupt";
+  const record = value as {
+    envelopeVersion?: unknown;
+    cognitionSnapshotVersion?: unknown;
+  };
+  const envelopeVersion = record.envelopeVersion;
+  const cognitionVersion = record.cognitionSnapshotVersion;
+  if (
+    typeof envelopeVersion === "number" &&
+    Number.isInteger(envelopeVersion) &&
+    envelopeVersion !== CHARACTER_PERSISTENCE_ENVELOPE_VERSION
+  ) {
+    return "future";
+  }
+  if (
+    typeof cognitionVersion === "number" &&
+    Number.isInteger(cognitionVersion) &&
+    cognitionVersion !== COGNITION_SNAPSHOT_VERSION
+  ) {
+    return "future";
+  }
+  return isCharacterPersistenceRecord(value) ? "current" : "corrupt";
+}
+
+/** Conservative logical-size check shared with the native byte-size gate. */
+export function characterPersistenceRecordSize(value: unknown): number {
+  try {
+    return new TextEncoder().encode(stableStringify(value)).length;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
 }
 
 function isBoundedMetadata(metadata: CharacterPersistenceMetadata): boolean {
@@ -182,6 +277,13 @@ function isBoundedMetadata(metadata: CharacterPersistenceMetadata): boolean {
 export interface CharacterPersistenceStore {
   save(record: CharacterPersistenceRecord): Promise<void>;
   delete(characterId: string): Promise<void>;
+  /** Returns raw durable records in storage-determined deterministic order. */
+  load?(): Promise<unknown[]>;
+  /** Moves an unmodified logical record out of the authoritative namespace. */
+  quarantine?(
+    record: unknown,
+    area: CharacterPersistenceQuarantineArea,
+  ): Promise<void>;
 }
 
 export type PersistenceReason = "materialization" | "autosave" | "shutdown";
