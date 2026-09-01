@@ -5,6 +5,7 @@ import {
   TONE_WEIGHTED_SPEECH_SCENARIO,
   HABITUATION_SCENARIO,
   NOVEL_STRONG_GESTURE_SCENARIO,
+  PHASE1_STRESS_SCENARIO,
   formatScenarioTraceNdjson,
   runScenario,
   LossyTraceWriter,
@@ -19,6 +20,60 @@ import {
 } from "../src/cognition";
 
 describe("Scenario Harness baseline", () => {
+  it("collects optional wall-clock metrics without changing canonical traces", () => {
+    const renderTicks: number[] = [];
+    const cognitionTicks: number[] = [];
+    const stimulusLatencies: number[] = [];
+    const run = (withInstrumentation: boolean) =>
+      runScenario(BASELINE_SCENARIO, 60, {
+        instrumentation: withInstrumentation
+          ? {
+              onRenderTick: (durationMs) => renderTicks.push(durationMs),
+              onCognitionTick: (_id, durationMs) => cognitionTicks.push(durationMs),
+              onStimulusToBias: (_id, durationMs) => stimulusLatencies.push(durationMs),
+            }
+          : undefined,
+      });
+
+    const uninstrumented = run(false);
+    const instrumented = run(true);
+    const withoutMetrics = run(false);
+
+    expect(renderTicks).toHaveLength(Math.ceil(BASELINE_SCENARIO.durationS * 60));
+    expect(cognitionTicks.length).toBeGreaterThan(0);
+    expect(stimulusLatencies.length).toBeGreaterThanOrEqual(1);
+    expect(renderTicks.every((duration) => Number.isFinite(duration) && duration >= 0)).toBe(true);
+    expect(formatScenarioTraceNdjson(uninstrumented)).toBe(
+      formatScenarioTraceNdjson(withoutMetrics),
+    );
+    expect(formatScenarioTraceNdjson(instrumented)).toBe(
+      formatScenarioTraceNdjson(withoutMetrics),
+    );
+  });
+
+  it("defines the deterministic 120-second, eight-character stress replay", () => {
+    expect(PHASE1_STRESS_SCENARIO.durationS).toBe(120);
+    expect(PHASE1_STRESS_SCENARIO.spawnTimes).toHaveLength(8);
+    expect(PHASE1_STRESS_SCENARIO.personalitySeeds).toHaveLength(8);
+    expect(PHASE1_STRESS_SCENARIO.stimuli).toHaveLength(1_190);
+    expect(PHASE1_STRESS_SCENARIO.stimuli?.at(-1)?.atS).toBe(119.9);
+
+    const first = runScenario(PHASE1_STRESS_SCENARIO, 30);
+    const second = runScenario(PHASE1_STRESS_SCENARIO, 30);
+    expect(formatScenarioTraceNdjson(first)).toBe(formatScenarioTraceNdjson(second));
+    expect(first.trace.filter((record) => record.type === "character_materialized")).toHaveLength(8);
+    expect(first.trace.filter((record) => record.type === "stimulus_observed")).toHaveLength(
+      8 * 1_191,
+    );
+    expect(
+      first.trace.filter(
+        (record) =>
+          record.type === "stimulus_observed" &&
+          (record.envelope as { stimulus: { kind: string } }).stimulus.kind === "gesture",
+      ),
+    ).toHaveLength(8 * 1_190);
+  });
+
   it("replays the current spawn, wander, jump, bubble, and despawn behavior", () => {
     const result = runScenario(BASELINE_SCENARIO, 60);
     const types = new Set(result.trace.map((record) => record.type));

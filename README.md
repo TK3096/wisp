@@ -86,7 +86,9 @@ Development and debug-mode frontends can enable the Cognition Debug Overlay from
 
 ```bash
 npm test
+npm run test:cognition
+npm run test:acceptance
 ```
 
-Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`, `IngressBridge`) with fake RNG, fake clocks, mock handles, and injected shell events — no WebGL or Tauri bridge required.
+Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`, `IngressBridge`) with fake RNG, fake clocks, mock handles, and injected shell events — no WebGL or Tauri bridge required. `test:cognition` runs the Rust core and Node-backed WASM facade tests; `test:acceptance` regenerates WASM and produces the Phase 1 evidence pack described in [`docs/acceptance/phase1-cognition.md`](docs/acceptance/phase1-cognition.md).
 The Scenario Harness runs the same behavior orchestration headlessly and verifies that a seeded baseline produces the same cognition steps and decisions at 30, 60, and 120 fps. Its Novel Strong Gesture and Habituation scenarios prove that a novel gesture creates centered Temporal Derivative surprise and a visibly stronger scheduler-gated reaction than a habituated repetition. Neutral Baseline, Caution/Startle Arc, Quiet Boredom, Personality Contrast, and Reaction Storm add the live Micro-belief acceptance coverage; every reaction reaches behavior only through bounded Behavior Bias values.

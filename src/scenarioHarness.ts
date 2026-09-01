@@ -97,7 +97,24 @@ export interface ScenarioRunOptions {
   maxQueuedTraceLines?: number;
   /** Injected cognition seam. Unit tests stay pure and never build WASM. */
   createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
+  /** Optional wall-clock instrumentation; it never changes the virtual trace. */
+  instrumentation?: ScenarioInstrumentation;
 }
+
+/** Optional wall-clock instrumentation; it never changes the virtual trace. */
+export interface ScenarioInstrumentation {
+  /** Real milliseconds spent advancing one virtual render frame. */
+  onRenderTick?: (durationMs: number, renderTick: number) => void;
+  /** Real milliseconds spent in one character's cognition tick. */
+  onCognitionTick?: (
+    characterId: string,
+    durationMs: number,
+    renderTick: number,
+  ) => void;
+  /** Real milliseconds from an observe call through its next fixed tick. */
+  onStimulusToBias?: (characterId: string, durationMs: number) => void;
+}
+
 
 export const BASELINE_SCENARIO: ScenarioDefinition = {
   name: "baseline",
@@ -304,6 +321,42 @@ export const REACTION_STORM_SCENARIO: ScenarioDefinition = {
   })),
 };
 
+function hashRoll(index: number, salt: number): number {
+  let state = (Math.imul(index + 1, 0x9e3779b1) ^ salt) >>> 0;
+  state = Math.imul(state ^ (state >>> 15), 0x85ebca6b) >>> 0;
+  state = Math.imul(state ^ (state >>> 13), 0xc2b2ae35) >>> 0;
+  return ((state ^ (state >>> 16)) >>> 0) / 4294967296;
+}
+
+/**
+ * The Phase 1 worst-supported-render-schedule stress replay: eight
+ * Materialized characters for a 120-second virtual window with dense public
+ * stimuli. The same definition is replayed at 60 and 120 Hz for cadence/frame
+ * independence; cognition itself remains fixed at 10 Hz.
+ */
+export const PHASE1_STRESS_SCENARIO: ScenarioDefinition = {
+  name: "phase1-stress-8x120",
+  seed: 0x50484153,
+  durationS: 120,
+  spawnTimes: Array.from({ length: 8 }, () => 0),
+  spawnRolls: Array.from({ length: 16 }, (_, index) => hashRoll(index, 0x53505131)),
+  personalitySeeds: Array.from({ length: 8 }, (_, index) => 11 + index),
+  schedulerRolls: Array.from({ length: 128 }, (_, index) =>
+    hashRoll(index, 0x53434845),
+  ),
+  stimuli: Array.from({ length: 1_190 }, (_, index) => ({
+    atS: 1 + index * 0.1,
+    envelope: {
+      target: "all" as const,
+      stimulus: {
+        kind: "gesture" as const,
+        gesture: "openPalm" as const,
+        confidence: index % 2 === 0 ? 0.96 : 0.32,
+      },
+    },
+  })),
+};
+
 export interface ScenarioCognitionStep {
   characterId: string;
   cognitionStep: number;
@@ -362,6 +415,10 @@ const BASELINE_LOADED_ASSET: LoadedAsset = {
   jumpTexture: null,
   fallTexture: null,
 };
+
+/** Shared renderer-free fixture for headless acceptance registries. */
+export const HEADLESS_ASSET: AssetEntry = BASELINE_ASSET;
+export const HEADLESS_LOADED_ASSET: LoadedAsset = BASELINE_LOADED_ASSET;
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -722,9 +779,11 @@ export function runScenario(
 
   const createCognition =
     options.createCognitionHandle ?? createNeutralCognitionHandle;
+  const instrumentation = options.instrumentation;
   const makeCognitionHandle = (init: CognitionInit) => {
     const cognition = createCognition(init);
     let cognitionStep = 0;
+    let observedAtMs: number | null = null;
 
     const envelopeFor = (stimulus: unknown): StimulusEnvelope =>
       activeEnvelope ?? {
@@ -734,6 +793,9 @@ export function runScenario(
 
     return {
       observe(stimulus: Stimulus) {
+        if (instrumentation?.onStimulusToBias) {
+          observedAtMs = performance.now();
+        }
         cognition.observe(stimulus);
         emit("stimulus_observed", {
           characterId: init.characterId,
@@ -743,7 +805,22 @@ export function runScenario(
       },
       toneSeed: () => cognition.toneSeed(),
       tick(dt: number) {
+        const tickStartedAtMs = instrumentation ? performance.now() : 0;
         const signal = cognition.tick(dt);
+        const tickEndedAtMs = instrumentation ? performance.now() : tickStartedAtMs;
+        const tickDurationMs = tickEndedAtMs - tickStartedAtMs;
+        instrumentation?.onCognitionTick?.(
+          init.characterId,
+          tickDurationMs,
+          renderTick,
+        );
+        if (observedAtMs !== null) {
+          instrumentation?.onStimulusToBias?.(
+            init.characterId,
+            tickEndedAtMs - observedAtMs,
+          );
+          observedAtMs = null;
+        }
         const snapshot = cognition.snapshot();
         cognitionStep++;
         emit("cognition_step", {
@@ -1012,6 +1089,7 @@ export function runScenario(
   };
 
   for (renderTick = 0; renderTick < frameCount; renderTick++) {
+    const renderTickStartedAtMs = instrumentation ? performance.now() : 0;
     const frameEndS = Math.min(
       scenario.durationS,
       (renderTick + 1) / renderScheduleHz,
@@ -1028,6 +1106,10 @@ export function runScenario(
     }
 
     advanceClock(frameEndS);
+    instrumentation?.onRenderTick?.(
+      performance.now() - renderTickStartedAtMs,
+      renderTick,
+    );
   }
 
   clockS = scenario.durationS;

@@ -12,7 +12,8 @@
     "build": "npm run build:cognition && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:acceptance": "npm run build:cognition && vitest run --config vitest.cognition.config.ts integration/phase1Acceptance.integration.test.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
