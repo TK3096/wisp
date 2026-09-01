@@ -8,6 +8,10 @@ import { defaultCreateBubbleHandle, defaultCreateHandle } from "./rendering";
 import { EffectKind } from "./effect";
 import { connectShellEvents } from "./shellBridge";
 import { bindWasmCognition } from "./cognitionFacade";
+import {
+  createNativeIdentityFactory,
+  createTauriPersistence,
+} from "./tauriPersistence";
 
 async function init() {
   // WKWebView (macOS) rejects createImageBitmap on tauri:// scheme responses;
@@ -52,6 +56,10 @@ async function init() {
     createHandle: defaultCreateHandle,
     createBubbleHandle: defaultCreateBubbleHandle,
     createCognitionHandle: await bindWasmCognition(),
+    createCharacterId: createNativeIdentityFactory(),
+    persistence: createTauriPersistence(),
+    onPersistenceError: console.error,
+    onIdentityError: console.error,
     createEffectHandle: (kind: EffectKind) => {
       const textures = kind === "spawn" ? spawnTextures : despawnTextures;
       const sprite = new Sprite(textures[0] as unknown as Texture);
@@ -108,10 +116,20 @@ async function init() {
       registry,
       window,
       cognitionDebug,
+      async () => {
+        await registry.flush("shutdown");
+        await invoke("exit_after_flush");
+      },
     );
   } catch (err) {
     console.warn("Tauri event bridge unavailable:", err);
   }
+
+  // Best-effort fallback when the shell closes without the handshake event.
+  // Graceful shutdown gives dirty characters a final durable snapshot.
+  window.addEventListener("pagehide", () => {
+    void registry.flush("shutdown").catch(console.error);
+  });
 }
 
 init();

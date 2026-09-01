@@ -16,6 +16,7 @@ import {
   CognitionHandle,
   CognitionInit,
   NEUTRAL_BEHAVIOR_SIGNAL,
+  PersistentCognitionState,
   ToneSeed,
   StimulusEnvelope,
   createNeutralCognitionHandle,
@@ -28,6 +29,14 @@ import {
   projectCognitionDebugSnapshot,
 } from "./cognitionDebugSnapshot";
 import { TaggedLine, selectTaggedLine } from "./speech";
+import {
+  CHARACTER_AUTOSAVE_INTERVAL_S,
+  CharacterPersistenceRecord,
+  CharacterPersistenceStore,
+  MAX_DURABLE_CHARACTERS,
+  PersistenceReason,
+  createCharacterPersistenceRecord,
+} from "./characterPersistence";
 
 export interface RenderOwner {
   registryId: number;
@@ -86,8 +95,19 @@ export interface RegistryOptions {
   createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
   /** Separate deterministic stream for idle-bubble and jump scheduler draws. */
   schedulerRng?: () => number;
-  /** Deterministic identity source for replays; production uses random UUIDs. */
-  createCharacterId?: () => string;
+  /**
+   * The sole identity seam. The native shell supplies production identities;
+   * tests and replays inject deterministic opaque IDs.
+   */
+  createCharacterId: () => string | Promise<string>;
+  /** Injected durable-record sink; production uses the native atomic store. */
+  persistence?: CharacterPersistenceStore;
+  /** Operational error reporting; persistence failures never break the render loop. */
+  onPersistenceError?: (error: unknown) => void;
+  /** Operational error reporting; identity failures never break the render loop. */
+  onIdentityError?: (error: unknown) => void;
+  /** Wall clock belongs only to durable metadata, never Cognition cadence. */
+  nowMs?: () => number;
   /**
    * Deterministic Personality Seed source for replays. Production derives it
    * from the stable Character Identity and Archetype.
@@ -117,6 +137,7 @@ interface CharEntry {
   /** Stable opaque Character Identity used by cognition and future persistence. */
   characterId: string;
   archetype: string;
+  personalitySeed: number;
   displayName: string;
   cognition: CognitionHandle;
   /** Render time not yet consumed by a fixed cognition step. */
@@ -131,6 +152,12 @@ interface CharEntry {
   rollTimer: number;
   /** Seconds until this character's next jump roll. */
   jumpRollTimer: number;
+  dirty: boolean;
+  dirtyGeneration: number;
+  persistenceWriteCount: number;
+  persistedCreatedAtMs: number;
+  nextAutosaveAtS: number;
+  persistenceQueue: Promise<void> | null;
 }
 
 interface PendingSpawn {
@@ -205,7 +232,16 @@ export class CharacterRegistry {
       const matches =
         envelope.target === "all" ||
         envelope.target.characterId === entry.characterId;
-      if (matches) entry.cognition.observe(envelope.stimulus);
+      if (matches) {
+        entry.cognition.observe(envelope.stimulus);
+        this.markDirty(entry);
+        if (entry.dirty) {
+          entry.nextAutosaveAtS = Math.min(
+            entry.nextAutosaveAtS,
+            this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S,
+          );
+        }
+      }
       if (matches) {
         entry.latestStimulus = {
           observedAtS: this.elapsed,
@@ -222,7 +258,16 @@ export class CharacterRegistry {
   despawn(id: number): boolean {
     const idx = this.entries.findIndex((e) => e.id === id);
     if (idx === -1) return false;
-    const { char } = this.entries[idx];
+    const { char, characterId, persistenceQueue } = this.entries[idx];
+    // A user deletion is authoritative. Do not enqueue a farewell snapshot.
+    void persistenceQueue?.catch(() => undefined);
+    const persistence = this.opts.persistence;
+    if (persistence) {
+      void persistence.delete(characterId);
+      if (persistenceQueue) {
+        void persistenceQueue.finally(() => persistence.delete(characterId));
+      }
+    }
     this.observeVanishing(this.entries[idx]);
     const x = char.x;
     const y = char.renderY;
@@ -236,6 +281,7 @@ export class CharacterRegistry {
   spawn(): void {
     const { manifest, loadedAssets, rng, screenWidth, floorY, createEffectHandle } = this.opts;
 
+    if (this.entries.length + this.pending.length >= MAX_DURABLE_CHARACTERS) return;
     const entry = manifest[Math.floor(rng() * manifest.length)];
     const loaded = loadedAssets.get(entry.name)!;
     const x = rng() * screenWidth;
@@ -249,8 +295,13 @@ export class CharacterRegistry {
       // No onChange — character is not yet visible in the tray.
     } else {
       // Immediate: construct character now (backward-compat when no effect factory).
-      this.materializeEntry(entry, loaded, x);
-      this.opts.onChange?.(this.snapshot());
+      const materializedSynchronously = this.materializeResolved(
+        entry,
+        loaded,
+        x,
+        this.opts.createCharacterId(),
+      );
+      if (materializedSynchronously) this.opts.onChange?.(this.snapshot());
     }
   }
 
@@ -258,7 +309,28 @@ export class CharacterRegistry {
    * Construct a Character from resolved asset data, push it into entries[],
    * and fire a greeting bubble. Does NOT emit onChange — callers handle that.
    */
-  private materializeEntry(entry: AssetEntry, loaded: LoadedAsset, x: number): void {
+  private materializeResolved(
+    entry: AssetEntry,
+    loaded: LoadedAsset,
+    x: number,
+    identity: string | Promise<string>,
+    onMaterialized?: () => void,
+  ): boolean {
+    if (identity instanceof Promise) {
+      void identity.then(
+        (characterId) => {
+          this.materializeEntry(entry, loaded, x, characterId);
+          onMaterialized?.();
+        },
+        (error) => this.opts.onIdentityError?.(error),
+      );
+      return false;
+    }
+    this.materializeEntry(entry, loaded, x, identity);
+    return true;
+  }
+
+  private materializeEntry(entry: AssetEntry, loaded: LoadedAsset, x: number, characterId: string): void {
     const {
       rng,
       stage,
@@ -267,15 +339,10 @@ export class CharacterRegistry {
       createHandle,
       createBubbleHandle,
       createCognitionHandle,
-      createCharacterId,
       derivePersonalitySeed: deriveSeed,
     } = this.opts;
 
     const id = this.nextId++;
-    // Opaque and stable across sessions; persistence will later standardize UUIDv7.
-    const characterId = createCharacterId
-      ? createCharacterId()
-      : crypto.randomUUID();
 
     const handle = createHandle({
       entry,
@@ -312,26 +379,29 @@ export class CharacterRegistry {
       cfg,
     );
 
+    const personalitySeed = deriveSeed?.(characterId, entry.name)
+      ?? derivePersonalitySeed(characterId, entry.name);
     const cognition = createCognitionHandle({
       schemaVersion: COGNITION_SCHEMA_VERSION,
       characterId,
       archetype: entry.name,
-      personalitySeed: deriveSeed?.(characterId, entry.name)
-        ?? derivePersonalitySeed(characterId, entry.name),
+      personalitySeed,
     });
 
     // The initial read-only projection establishes personality/affect for tone
     // selection without advancing the Temporal Derivative or cadence clock.
+    const initialState = this.opts.persistence ? cognition.snapshot() : null;
     const toneSeed = cognition.toneSeed();
     const greetingRoll = rng();
     this.sayTagged(character, cognition, GREETINGS, toneSeed, greetingRoll);
 
     // Fixed initial roll timers so characters don't lock-step on the first roll.
-    this.entries.push({
+    const newEntry: CharEntry = {
       char: character,
       id,
       characterId,
       archetype: entry.name,
+      personalitySeed,
       displayName: entry.displayName,
       cognition,
       cognitionAccumulator: 0,
@@ -340,11 +410,78 @@ export class CharacterRegistry {
       lastCognitionAtS: this.elapsed,
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
-    });
+      dirty: false,
+      dirtyGeneration: 0,
+      persistenceWriteCount: 0,
+      persistedCreatedAtMs: 0,
+      nextAutosaveAtS: this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S,
+      persistenceQueue: null,
+    };
+    this.entries.push(newEntry);
+    if (initialState) {
+      this.enqueuePersistence(newEntry, "materialization", initialState);
+    }
     this.dispatch({
       target: { characterId },
       stimulus: { kind: "lifecycle", phase: "materialized" },
     });
+    newEntry.dirty = true;
+    newEntry.dirtyGeneration++;
+    newEntry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+  }
+
+  async flush(reason: PersistenceReason = "shutdown"): Promise<void> {
+    // Drain writes that were scheduled first, preserving the initial-write
+    // ordering. Only characters still dirty need a final shutdown snapshot.
+    await Promise.all(this.entries.map((entry) => entry.persistenceQueue));
+    const dirty = this.entries.filter((entry) => entry.dirty);
+    await Promise.all(dirty.map((entry) => this.enqueuePersistence(entry, reason)));
+    await Promise.all(dirty.map((entry) => entry.persistenceQueue));
+  }
+
+  private markDirty(entry: CharEntry): void {
+    if (!this.opts.persistence) return;
+    entry.dirty = true;
+    entry.dirtyGeneration++;
+  }
+
+  private enqueuePersistence(
+    entry: CharEntry,
+    _reason: PersistenceReason,
+    stateOverride?: PersistentCognitionState,
+  ): Promise<void> {
+    const persistence = this.opts.persistence;
+    if (!persistence) return Promise.resolve();
+    const previous = entry.persistenceQueue ?? Promise.resolve();
+    const nowMs = (this.opts.nowMs ?? Date.now)();
+    const createdAtMs = entry.persistedCreatedAtMs || nowMs;
+    const writeCount = entry.persistenceWriteCount + 1;
+    const operation = previous.then(async () => {
+      const state = stateOverride ?? entry.cognition.snapshot();
+      const generationAtSnapshot = entry.dirtyGeneration;
+      const record = await createCharacterPersistenceRecord({
+        characterId: entry.characterId,
+        archetype: entry.archetype,
+        personalitySeed: entry.personalitySeed,
+        cognitionSnapshotVersion: COGNITION_SCHEMA_VERSION,
+        cognitionState: state,
+        createdAtMs,
+        writeCount,
+      });
+      await persistence.save(record as CharacterPersistenceRecord);
+      if (generationAtSnapshot === entry.dirtyGeneration) {
+        entry.dirty = false;
+        entry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+      }
+      entry.persistenceWriteCount = writeCount;
+      entry.persistedCreatedAtMs = createdAtMs;
+    });
+    const tracked = operation.catch((error) => this.opts.onPersistenceError?.(error));
+    void tracked.finally(() => {
+      if (entry.persistenceQueue === tracked) entry.persistenceQueue = null;
+    });
+    entry.persistenceQueue = tracked;
+    return operation;
   }
 
   despawnAll(): void {
@@ -431,8 +568,18 @@ export class CharacterRegistry {
     for (const p of stillPending) this.pending.push(p);
 
     // Materialize promoted characters and emit a single batched onChange.
-    for (const p of toPromote) this.materializeEntry(p.entry, p.loaded, p.x);
-    if (toPromote.length > 0) this.opts.onChange?.(this.snapshot());
+    let synchronouslyMaterialized = 0;
+    for (const p of toPromote) {
+      const materializedNow = this.materializeResolved(
+        p.entry,
+        p.loaded,
+        p.x,
+        this.opts.createCharacterId(),
+        () => this.opts.onChange?.(this.snapshot()),
+      );
+      if (materializedNow) synchronouslyMaterialized++;
+    }
+    if (synchronouslyMaterialized > 0) this.opts.onChange?.(this.snapshot());
 
     for (const entry of this.entries) {
       entry.cognitionAccumulator += dt;
@@ -452,6 +599,7 @@ export class CharacterRegistry {
       if (cognitionSteps === MAX_COGNITION_CATCHUP_STEPS) {
         entry.cognitionAccumulator = 0;
       }
+      if (cognitionSteps > 0) this.markDirty(entry);
 
       entry.char.tick(dt);
 
@@ -485,6 +633,14 @@ export class CharacterRegistry {
           behaviorRng() * (2 * JUMP.PER_CHAR_JITTER_S);
 
         if (entry.char.shouldJumpOnRoll(behaviorRng)) entry.char.jump();
+      }
+
+      if (
+        entry.dirty &&
+        this.elapsed >= entry.nextAutosaveAtS &&
+        entry.persistenceQueue === null
+      ) {
+        this.enqueuePersistence(entry, "autosave");
       }
     }
   }

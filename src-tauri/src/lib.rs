@@ -1,4 +1,8 @@
+mod persistence;
 mod sidecar;
+
+use persistence::{delete_record, persist_record};
+use uuid::Uuid;
 
 use std::sync::Mutex;
 use tauri::{
@@ -19,6 +23,8 @@ struct CharacterItem {
 
 struct AppTray(TrayIcon);
 struct CharacterList(Mutex<Vec<CharacterItem>>);
+#[derive(Default)]
+struct PersistenceLock(Mutex<()>);
 
 fn build_tray_menu<R: tauri::Runtime>(
     manager: &impl tauri::Manager<R>,
@@ -159,6 +165,48 @@ fn update_character_list(
     Ok(())
 }
 
+#[tauri::command]
+fn create_character_identity() -> Result<String, String> {
+    Ok(Uuid::now_v7().to_string())
+}
+
+#[tauri::command]
+fn persist_character_record(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+    record: serde_json::Value,
+) -> Result<(), String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    persist_record(&root, &record)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn delete_character_record(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+    character_id: String,
+) -> Result<(), String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    delete_record(&root, &character_id).map_err(|error| error.to_string())
+}
+
+fn persistence_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let base = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    Ok(base.join("characters").join("v1"))
+}
+
+#[tauri::command]
+fn exit_after_flush(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -172,6 +220,7 @@ pub fn run() {
         .setup(|app| {
             app.manage(SidecarProcess::new());
             app.manage(CharacterList(Mutex::new(vec![])));
+            app.manage(PersistenceLock::default());
 
             let window = app.get_webview_window("main").unwrap();
 
@@ -203,8 +252,13 @@ pub fn run() {
                         let _ = app.emit("despawn-all", ());
                     }
                     "quit" => {
-                        app.state::<SidecarProcess>().stop();
-                        app.exit(0);
+                        let _ = app.emit("graceful-shutdown", ());
+                        let shutdown_app = app.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_secs(2));
+                            shutdown_app.state::<SidecarProcess>().stop();
+                            shutdown_app.exit(0);
+                        });
                     }
                     "gestures" => {
                         let sidecar = app.state::<SidecarProcess>();
@@ -267,7 +321,13 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![update_character_list])
+        .invoke_handler(tauri::generate_handler![
+            update_character_list,
+            create_character_identity,
+            persist_character_record,
+            delete_character_record,
+            exit_after_flush
+        ])
         .build(tauri::generate_context!())
         .expect("error building tauri application")
         .run(|app, event| {

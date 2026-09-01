@@ -14,6 +14,10 @@ import {
 import { CognitionDebugSnapshot } from "../src/cognitionDebugSnapshot";
 import { BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "../src/config";
 
+let testIdentityCounter = 0;
+const nextTestId = () =>
+  `0195c8f2-70aa-7cc2-99df-f2d3ba54c${(++testIdentityCounter).toString(16).padStart(3, "0")}`;
+
 // --- Fakes ---
 
 function makeHandle(): CharacterHandle {
@@ -83,6 +87,7 @@ describe("CharacterRegistry", () => {
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
+      createCharacterId: nextTestId,
     });
     expect(reg.count).toBe(0);
   });
@@ -97,6 +102,7 @@ describe("CharacterRegistry", () => {
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
+      createCharacterId: nextTestId,
     });
     reg.spawn();
     expect(reg.count).toBe(1);
@@ -112,6 +118,7 @@ describe("CharacterRegistry", () => {
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
+      createCharacterId: nextTestId,
     });
     reg.spawn();
     reg.spawn();
@@ -135,6 +142,7 @@ describe("CharacterRegistry", () => {
         picked.push(ctx.entry.name);
         return makeHandle();
       },
+      createCharacterId: nextTestId,
     });
     reg.spawn(); // asset rng=0.0 → Math.floor(0 * 2) = 0 → "a"
     reg.spawn(); // asset rng≈1.0 → Math.floor(~1 * 2) = 1 → "b"
@@ -156,6 +164,7 @@ describe("CharacterRegistry", () => {
         xs.push(ctx.x);
         return makeHandle();
       },
+      createCharacterId: nextTestId,
     });
     for (let i = 0; i < 5; i++) reg.spawn();
     for (const x of xs) {
@@ -179,6 +188,7 @@ describe("CharacterRegistry", () => {
         handles.push(h);
         return h;
       },
+      createCharacterId: nextTestId,
     });
     reg.spawn();
     reg.spawn();
@@ -206,6 +216,7 @@ describe("CharacterRegistry", () => {
         handles.push(h);
         return h;
       },
+      createCharacterId: nextTestId,
     });
     reg.spawn();
     const callsBefore = (handles[0].setTexture as ReturnType<typeof vi.fn>).mock.calls.length;
@@ -244,6 +255,7 @@ function makeSchedulerRegistry(rng: () => number = () => 0.5) {
       bubbleHandles.push(h);
       return h;
     },
+    createCharacterId: nextTestId,
   });
   return { reg, bubbleHandles };
 }
@@ -383,6 +395,7 @@ function makeJumpRegistry(rng: () => number = () => 0.5) {
       handles.push(h);
       return h;
     },
+    createCharacterId: nextTestId,
   });
   return { reg, handles };
 }
@@ -492,6 +505,7 @@ function makeIdentityRegistry(rng: () => number = makeRng([0, 0.5, 0])) {
     screenWidth: SCREEN_W,
     floorY: FLOOR_Y,
     createHandle: () => makeHandle(),
+    createCharacterId: nextTestId,
   });
   return reg;
 }
@@ -526,6 +540,7 @@ describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
         handles.push(h);
         return h;
       },
+      createCharacterId: nextTestId,
     });
 
     reg.spawn(); // id=1, handles[0]
@@ -552,6 +567,7 @@ describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
       onChange,
+      createCharacterId: nextTestId,
     });
 
     reg.spawn(); // id=1
@@ -576,6 +592,7 @@ describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
       onChange,
+      createCharacterId: nextTestId,
     });
 
     reg.spawn(); // id=1, displayName="A"
@@ -602,6 +619,7 @@ describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
       onChange,
+      createCharacterId: nextTestId,
     });
 
     reg.spawn(); // id=1
@@ -624,6 +642,7 @@ describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
       onChange,
+      createCharacterId: nextTestId,
     });
 
     reg.spawn();
@@ -646,6 +665,7 @@ describe("CharacterRegistry Phase 6: identity & despawn(id)", () => {
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
+      createCharacterId: nextTestId,
     });
 
     reg.spawn(); // id=1, displayName="A"
@@ -689,6 +709,7 @@ function makeEffectRegistry(rng: () => number = makeRng([0, 0.5, 0])) {
       effectCaptures.push({ kind, handle });
       return handle;
     },
+    createCharacterId: nextTestId,
   });
   return { reg, effectCaptures };
 }
@@ -783,6 +804,7 @@ describe("CharacterRegistry Phase 7: despawn effects", () => {
       screenWidth: SCREEN_W,
       floorY: FLOOR_Y,
       createHandle: () => makeHandle(),
+      createCharacterId: nextTestId,
       // no createEffectHandle
     });
     reg.spawn();
@@ -821,6 +843,7 @@ function makePhase8Registry(
       return handle;
     },
     onChange,
+    createCharacterId: nextTestId,
   });
   return { reg, effectCaptures, bubbleHandles };
 }
@@ -974,6 +997,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
         cognitionHandles.push(handle);
         return handle;
       },
+      createCharacterId: nextTestId,
     });
     return { reg, inits, cognitionHandles };
   }
@@ -1023,6 +1047,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
         toneSeed: () => ({ personality: signal.personality, affect: signal.affect }),
         tick: () => signal,
       }),
+      createCharacterId: nextTestId,
     });
     return { reg, renderHandles, bubbleHandles };
   }
@@ -1052,7 +1077,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
     reg.spawn();
     reg.spawn();
 
-    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     expect(inits.every((init) => uuid.test(init.characterId))).toBe(true);
   });
 
@@ -1071,6 +1096,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
         inits.push(init);
         return makeCognitionHandle();
       },
+      createCharacterId: nextTestId,
     });
 
     reg.spawn();
@@ -1356,6 +1382,7 @@ describe("CharacterRegistry Cognition Debug inspection", () => {
       createHandle: () => makeHandle(),
       createEffectHandle: () => makeEffectHandle(),
       createCognitionHandle: () => makeCognitionHandle(),
+      createCharacterId: nextTestId,
     });
 
     reg.spawn();

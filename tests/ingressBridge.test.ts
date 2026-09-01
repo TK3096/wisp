@@ -9,6 +9,10 @@ import {
   StimulusEnvelope,
 } from "../src/cognition";
 
+let testIdentityCounter = 0;
+const nextTestId = () =>
+  `0195c8f2-70aa-7cc2-99df-f2d3ba54c${(++testIdentityCounter).toString(16).padStart(3, "0")}`;
+
 describe("Ingress Bridge", () => {
   it("forwards an accepted open-palm gesture to every Materialized character", () => {
     const dispatched: StimulusEnvelope[] = [];
@@ -123,6 +127,7 @@ describe("Ingress Bridge", () => {
         cognitionHandles.push(handle);
         return handle;
       },
+      createCharacterId: nextTestId,
     });
     const shellPayloadHandlers = new Map<string, (payload: unknown) => void>();
     const environmentListeners = new Map<string, () => void>();

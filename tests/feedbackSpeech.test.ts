@@ -9,6 +9,10 @@ import {
   Stimulus,
 } from "../src/cognition";
 
+let testIdentityCounter = 0;
+const nextTestId = () =>
+  `0195c8f2-70aa-7cc2-99df-f2d3ba54c${(++testIdentityCounter).toString(16).padStart(3, "0")}`;
+
 function makeRegistry(personality: PersonalityDimensions) {
   const state = {
     clockS: 0,
@@ -94,6 +98,7 @@ function makeRegistry(personality: PersonalityDimensions) {
       destroy() {},
     }),
     createCognitionHandle: () => cognition,
+    createCharacterId: nextTestId,
   });
   return { registry, cognition, state };
 }

@@ -4,6 +4,10 @@ import { CharacterHandle } from "../src/character";
 import { CognitionHandle, NEUTRAL_BEHAVIOR_SIGNAL } from "../src/cognition";
 import { connectShellEvents } from "../src/shellBridge";
 
+let testIdentityCounter = 0;
+const nextTestId = () =>
+  `0195c8f2-70aa-7cc2-99df-f2d3ba54c${(++testIdentityCounter).toString(16).padStart(3, "0")}`;
+
 function makeRegistry(cognitionHandles: CognitionHandle[]): CharacterRegistry {
   return new CharacterRegistry({
     stage: null,
@@ -60,6 +64,7 @@ function makeRegistry(cognitionHandles: CognitionHandle[]): CharacterRegistry {
       cognitionHandles.push(handle);
       return handle;
     },
+    createCharacterId: nextTestId,
   });
 }
 

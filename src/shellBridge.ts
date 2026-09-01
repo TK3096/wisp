@@ -4,6 +4,7 @@ import { CognitionDebugSnapshot } from "./cognitionDebugSnapshot";
 
 export type ShellEventName =
   | "spawn"
+  | "graceful-shutdown"
   | "despawn-all"
   | "despawn-one"
   | "delight-one"
@@ -31,6 +32,7 @@ export async function connectShellEvents(
   registry: CharacterRegistry,
   environmentTarget: EnvironmentEventTarget,
   debugCommands?: CognitionDebugCommands,
+  onGracefulShutdown?: () => Promise<void>,
 ): Promise<void> {
   const ingressBridge = new IngressBridge((envelope) => {
     registry.dispatch(envelope);
@@ -46,6 +48,9 @@ export async function connectShellEvents(
   });
 
   await listen("spawn", () => registry.spawn());
+  await listen("graceful-shutdown", async () => {
+    await onGracefulShutdown?.();
+  });
   await listen("despawn-all", () => registry.despawnAll());
   await listen("despawn-one", (payload) => {
     if (typeof payload === "number") registry.despawn(payload);
