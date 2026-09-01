@@ -54,6 +54,32 @@ export const BUBBLE = {
 };
 
 /**
+ * Accepted tone-selection tunables. Small opposite-polarity base weights keep
+ * every tone possible; larger personality/affect coefficients make character
+ * state the usual reason a tone wins.
+ */
+export const BUBBLE_TONE_WEIGHTS = {
+  cheerful: {
+    base: 0.06,
+    sociability: 0.45,
+    energy: 0.25,
+    positiveValence: 0.35,
+  },
+  curious: {
+    base: 0.06,
+    curiosity: 0.5,
+    surprise: 0.3,
+    arousal: 0.15,
+  },
+  grumpy: {
+    base: 0.05,
+    negativeValence: 0.4,
+    arousal: 0.25,
+    lowSociability: 0.12,
+  },
+} as const;
+
+/**
  * Development-only Cognition Debug Overlay gates. The frame budget is the
  * accepted trace/debug overhead budget; normal release builds do not wire it.
  */
@@ -63,20 +89,31 @@ export const COGNITION_DEBUG = {
   METRIC_WINDOW_FRAMES: 7200,
 };
 
-export const GREETINGS = ["hi!", "hello!", "hey!", "*waves*", "yo", "👋", "🫡"];
+import type { TaggedLine } from "./speech";
 
-export const IDLE_LINES = [
-  "zzz",
-  "hmm",
-  "...",
-  "😂",
-  "🤪",
-  "where am I?",
-  "*looks around*",
-  "la la la",
-  "what's up?",
-  "*yawns*",
-  "😱",
+export const GREETINGS: TaggedLine[] = [
+  { text: "hi!", tone: "cheerful" },
+  { text: "hello!", tone: "cheerful" },
+  { text: "hey!", tone: "cheerful" },
+  { text: "*waves*", tone: "cheerful" },
+  { text: "yo", tone: "grumpy" },
+  { text: "👋", tone: "cheerful" },
+  { text: "🫡", tone: "grumpy" },
+  { text: "what's this?", tone: "curious" },
+];
+
+export const IDLE_LINES: TaggedLine[] = [
+  { text: "zzz", tone: "grumpy" },
+  { text: "hmm", tone: "curious" },
+  { text: "...", tone: "grumpy" },
+  { text: "😂", tone: "cheerful" },
+  { text: "🤪", tone: "cheerful" },
+  { text: "where am I?", tone: "curious" },
+  { text: "*looks around*", tone: "curious" },
+  { text: "la la la", tone: "cheerful" },
+  { text: "what's up?", tone: "curious" },
+  { text: "*yawns*", tone: "grumpy" },
+  { text: "😱", tone: "grumpy" },
 ];
 
 export const EFFECT = {

@@ -6,6 +6,8 @@ export type ShellEventName =
   | "spawn"
   | "despawn-all"
   | "despawn-one"
+  | "delight-one"
+  | "dismiss-one"
   | "gesture"
   | "toggle-cognition-debug"
   | "select-next-cognition-debug";
@@ -48,6 +50,15 @@ export async function connectShellEvents(
   await listen("despawn-one", (payload) => {
     if (typeof payload === "number") registry.despawn(payload);
   });
+  for (const [event, feedback] of [
+    ["delight-one", "delight"],
+    ["dismiss-one", "dismiss"],
+  ] as const) {
+    await listen(event, (payload) => {
+      const target = registry.characterIdFor(Number(payload));
+      if (target) ingressBridge.receiveFeedback(feedback, target);
+    });
+  }
   await listen("gesture", (payload) => {
     ingressBridge.receiveGesture(payload);
   });

@@ -255,7 +255,7 @@ describe("CharacterRegistry scheduler (Phase 4)", () => {
     reg.spawn();
     // One greeting bubble created immediately on spawn
     expect(bubbleHandles.length).toBe(1);
-    expect(bubbleHandles[0].setText).toHaveBeenCalledWith(GREETINGS[0]); // rng=0 → idx 0
+    expect(bubbleHandles[0].setText).toHaveBeenCalledWith(GREETINGS[0].text); // rng=0 → idx 0
   });
 
   it("idle roll fires after PER_CHAR_AVG_INTERVAL_S seconds", () => {
@@ -270,21 +270,21 @@ describe("CharacterRegistry scheduler (Phase 4)", () => {
     expect(bubbleHandles.length).toBe(2);
   });
 
-  it("global cooldown blocks a second bubble fired within GLOBAL_COOLDOWN_S", () => {
+  it("global cooldown blocks greetings and idle bubbles within GLOBAL_COOLDOWN_S", () => {
     // rng sequences: per spawn [asset, x, greeting], then per tick roll [rollTimer, line]
     const rng = makeRng([0, 0.5, 0, 0, 0.5, 0]);
     const { reg, bubbleHandles } = makeSchedulerRegistry(rng);
 
-    reg.spawn(); // char1, greeting
-    reg.spawn(); // char2, greeting
-    expect(bubbleHandles.length).toBe(2); // 2 greetings
+    reg.spawn(); // char1 greeting wins
+    reg.spawn(); // char2 greeting is blocked by cooldown
+    expect(bubbleHandles.length).toBe(1); // 1 greeting
 
     // Tick past both roll timers (both at 30s). Char1's roll fires first (first in entries),
     // char2's roll fires in the same tick but is blocked by 3s cooldown.
     reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 0.5);
 
     // Only one idle bubble should have fired
-    expect(bubbleHandles.length).toBe(3); // 2 greetings + 1 idle
+    expect(bubbleHandles.length).toBe(2); // 1 greeting + 1 idle
   });
 
   it("more than one idle bubble fires over multiple roll cycles with two characters", () => {
@@ -293,7 +293,7 @@ describe("CharacterRegistry scheduler (Phase 4)", () => {
 
     reg.spawn();
     reg.spawn();
-    const greetingCount = bubbleHandles.length; // 2 greetings
+    const greetingCount = bubbleHandles.length; // 1 greeting
 
     // Run two full roll cycles (each ~30s). Over 60s both characters get multiple chances.
     reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 1);
@@ -303,7 +303,7 @@ describe("CharacterRegistry scheduler (Phase 4)", () => {
     expect(bubbleHandles.length - greetingCount).toBeGreaterThan(1);
   });
 
-  it("greeting bypasses cooldown — fires even when lastBubbleAt is recent", () => {
+  it("greeting respects cooldown when lastBubbleAt is recent", () => {
     const rng = makeRng([0, 0.5, 0, 0.5]);
     const { reg, bubbleHandles } = makeSchedulerRegistry(rng);
 
@@ -312,10 +312,10 @@ describe("CharacterRegistry scheduler (Phase 4)", () => {
     reg.tick(BUBBLE.PER_CHAR_AVG_INTERVAL_S + 0.5);
     const countAfterIdleRoll = bubbleHandles.length;
 
-    // Spawn char2 immediately — within the cooldown window
-    // Greeting must fire despite the cooldown
+    // Spawn char2 immediately — within the cooldown window.
+    // Its greeting must not bypass the global gate.
     reg.spawn();
-    expect(bubbleHandles.length).toBeGreaterThan(countAfterIdleRoll);
+    expect(bubbleHandles.length).toBe(countAfterIdleRoll);
   });
 
   it("bubble rate at max 8 characters is bounded by GLOBAL_COOLDOWN_S", () => {
@@ -830,7 +830,12 @@ const SPAWN_EFFECT_DURATION = EFFECT.FRAME_COUNT / EFFECT.FPS;
 function makeCognitionHandle(): CognitionHandle {
   return {
     observe: vi.fn(),
+    toneSeed: vi.fn(() => ({
+      personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
+      affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+    })),
     tick: vi.fn(() => NEUTRAL_BEHAVIOR_SIGNAL),
+    noteExpression: vi.fn(),
     snapshot: vi.fn(),
     restore: vi.fn(),
   };
@@ -975,6 +980,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
 
   function makeBiasSignal(overrides: Partial<BehaviorBias>): BehaviorSignal {
     return {
+      personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
       affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
       temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
       microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,
@@ -1014,6 +1020,7 @@ describe("CharacterRegistry cognition (Phase 9)", () => {
         : undefined,
       createCognitionHandle: () => ({
         ...makeCognitionHandle(),
+        toneSeed: () => ({ personality: signal.personality, affect: signal.affect }),
         tick: () => signal,
       }),
     });

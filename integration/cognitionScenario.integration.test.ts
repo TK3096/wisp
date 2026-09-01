@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import {
   BASELINE_SCENARIO,
   CAUTION_STARTLE_ARC_SCENARIO,
+  FEEDBACK_REWARD_SCENARIO,
   HABITUATION_SCENARIO,
   NOVEL_STRONG_GESTURE_SCENARIO,
   NEUTRAL_BASELINE_SCENARIO,
@@ -19,19 +20,22 @@ import {
   CognitionInit,
   CognitionHandle,
 } from "../src/cognition";
+import { bindWasmCognition, CognitionWasmModule } from "../src/cognitionFacade";
 
-type CognitionWasmModule = {
-  WispCognition: new (init: CognitionInit) => CognitionHandle;
-  initSync: (module: WebAssembly.Module) => void;
-};
-
-async function loadGeneratedCognition(): Promise<CognitionWasmModule> {
+async function createLiveCognition(): Promise<
+  (init: CognitionInit) => CognitionHandle
+> {
   const moduleUrl = new URL("../public/cognition/wisp_cognition_wasm.js", import.meta.url);
   const wasmUrl = new URL("../public/cognition/wisp_cognition_wasm_bg.wasm", import.meta.url);
-  const cognitionModule = (await import(moduleUrl.href)) as unknown as CognitionWasmModule;
+  const rawModule = (await import(moduleUrl.href)) as unknown as {
+    WispCognition: new (init: CognitionInit) => unknown;
+    initSync: (module: WebAssembly.Module) => void;
+  };
   const bytes = readFileSync(fileURLToPath(wasmUrl));
-  cognitionModule.initSync(new WebAssembly.Module(bytes));
-  return cognitionModule;
+  rawModule.initSync(new WebAssembly.Module(bytes));
+  return bindWasmCognition(
+    async () => rawModule as unknown as CognitionWasmModule,
+  );
 }
 
 it("turns contrasting real Personality Seeds into different headless behavior decisions", async () => {
@@ -101,13 +105,6 @@ function expectEquivalentFrameRateReplays(replay: LiveReplay): void {
   expect(replay.decisions[2]).toEqual(replay.decisions[0]);
   expect(replay.stableEvents[1]).toEqual(replay.stableEvents[0]);
   expect(replay.stableEvents[2]).toEqual(replay.stableEvents[0]);
-}
-
-async function createLiveCognition(): Promise<
-  (init: CognitionInit) => CognitionHandle
-> {
-  const wasm = await loadGeneratedCognition();
-  return (init: CognitionInit) => new wasm.WispCognition(init);
 }
 
 it("passes the Novel Strong Gesture acceptance through the live cognition core", async () => {
@@ -392,4 +389,45 @@ it("passes the Reaction Storm acceptance without yielding scheduler ownership", 
     [0, 0, 0, 0],
     [0, 0, 0, 0],
   ]);
+});
+
+it("passes the explicit feedback acceptance through the live cognition core", async () => {
+  const createCognitionHandle = await createLiveCognition();
+  const result = runScenario(FEEDBACK_REWARD_SCENARIO, 60, {
+    createCognitionHandle,
+  });
+
+  expect(
+    result.trace.filter((record) => record.type === "stimulus_dispatch"),
+  ).toHaveLength(4);
+  expect(
+    result.trace.filter((record) => record.type === "expression_noted"),
+  ).toHaveLength(4);
+
+  const nextStepAfter = (clockS: number) =>
+    result.trace.find(
+      (record) =>
+        record.type === "cognition_step" && record.clockS > clockS,
+    );
+  const before = [...result.trace]
+    .reverse()
+    .find(
+      (record) =>
+        record.type === "cognition_step" && record.clockS < 30.7166,
+    );
+  const first = nextStepAfter(30.7166);
+  const capped = nextStepAfter(44.7166);
+  const dismissed = nextStepAfter(58.7166);
+  const personalityAt = (record: unknown) =>
+    (record as {
+      behaviorSignal: { personality: { energy: number; sociability: number } };
+    }).behaviorSignal.personality;
+  const beforePersonality = personalityAt(before);
+
+  expect(personalityAt(first).energy - beforePersonality.energy).toBeCloseTo(0.04, 12);
+  expect(personalityAt(capped).energy - beforePersonality.energy).toBeCloseTo(0.08, 12);
+  expect(personalityAt(dismissed).energy - beforePersonality.energy).toBeCloseTo(0.04, 12);
+  expect(personalityAt(first).sociability - beforePersonality.sociability).toBeCloseTo(0.04, 12);
+  expect(personalityAt(capped).sociability - beforePersonality.sociability).toBeCloseTo(0.08, 12);
+  expect(personalityAt(dismissed).sociability - beforePersonality.sociability).toBeCloseTo(0.04, 12);
 });

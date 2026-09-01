@@ -16,9 +16,19 @@ class FakeWasmCognition {
     this.stimuli.push(stimulus);
   }
 
+  tone_seed() {
+    return {
+      personality: { energy: 0.5, curiosity: 0.5, boldness: 0.5, sociability: 0.5 },
+      affect: { surprise: 0, valence: 0, arousal: 0 },
+    };
+  }
+
+  note_expression() {}
+
   tick(dt: number) {
     this.elapsed += dt;
     return {
+      personality: { energy: 0.5, curiosity: 0.5, boldness: 0.5, sociability: 0.5 },
       affect: { surprise: 0, valence: 0, arousal: 0 },
       temporalSurprise: { derivativeNorm: 0.25, gate: 0.8, centeredEnergy: 0.6 },
       behaviorBias: {
@@ -65,6 +75,8 @@ describe("WASM cognition facade", () => {
     const stimulus = { kind: "lifecycle", phase: "materialized" } as const;
 
     handle.observe(stimulus);
+    handle.toneSeed();
+    handle.noteExpression();
     const signal = handle.tick(0.1);
     const snapshot = handle.snapshot();
     handle.restore(snapshot);

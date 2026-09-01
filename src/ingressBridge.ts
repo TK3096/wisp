@@ -1,4 +1,5 @@
 import {
+  FeedbackKind,
   StimulusEnvelope,
   isEnvironmentChange,
   validateStimulusEnvelope,
@@ -41,6 +42,15 @@ export class IngressBridge {
       stimulus: { kind: "environment", change },
     };
     return this.dispatchIfValid(envelope);
+  }
+
+  receiveFeedback(feedback: FeedbackKind, targetId: unknown): boolean {
+    if (typeof targetId !== "string" || targetId === "") return false;
+
+    return this.dispatchIfValid({
+      target: { characterId: targetId },
+      stimulus: { kind: "feedback", feedback },
+    });
   }
 
   private dispatchIfValid(envelope: StimulusEnvelope): boolean {

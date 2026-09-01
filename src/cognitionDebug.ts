@@ -25,6 +25,8 @@ function describeStimulus(stimulus: Stimulus): string {
       return `lifecycle/${stimulus.phase}`;
     case "environment":
       return `environment/${stimulus.change}`;
+    case "feedback":
+      return `feedback/${stimulus.feedback}`;
   }
 }
 

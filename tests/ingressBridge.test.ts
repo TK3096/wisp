@@ -110,6 +110,10 @@ describe("Ingress Bridge", () => {
       createCognitionHandle: () => {
         const handle: CognitionHandle = {
           observe: vi.fn(),
+          toneSeed: () => ({
+            personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
+            affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+          }),
           tick: () => NEUTRAL_BEHAVIOR_SIGNAL,
           snapshot: () => {
             throw new Error("not used");

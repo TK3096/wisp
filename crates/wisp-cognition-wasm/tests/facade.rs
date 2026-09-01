@@ -5,7 +5,7 @@ fn exposes_one_cognition_handle_shaped_api() {
     use wisp_cognition_wasm::WispCognition;
 
     let init = r#"{
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "characterId": "wasm-character",
         "archetype": "ninja-frog",
         "personalitySeed": 42
@@ -16,6 +16,7 @@ fn exposes_one_cognition_handle_shaped_api() {
         .observe(js_sys::JSON::parse(r#"{"kind":"lifecycle","phase":"materialized"}"#).unwrap())
         .unwrap();
     let signal = handle.tick(0.1).unwrap();
+    handle.note_expression();
     let snapshot = handle.snapshot().unwrap();
 
     assert!(signal.is_object());
@@ -28,7 +29,7 @@ fn exposes_bounded_temporal_surprise_without_substrate_apis() {
     use wisp_cognition_wasm::WispCognition;
 
     let init = r#"{
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "characterId": "wasm-character",
         "archetype": "ninja-frog",
         "personalitySeed": 7

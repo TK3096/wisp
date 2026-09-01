@@ -1,4 +1,4 @@
-export const COGNITION_SCHEMA_VERSION = 2;
+export const COGNITION_SCHEMA_VERSION = 3;
 /** Cognition advances at 10 Hz, independently of the render ticker. */
 export const COGNITION_CADENCE_S = 0.1;
 /** A single render tick may catch up at most one second of cognition. */
@@ -16,11 +16,13 @@ export interface CognitionInit {
 export type GestureName = "openPalm";
 export type LifecyclePhase = "materialized" | "vanishing";
 export type EnvironmentChange = "appFocus" | "appBlur";
+export type FeedbackKind = "delight" | "dismiss";
 
 export type Stimulus =
   | { kind: "gesture"; gesture: GestureName; confidence: number }
   | { kind: "lifecycle"; phase: LifecyclePhase }
-  | { kind: "environment"; change: EnvironmentChange };
+  | { kind: "environment"; change: EnvironmentChange }
+  | { kind: "feedback"; feedback: FeedbackKind };
 
 export type StimulusTarget = "all" | { characterId: string };
 
@@ -85,12 +87,26 @@ export interface BehaviorBias {
   animationPace: number;
 }
 
+export interface PersonalityDimensions {
+  energy: number;
+  curiosity: number;
+  boldness: number;
+  sociability: number;
+}
+
 export interface BehaviorSignal {
+  personality: PersonalityDimensions;
   affect: Affect;
   temporalSurprise: TemporalSurprise;
   microBelief: MicroBeliefProjection;
   reaction: ReactionSignal;
   behaviorBias: BehaviorBias;
+}
+
+/** Minimal read-only projection needed to choose a tone before a cadence tick. */
+export interface ToneSeed {
+  personality: PersonalityDimensions;
+  affect: Affect;
 }
 
 export interface PersistentCognitionState {
@@ -101,12 +117,22 @@ export interface PersistentCognitionState {
 
 export interface CognitionHandle {
   observe(stimulus: Stimulus): void;
+  /** Read-only tone projection; available before the first cadence tick. */
+  toneSeed(): ToneSeed;
   tick(dt: number): BehaviorSignal;
+  /** Credit a character expression when an accepted feedback cue is active. */
+  noteExpression(): void;
   snapshot(): PersistentCognitionState;
   restore(state: PersistentCognitionState): void;
 }
 
 export const NEUTRAL_BEHAVIOR_SIGNAL: BehaviorSignal = Object.freeze({
+  personality: Object.freeze({
+    energy: 0.5,
+    curiosity: 0.5,
+    boldness: 0.5,
+    sociability: 0.5,
+  }),
   affect: Object.freeze({
     surprise: 0,
     valence: 0,
@@ -167,6 +193,11 @@ export const NEUTRAL_BEHAVIOR_SIGNAL: BehaviorSignal = Object.freeze({
   }),
 }) as BehaviorSignal;
 
+export const NEUTRAL_TONE_SEED: ToneSeed = Object.freeze({
+  personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
+  affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+}) as ToneSeed;
+
 export function createNeutralCognitionHandle(
   init: CognitionInit,
 ): CognitionHandle {
@@ -174,12 +205,16 @@ export function createNeutralCognitionHandle(
     observe() {
       // The neutral pass intentionally preserves existing behavior.
     },
+    toneSeed() {
+      return NEUTRAL_TONE_SEED;
+    },
     tick(dt) {
       if (!Number.isFinite(dt) || dt < 0) {
         throw new Error("Cognition dt must be finite and non-negative");
       }
       return NEUTRAL_BEHAVIOR_SIGNAL;
     },
+    noteExpression() {},
     snapshot() {
       return {
         schemaVersion: COGNITION_SCHEMA_VERSION,
@@ -227,6 +262,10 @@ export function validateBehaviorSignal(signal: BehaviorSignal): void {
     "boredom",
   ]);
   const boundedValues: { name: string; value: number; min: number; max: number }[] = [
+    { name: "personality.energy", value: signal.personality.energy, min: 0, max: 1 },
+    { name: "personality.curiosity", value: signal.personality.curiosity, min: 0, max: 1 },
+    { name: "personality.boldness", value: signal.personality.boldness, min: 0, max: 1 },
+    { name: "personality.sociability", value: signal.personality.sociability, min: 0, max: 1 },
     { name: "affect.surprise", value: signal.affect.surprise, min: 0, max: 1 },
     { name: "affect.valence", value: signal.affect.valence, min: -1, max: 1 },
     { name: "affect.arousal", value: signal.affect.arousal, min: 0, max: 1 },
@@ -336,6 +375,11 @@ export function validateStimulusEnvelope(envelope: StimulusEnvelope): void {
       break;
     case "environment":
       if (!isEnvironmentChange(stimulus.change)) {
+        throw invalid();
+      }
+      break;
+    case "feedback":
+      if (stimulus.feedback !== "delight" && stimulus.feedback !== "dismiss") {
         throw invalid();
       }
       break;

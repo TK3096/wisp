@@ -151,11 +151,12 @@ export class Character {
    * No-op if a bubble is already active (skip-while-active rule).
    * No-op if no createBubble factory was injected.
    */
-  say(text: string): void {
-    if (this.bubble !== null) return;
-    if (!this.cfg.createBubble) return;
+  say(text: string): boolean {
+    if (this.bubble !== null) return false;
+    if (!this.cfg.createBubble) return false;
     this.bubble = this.cfg.createBubble(text);
     this.bubble.setPosition(this.x, this.y + BUBBLE.OFFSET_Y_PX);
+    return true;
   }
 
   tick(dt: number): void {

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt;
 
-pub const COGNITION_SCHEMA_VERSION: u32 = 2;
+pub const COGNITION_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GestureName {
@@ -26,6 +26,13 @@ pub enum EnvironmentChange {
     AppBlur,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FeedbackKind {
+    Delight,
+    Dismiss,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Stimulus {
@@ -38,6 +45,9 @@ pub enum Stimulus {
     },
     Environment {
         change: EnvironmentChange,
+    },
+    Feedback {
+        feedback: FeedbackKind,
     },
 }
 
@@ -132,11 +142,20 @@ pub struct ReactionSignal {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BehaviorSignal {
+    pub personality: PersonalityDimensions,
     pub affect: Affect,
     pub temporal_surprise: TemporalSurprise,
     pub micro_belief: MicroBeliefProjection,
     pub reaction: ReactionSignal,
     pub behavior_bias: BehaviorBias,
+}
+
+/// Minimal read-only projection used to select a tone before a cadence tick.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToneSignal {
+    pub personality: PersonalityDimensions,
+    pub affect: Affect,
 }
 
 /// The bounded Temporal Derivative summary emitted by each Cognition step.
@@ -256,14 +275,22 @@ const GLOBAL_REACTION_LOCK_S: f64 = 0.6;
 const REACTION_DURATION_S: ReactionTimes = [0.8, 2.0, 3.0, 4.0];
 const REACTION_COOLDOWN_S: ReactionTimes = [4.0, 5.0, 3.0, 12.0];
 const REACTION_THRESHOLD: ReactionTimes = [0.58, 0.62, 0.35, 0.75];
-const COGNITION_STATE_KIND: &str = "micro-belief-reactions-v2";
+const COGNITION_STATE_KIND: &str = "micro-belief-reactions-v3";
+/// One shell action opens one bounded opportunity for a visible expression.
+const FEEDBACK_CREDIT_WINDOW_S: f64 = 2.0;
+const REWARD_EVENT_STEP: f64 = 0.04;
+const REWARD_DIMENSION_CAP: f64 = 0.08;
 
 pub struct CognitionCore {
     schema_version: u32,
     character_id: String,
+    /// The archetype + seed identity for this session before bounded reward.
+    base_dimensions: PersonalityDimensions,
     dimensions: PersonalityDimensions,
     temporal: TemporalState,
     micro_belief: MicroBeliefState,
+    reward_drift: RewardDrift,
+    reward_cue: Option<RewardCue>,
     signal: BehaviorSignal,
 }
 
@@ -306,6 +333,23 @@ struct ActiveReaction {
     remaining_s: f64,
 }
 
+/// Session-scoped explicit user reward. It never originates from a passive
+/// gesture, environment change, or survival tick.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RewardDrift {
+    energy: f64,
+    sociability: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RewardCue {
+    kind: FeedbackKind,
+    /// Absolute Cognition clock after which an unclaimed cue expires.
+    expires_at_s: f64,
+}
+
 struct AffectTarget {
     valence: f64,
     arousal: f64,
@@ -322,6 +366,15 @@ impl Default for MicroBeliefState {
             active: None,
             reaction_lock_s: 0.0,
             next_eligible_s: [0.0; REACTION_COUNT],
+        }
+    }
+}
+
+impl Default for RewardDrift {
+    fn default() -> Self {
+        Self {
+            energy: 0.0,
+            sociability: 0.0,
         }
     }
 }
@@ -349,19 +402,31 @@ impl CognitionCore {
             affect: NEUTRAL_AFFECT,
         };
         let micro_belief = MicroBeliefState::default();
+        let reward_drift = RewardDrift::default();
         let signal = Self::compose_signal(dimensions, &temporal, &micro_belief);
         Ok(Self {
             schema_version: init.schema_version,
             character_id: init.character_id,
+            base_dimensions: dimensions,
             dimensions,
             temporal,
             micro_belief,
+            reward_drift,
+            reward_cue: None,
             signal,
         })
     }
 
     pub fn dimensions(&self) -> PersonalityDimensions {
         self.dimensions
+    }
+
+    /// Latest tone projection without advancing the fixed-time dynamics.
+    pub fn tone_signal(&self) -> ToneSignal {
+        ToneSignal {
+            personality: self.signal.personality,
+            affect: self.signal.affect,
+        }
     }
 
     pub fn observe(&mut self, stimulus: Stimulus) -> CognitionResult<()> {
@@ -389,6 +454,17 @@ impl CognitionCore {
                     EnvironmentChange::AppBlur => -1.0,
                 };
             }
+            Stimulus::Feedback { feedback } => {
+                // Feedback is not an observation feature and does not consume
+                // the pending belief stimulus. It only opens a bounded reward
+                // opportunity; personality changes only if a visible expression
+                // claims that opportunity before it expires.
+                self.reward_cue = Some(RewardCue {
+                    kind: feedback,
+                    expires_at_s: self.micro_belief.clock_s + FEEDBACK_CREDIT_WINDOW_S,
+                });
+                return Ok(());
+            }
         }
         // Last observed semantic Stimulus wins within a Cognition step. Dense
         // dispatch can update this pending evidence, but cannot call tick or
@@ -403,6 +479,12 @@ impl CognitionCore {
         }
         self.micro_belief.clock_s += dt;
         self.micro_belief.reaction_lock_s = (self.micro_belief.reaction_lock_s - dt).max(0.0);
+        if self
+            .reward_cue
+            .is_some_and(|cue| self.micro_belief.clock_s > cue.expires_at_s)
+        {
+            self.reward_cue = None;
+        }
 
         let previous_energy =
             temporal_surprise(&self.temporal.fast, &self.temporal.slow).centered_energy;
@@ -486,7 +568,8 @@ impl CognitionCore {
             character_id: self.character_id.clone(),
             cognition: json!(TemporalPersonalityState {
                 kind: COGNITION_STATE_KIND.to_owned(),
-                dimensions: self.dimensions,
+                // Session reward never crosses the persistence boundary.
+                dimensions: self.base_dimensions,
                 observation: self.temporal.observation,
                 fast: self.temporal.fast,
                 slow: self.temporal.slow,
@@ -494,6 +577,30 @@ impl CognitionCore {
                 micro_belief: self.micro_belief,
             }),
         }
+    }
+
+    /// Called by the behavior orchestrator only when `Character.say` actually
+    /// started a bubble. Unexpired explicit feedback is claimed once.
+    pub fn note_expression(&mut self) {
+        let Some(cue) = self.reward_cue else {
+            return;
+        };
+        if self.micro_belief.clock_s > cue.expires_at_s {
+            self.reward_cue = None;
+            return;
+        }
+
+        let (energy_delta, sociability_delta) = match cue.kind {
+            FeedbackKind::Delight => (REWARD_EVENT_STEP, REWARD_EVENT_STEP),
+            FeedbackKind::Dismiss => (-REWARD_EVENT_STEP, -REWARD_EVENT_STEP),
+        };
+        self.reward_drift.energy = (self.reward_drift.energy + energy_delta)
+            .clamp(-REWARD_DIMENSION_CAP, REWARD_DIMENSION_CAP);
+        self.reward_drift.sociability = (self.reward_drift.sociability + sociability_delta)
+            .clamp(-REWARD_DIMENSION_CAP, REWARD_DIMENSION_CAP);
+        self.dimensions = reward_dimensions(self.base_dimensions, self.reward_drift);
+        self.reward_cue = None;
+        self.signal = Self::compose_signal(self.dimensions, &self.temporal, &self.micro_belief);
     }
 
     pub fn restore(&mut self, state: PersistentCognitionState) -> CognitionResult<()> {
@@ -506,7 +613,7 @@ impl CognitionCore {
 
         let restored: TemporalPersonalityState = serde_json::from_value(state.cognition)
             .map_err(|_| CognitionError::InvalidCognitionState)?;
-        if restored.kind != COGNITION_STATE_KIND || restored.dimensions != self.dimensions {
+        if restored.kind != COGNITION_STATE_KIND {
             return Err(CognitionError::InvalidCognitionState);
         }
         if !valid_dimensions(restored.dimensions) {
@@ -517,6 +624,7 @@ impl CognitionCore {
             || !valid_observation_vector(restored.slow)
             || !valid_affect(restored.affect)
             || !valid_micro_belief_state(restored.micro_belief)
+            || restored.dimensions != self.base_dimensions
         {
             return Err(CognitionError::InvalidCognitionState);
         }
@@ -641,7 +749,9 @@ fn valid_stimulus(stimulus: Stimulus) -> bool {
         Stimulus::Gesture { confidence, .. } => {
             confidence.is_finite() && (0.0..=1.0).contains(&confidence)
         }
-        Stimulus::Lifecycle { .. } | Stimulus::Environment { .. } => true,
+        Stimulus::Lifecycle { .. } | Stimulus::Environment { .. } | Stimulus::Feedback { .. } => {
+            true
+        }
     }
 }
 
@@ -683,6 +793,15 @@ fn valid_micro_belief_state(state: MicroBeliefState) -> bool {
         return false;
     }
     true
+}
+
+fn reward_dimensions(base: PersonalityDimensions, drift: RewardDrift) -> PersonalityDimensions {
+    PersonalityDimensions {
+        energy: clamp_dimension(base.energy + drift.energy),
+        curiosity: base.curiosity,
+        boldness: base.boldness,
+        sociability: clamp_dimension(base.sociability + drift.sociability),
+    }
 }
 
 fn sigmoid(value: f64) -> f64 {
@@ -731,6 +850,7 @@ fn behavior_signal(
     let multiplier = active_reaction_bias(micro_belief.active.map(|active| active.kind));
 
     BehaviorSignal {
+        personality: dimensions,
         affect,
         temporal_surprise,
         micro_belief: project_belief(&micro_belief.channels),
@@ -968,6 +1088,9 @@ fn stimulus_feature(stimulus: Stimulus, previous_count: u32) -> [f64; MICRO_BELI
             EnvironmentChange::AppFocus => [0.16, 0.08, 0.7, 0.0],
             EnvironmentChange::AppBlur => [0.45, 0.0, 0.1, 0.85],
         },
+        // Feedback never becomes a passive-belief feature; it is only a reward
+        // credit cue. This arm preserves exhaustiveness without mutating state.
+        Stimulus::Feedback { .. } => [0.0; MICRO_BELIEF_DIMENSIONS],
     }
 }
 

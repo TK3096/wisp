@@ -214,6 +214,7 @@ describe("Character Behavior Signal", () => {
     behaviorBias: Partial<BehaviorSignal["behaviorBias"]>,
   ): BehaviorSignal {
     return {
+      personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
       affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
       temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
       microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,

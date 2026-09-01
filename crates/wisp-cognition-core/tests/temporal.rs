@@ -143,7 +143,7 @@ fn snapshots_preserve_temporal_state_across_restore() {
     assert_eq!(snapshot.character_id, "character-1");
     assert_eq!(
         snapshot.cognition["kind"],
-        json!("micro-belief-reactions-v2")
+        json!("micro-belief-reactions-v3")
     );
 
     let mut restored = CognitionCore::new(init(0x10203040)).unwrap();

@@ -15,6 +15,8 @@ import {
   BehaviorSignal,
   CognitionHandle,
   CognitionInit,
+  NEUTRAL_BEHAVIOR_SIGNAL,
+  ToneSeed,
   StimulusEnvelope,
   createNeutralCognitionHandle,
   derivePersonalitySeed,
@@ -25,6 +27,7 @@ import {
   CognitionDebugStimulus,
   projectCognitionDebugSnapshot,
 } from "./cognitionDebugSnapshot";
+import { TaggedLine, selectTaggedLine } from "./speech";
 
 export interface RenderOwner {
   registryId: number;
@@ -169,6 +172,13 @@ export class CharacterRegistry {
     }));
   }
 
+  /** Resolve a shell-selected registry ID to its stable Cognition target. */
+  characterIdFor(registryId: number): string | null {
+    return (
+      this.entries.find((entry) => entry.id === registryId)?.characterId ?? null
+    );
+  }
+
   /**
    * Read-only, bounded development inspection surface. Pending and Vanishing
    * characters are intentionally absent, and no opaque Cognition State leaves
@@ -302,10 +312,6 @@ export class CharacterRegistry {
       cfg,
     );
 
-    // Greeting bypasses global cooldown — spawn always produces visual feedback.
-    const greeting = GREETINGS[Math.floor(rng() * GREETINGS.length)];
-    character.say(greeting);
-
     const cognition = createCognitionHandle({
       schemaVersion: COGNITION_SCHEMA_VERSION,
       characterId,
@@ -313,6 +319,12 @@ export class CharacterRegistry {
       personalitySeed: deriveSeed?.(characterId, entry.name)
         ?? derivePersonalitySeed(characterId, entry.name),
     });
+
+    // The initial read-only projection establishes personality/affect for tone
+    // selection without advancing the Temporal Derivative or cadence clock.
+    const toneSeed = cognition.toneSeed();
+    const greetingRoll = rng();
+    this.sayTagged(character, cognition, GREETINGS, toneSeed, greetingRoll);
 
     // Fixed initial roll timers so characters don't lock-step on the first roll.
     this.entries.push({
@@ -373,6 +385,26 @@ export class CharacterRegistry {
     });
   }
 
+  /**
+   * Select and emit one tagged expression. Every expression—greeting or
+   * idle—passes through the same active-bubble, cooldown, and reward seams.
+   */
+  private sayTagged(
+    character: Character,
+    cognition: CognitionHandle,
+    lines: readonly TaggedLine[],
+    toneSeed: Pick<ToneSeed, "personality" | "affect">,
+    roll: number,
+  ): void {
+    if (this.elapsed - this.lastBubbleAt < BUBBLE.GLOBAL_COOLDOWN_S) return;
+
+    const line = selectTaggedLine(lines, toneSeed, roll);
+    if (!character.say(line.text)) return;
+
+    cognition.noteExpression();
+    this.lastBubbleAt = this.elapsed;
+  }
+
   tick(dt: number): void {
     if (!Number.isFinite(dt) || dt < 0) {
       throw new Error("Registry dt must be finite and non-negative");
@@ -431,14 +463,16 @@ export class CharacterRegistry {
           BUBBLE.PER_CHAR_JITTER_S +
           behaviorRng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
 
-        // Respect global cooldown — drop the roll if a bubble just fired.
-        if (
-          this.elapsed - this.lastBubbleAt >= BUBBLE.GLOBAL_COOLDOWN_S &&
-          entry.char.shouldSpeakOnRoll(behaviorRng)
-        ) {
-          const line = IDLE_LINES[Math.floor(behaviorRng() * IDLE_LINES.length)];
-          entry.char.say(line);
-          this.lastBubbleAt = this.elapsed;
+        if (entry.char.shouldSpeakOnRoll(behaviorRng)) {
+          const toneSeed = entry.latestSignal ?? NEUTRAL_BEHAVIOR_SIGNAL;
+          const lineRoll = behaviorRng();
+          this.sayTagged(
+            entry.char,
+            entry.cognition,
+            IDLE_LINES,
+            toneSeed,
+            lineRoll,
+          );
         }
       }
 

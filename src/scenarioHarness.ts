@@ -1,4 +1,4 @@
-import { AssetEntry } from "./config";
+import { AssetEntry, GREETINGS, IDLE_LINES } from "./config";
 import { BubbleHandle } from "./bubble";
 import { CharacterHandle, CharacterState } from "./character";
 import {
@@ -54,6 +54,7 @@ export type ScenarioTraceRecordType =
   | "character_materialized"
   | "stimulus_dispatch"
   | "stimulus_observed"
+  | "expression_noted"
   | "cognition_step"
   | "scheduler_roll"
   | "animation_changed"
@@ -236,6 +237,48 @@ export const PERSONALITY_CONTRAST_SCENARIO: ScenarioDefinition = {
         stimulus: { kind: "gesture", gesture: "openPalm", confidence: 0.96 },
       },
     },
+  ],
+};
+
+/**
+ * Visible expressions claim feedback only while its cue is live: delight at
+ * 30.7s reaches +0.04, the 30.1s cue expires, delight at 44.7s reaches the
+ * +0.08 cap, then dismissal at 58.7s reverses by one event.
+ */
+export const FEEDBACK_REWARD_SCENARIO: ScenarioDefinition = {
+  name: "feedback-reward",
+  seed: 0x46524e44,
+  durationS: 60.5,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25],
+  personalitySeeds: [17],
+  schedulerRolls: Array.from({ length: 16 }, () => 0.1),
+  stimuli: [
+    { atS: 29.9, envelope: { target: "all", stimulus: { kind: "feedback", feedback: "delight" } } },
+    { atS: 30.1, envelope: { target: "all", stimulus: { kind: "feedback", feedback: "delight" } } },
+    { atS: 44.4, envelope: { target: "all", stimulus: { kind: "feedback", feedback: "delight" } } },
+    { atS: 58.4, envelope: { target: "all", stimulus: { kind: "feedback", feedback: "dismiss" } } },
+  ],
+};
+
+/** One deterministic roll exposes the accepted weighted tone contract. */
+export const TONE_WEIGHTED_SPEECH_SCENARIO: ScenarioDefinition = {
+  name: "tone-weighted-speech",
+  seed: 0x544f4e45,
+  durationS: 31.5,
+  spawnTimes: [0],
+  spawnRolls: [0, 0.25, 0.25],
+  personalitySeeds: [17],
+  // The roll on the first idle bubble samples the negative-valence tail.
+  schedulerRolls: [0.1, 0.9, 0.9, 0.1, 0.1, 0.1, 0.1, 0.1],
+  stimuli: [
+    ...Array.from({ length: 300 }, (_, index) => ({
+      atS: 0.8 + index * 0.1,
+      envelope: {
+        target: "all" as const,
+        stimulus: { kind: "environment" as const, change: "appBlur" as const },
+      },
+    })),
   ],
 };
 
@@ -698,6 +741,7 @@ export function runScenario(
           envelope: envelopeFor(stimulus),
         });
       },
+      toneSeed: () => cognition.toneSeed(),
       tick(dt: number) {
         const signal = cognition.tick(dt);
         const snapshot = cognition.snapshot();
@@ -720,6 +764,7 @@ export function runScenario(
             behaviorBias: { ...signal.behaviorBias },
           },
           behaviorSignal: {
+            personality: { ...signal.personality },
             affect: { ...signal.affect },
             temporalSurprise: { ...signal.temporalSurprise },
             microBelief: { ...signal.microBelief },
@@ -737,6 +782,13 @@ export function runScenario(
           cognitionState: digestOpaqueCognitionState(snapshot),
         });
         return signal;
+      },
+      noteExpression() {
+        cognition.noteExpression();
+        emit("expression_noted", {
+          characterId: init.characterId,
+          archetype: init.archetype,
+        });
       },
       snapshot: () => cognition.snapshot(),
       restore: (state: Parameters<CognitionHandle["restore"]>[0]) =>
@@ -822,9 +874,11 @@ export function runScenario(
   ): BubbleHandle => {
     const reason = greetedCharacterIds.has(owner.characterId) ? "idle" : "greeting";
     greetedCharacterIds.add(owner.characterId);
+    const tone = [...GREETINGS, ...IDLE_LINES].find((line) => line.text === text)?.tone;
     emit("bubble_started", {
       characterId: owner.characterId,
       reason,
+      tone,
       text,
     });
 

@@ -1,5 +1,7 @@
 use serde_json::json;
-use wisp_cognition_core::{CognitionCore, CognitionInit, Stimulus, COGNITION_SCHEMA_VERSION};
+use wisp_cognition_core::{
+    CognitionCore, CognitionInit, FeedbackKind, Stimulus, COGNITION_SCHEMA_VERSION,
+};
 
 fn init(personality_seed: u32, archetype: &str) -> CognitionInit {
     CognitionInit {
@@ -95,7 +97,7 @@ fn snapshots_are_versioned_opaque_and_restorable() {
     assert_eq!(
         snapshot.cognition,
         json!({
-            "kind": "micro-belief-reactions-v2",
+            "kind": "micro-belief-reactions-v3",
             "dimensions": {
                 "energy": core.dimensions().energy,
                 "curiosity": core.dimensions().curiosity,
@@ -123,6 +125,77 @@ fn snapshots_are_versioned_opaque_and_restorable() {
     restored.restore(snapshot.clone()).unwrap();
     assert_eq!(restored.snapshot(), snapshot);
     assert_eq!(restored.dimensions(), core.dimensions());
+}
+
+#[test]
+fn explicit_feedback_credits_only_one_bounded_visible_expression() {
+    let mut core = CognitionCore::new(init(1, "neutral")).unwrap();
+    core.observe(Stimulus::Feedback {
+        feedback: FeedbackKind::Delight,
+    })
+    .unwrap();
+    let baseline = core.dimensions();
+
+    core.tick(0.1).unwrap();
+    core.note_expression();
+    let first = core.dimensions();
+    assert!((first.energy - baseline.energy - 0.04).abs() < 1e-12);
+    assert!((first.sociability - baseline.sociability - 0.04).abs() < 1e-12);
+
+    // A cue is single-use; expressions without feedback cannot drift.
+    core.note_expression();
+    assert_eq!(core.dimensions(), first);
+    for _ in 0..30 {
+        core.tick(0.1).unwrap();
+    }
+    core.note_expression();
+    assert_eq!(core.dimensions(), first);
+
+    let snapshot = core.snapshot();
+    let mut restored = CognitionCore::new(init(1, "neutral")).unwrap();
+    restored.restore(snapshot.clone()).unwrap();
+    // Reward is session runtime state and is deliberately not restorable.
+    assert_eq!(restored.dimensions(), baseline);
+    assert_eq!(restored.snapshot(), snapshot);
+}
+
+#[test]
+fn dismiss_reverses_delight_and_drift_is_capped() {
+    let mut core = CognitionCore::new(init(1, "neutral")).unwrap();
+    let baseline = core.dimensions();
+
+    for _ in 0..3 {
+        core.observe(Stimulus::Feedback {
+            feedback: FeedbackKind::Delight,
+        })
+        .unwrap();
+        core.note_expression();
+    }
+    assert!((core.dimensions().energy - baseline.energy - 0.08).abs() < 1e-12);
+    assert!((core.dimensions().sociability - baseline.sociability - 0.08).abs() < 1e-12);
+
+    core.observe(Stimulus::Feedback {
+        feedback: FeedbackKind::Dismiss,
+    })
+    .unwrap();
+    core.note_expression();
+    assert!((core.dimensions().energy - baseline.energy - 0.04).abs() < 1e-12);
+    assert!((core.dimensions().sociability - baseline.sociability - 0.04).abs() < 1e-12);
+}
+
+#[test]
+fn gestures_never_mutate_personality_dimensions() {
+    let mut core = CognitionCore::new(init(1, "neutral")).unwrap();
+    let baseline = core.dimensions();
+    for count in 0..12 {
+        core.observe(Stimulus::Gesture {
+            gesture: wisp_cognition_core::GestureName::OpenPalm,
+            confidence: if count % 2 == 0 { 0.96 } else { 0.32 },
+        })
+        .unwrap();
+        core.tick(0.1).unwrap();
+        assert_eq!(core.dimensions(), baseline);
+    }
 }
 
 #[test]

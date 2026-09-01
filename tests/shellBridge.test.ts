@@ -46,7 +46,12 @@ function makeRegistry(cognitionHandles: CognitionHandle[]): CharacterRegistry {
     createCognitionHandle: () => {
       const handle: CognitionHandle = {
         observe: vi.fn(),
+        toneSeed: () => ({
+          personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
+          affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+        }),
         tick: () => NEUTRAL_BEHAVIOR_SIGNAL,
+        noteExpression: vi.fn(),
         snapshot: () => {
           throw new Error("not used");
         },
@@ -89,5 +94,38 @@ describe("Shell Bridge", () => {
       registry.debugSnapshots(),
     );
     expect(observe).not.toHaveBeenCalled();
+  });
+
+  it("maps selected tray feedback actions to targeted semantic stimuli", async () => {
+    const cognitionHandles: CognitionHandle[] = [];
+    const registry = makeRegistry(cognitionHandles);
+    const payloadHandlers = new Map<string, (payload: unknown) => void>();
+    registry.spawn();
+    const observe = cognitionHandles[0].observe as ReturnType<typeof vi.fn>;
+    observe.mockClear();
+
+    await connectShellEvents(
+      async (event, onPayload) => {
+        payloadHandlers.set(event, onPayload);
+      },
+      registry,
+      { addEventListener() {} },
+    );
+
+    payloadHandlers.get("delight-one")?.(1);
+    payloadHandlers.get("dismiss-one")?.(1);
+    payloadHandlers.get("delight-one")?.(999);
+
+    const characterId = registry.characterIdFor(1);
+    expect(observe).toHaveBeenCalledTimes(2);
+    expect(observe).toHaveBeenNthCalledWith(1, {
+      kind: "feedback",
+      feedback: "delight",
+    });
+    expect(observe).toHaveBeenNthCalledWith(2, {
+      kind: "feedback",
+      feedback: "dismiss",
+    });
+    expect(registry.characterIdFor(999)).toBeNull();
   });
 });

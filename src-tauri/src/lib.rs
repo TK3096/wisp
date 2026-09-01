@@ -56,7 +56,15 @@ fn build_tray_menu<R: tauri::Runtime>(
         )?,
     );
 
-    let mut menu_items: Vec<&dyn IsMenuItem<R>> = vec![&spawn_item, &despawn_submenu, &sep];
+    let delight_submenu = build_feedback_submenu(manager, items, "delight", "Delight")?;
+    let dismiss_submenu = build_feedback_submenu(manager, items, "dismiss", "Dismiss")?;
+    let mut menu_items: Vec<&dyn IsMenuItem<R>> = vec![
+        &spawn_item,
+        &despawn_submenu,
+        &delight_submenu,
+        &dismiss_submenu,
+        &sep,
+    ];
 
     #[cfg(debug_assertions)]
     {
@@ -87,6 +95,37 @@ fn build_despawn_submenu<R: tauri::Runtime>(
             let char_item = MenuItem::with_id(
                 manager,
                 format!("despawn:{}", item.id),
+                &item.label,
+                true,
+                None::<&str>,
+            )?;
+            submenu.append(&char_item)?;
+        }
+    }
+    Ok(submenu)
+}
+
+fn build_feedback_submenu<R: tauri::Runtime>(
+    manager: &impl tauri::Manager<R>,
+    items: &[CharacterItem],
+    action: &str,
+    label: &str,
+) -> tauri::Result<Submenu<R>> {
+    let submenu = Submenu::with_id(manager, action, label, true)?;
+    if items.is_empty() {
+        let none_item = MenuItem::with_id(
+            manager,
+            format!("{action}_none"),
+            "(none)",
+            false,
+            None::<&str>,
+        )?;
+        submenu.append(&none_item)?;
+    } else {
+        for item in items {
+            let char_item = MenuItem::with_id(
+                manager,
+                format!("{action}:{}", item.id),
                 &item.label,
                 true,
                 None::<&str>,
@@ -196,6 +235,16 @@ pub fn run() {
                     id if id.starts_with("despawn:") => {
                         if let Ok(n) = id["despawn:".len()..].parse::<u32>() {
                             let _ = app.emit("despawn-one", n);
+                        }
+                    }
+                    id if id.starts_with("delight:") => {
+                        if let Ok(n) = id["delight:".len()..].parse::<u32>() {
+                            let _ = app.emit("delight-one", n);
+                        }
+                    }
+                    id if id.starts_with("dismiss:") => {
+                        if let Ok(n) = id["dismiss:".len()..].parse::<u32>() {
+                            let _ = app.emit("dismiss-one", n);
                         }
                     }
                     _ => {}

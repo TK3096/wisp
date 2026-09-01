@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BASELINE_SCENARIO,
+  FEEDBACK_REWARD_SCENARIO,
+  TONE_WEIGHTED_SPEECH_SCENARIO,
   HABITUATION_SCENARIO,
   NOVEL_STRONG_GESTURE_SCENARIO,
   formatScenarioTraceNdjson,
@@ -66,11 +68,12 @@ describe("Scenario Harness baseline", () => {
     );
     expect(bubbles.map((record) => record.reason)).toEqual(["greeting", "idle"]);
     expect(bubbles[0]).toMatchObject({
-      text: GREETINGS[0],
+      text: GREETINGS[0].text,
       characterId: "baseline-character-1",
     });
     expect(bubbles[1]).toMatchObject({
-      text: IDLE_LINES[1],
+      text: IDLE_LINES[3].text,
+      tone: "cheerful",
       characterId: "baseline-character-1",
     });
   });
@@ -138,9 +141,14 @@ describe("Scenario Harness baseline", () => {
       personalitySeed: number;
     }): CognitionHandle => ({
       observe() {},
+      toneSeed: () => ({
+        personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
+        affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+      }),
       tick() {
         const active = personalitySeed === 0;
         return {
+          personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
           affect: { surprise: 0, valence: 0, arousal: 0 },
           temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
           microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,
@@ -162,6 +170,7 @@ describe("Scenario Harness baseline", () => {
               },
         };
       },
+      noteExpression() {},
       snapshot() {
         return {
           schemaVersion: COGNITION_SCHEMA_VERSION,
@@ -277,6 +286,10 @@ describe("Temporal Derivative acceptance scenarios", () => {
       observe(stimulus) {
         if (stimulus.kind === "gesture") observation[0] = stimulus.confidence;
       },
+      toneSeed: () => ({
+        personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
+        affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+      }),
       tick(dt) {
         const previousEnergy = summary().centeredEnergy;
         fast = fast.map((value, index) => value + 0.3 * (observation[index] - value));
@@ -288,6 +301,7 @@ describe("Temporal Derivative acceptance scenarios", () => {
 
         return {
           affect: { surprise, valence: 0, arousal },
+          personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
           temporalSurprise: temporal,
           microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,
           reaction: NEUTRAL_BEHAVIOR_SIGNAL.reaction,
@@ -300,6 +314,7 @@ describe("Temporal Derivative acceptance scenarios", () => {
           },
         };
       },
+      noteExpression() {},
       snapshot() {
         return {
           schemaVersion: COGNITION_SCHEMA_VERSION,
@@ -454,5 +469,116 @@ describe("Temporal Derivative acceptance scenarios", () => {
       expect(stableEvents[1]).toEqual(stableEvents[0]);
       expect(stableEvents[2]).toEqual(stableEvents[0]);
     }
+  });
+});
+
+describe("reward and tone acceptance scenarios", () => {
+  function createRewardMockCognition(): CognitionHandle {
+    let clockS = 0;
+    let cue: { feedback: "delight" | "dismiss"; expiresAtS: number } | null = null;
+    const drift = { energy: 0, sociability: 0 };
+
+    const signal = () => ({
+      ...NEUTRAL_BEHAVIOR_SIGNAL,
+      personality: {
+        ...NEUTRAL_BEHAVIOR_SIGNAL.personality,
+        energy: NEUTRAL_BEHAVIOR_SIGNAL.personality.energy + drift.energy,
+        sociability: NEUTRAL_BEHAVIOR_SIGNAL.personality.sociability + drift.sociability,
+      },
+    });
+
+    return {
+      observe(stimulus) {
+        if (stimulus.kind === "feedback") {
+          cue = { feedback: stimulus.feedback, expiresAtS: clockS + 2 };
+        }
+      },
+      toneSeed: () => {
+        const current = signal();
+        return { personality: current.personality, affect: current.affect };
+      },
+      tick(dt) {
+        clockS += dt;
+        if (cue && clockS > cue.expiresAtS) cue = null;
+        return signal();
+      },
+      noteExpression() {
+        if (!cue) return;
+        const direction = cue.feedback === "delight" ? 1 : -1;
+        drift.energy = Math.max(-0.08, Math.min(0.08, drift.energy + direction * 0.04));
+        drift.sociability = Math.max(
+          -0.08,
+          Math.min(0.08, drift.sociability + direction * 0.04),
+        );
+        cue = null;
+      },
+      snapshot() {
+        return {
+          schemaVersion: COGNITION_SCHEMA_VERSION,
+          characterId: "reward-mock",
+          cognition: null,
+        };
+      },
+      restore() {},
+    };
+  }
+
+  const nextStepAfter = (
+    result: ReturnType<typeof runScenario>,
+    clockS: number,
+  ) =>
+    result.trace.find(
+      (record) => record.type === "cognition_step" && record.clockS > clockS,
+    );
+
+  it("demonstrates cap, dismissal reversal, and expired-window no-credit", () => {
+    const result = runScenario(FEEDBACK_REWARD_SCENARIO, 60, {
+      createCognitionHandle: createRewardMockCognition,
+    });
+
+    expect(
+      result.trace.filter((record) => record.type === "stimulus_dispatch"),
+    ).toHaveLength(4);
+    expect(
+      result.trace.filter((record) => record.type === "expression_noted"),
+    ).toHaveLength(4);
+
+    const before = [...result.trace]
+      .reverse()
+      .find(
+        (record) =>
+          record.type === "cognition_step" && record.clockS < 30.7166,
+      );
+    const credited = nextStepAfter(result, 30.7166);
+    const capped = nextStepAfter(result, 44.7166);
+    const dismissed = nextStepAfter(result, 58.7166);
+
+    expect(before?.behaviorSignal).toMatchObject({
+      personality: { energy: 0.5, sociability: 0.5 },
+    });
+    expect(credited?.behaviorSignal).toMatchObject({
+      personality: { energy: 0.54, sociability: 0.54 },
+    });
+    // The cue at 30.1s expired; the capped event then dismissal reverses one.
+    expect(capped?.behaviorSignal).toMatchObject({
+      personality: { energy: 0.58, sociability: 0.58 },
+    });
+    expect(dismissed?.behaviorSignal).toMatchObject({
+      personality: { energy: 0.54, sociability: 0.54 },
+    });
+  });
+
+  it("demonstrates deterministic personality/affect-weighted tone selection", () => {
+    const first = runScenario(TONE_WEIGHTED_SPEECH_SCENARIO, 60);
+    const second = runScenario(TONE_WEIGHTED_SPEECH_SCENARIO, 60);
+    const idle = first.trace.find(
+      (record) =>
+        record.type === "bubble_started" && record.reason === "idle",
+    );
+
+    expect(idle).toMatchObject({ tone: "grumpy" });
+    expect(scenarioBehaviorDecisions(first)).toEqual(
+      scenarioBehaviorDecisions(second),
+    );
   });
 });

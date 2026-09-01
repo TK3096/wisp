@@ -25,9 +25,17 @@ impl WispCognition {
         self.core.observe(stimulus).map_err(error_to_js)
     }
 
+    pub fn tone_seed(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.core.tone_signal()).map_err(error_to_js)
+    }
+
     pub fn tick(&mut self, dt: f64) -> Result<JsValue, JsValue> {
         let signal = self.core.tick(dt).map_err(error_to_js)?;
         serde_wasm_bindgen::to_value(&signal).map_err(error_to_js)
+    }
+
+    pub fn note_expression(&mut self) {
+        self.core.note_expression();
     }
 
     pub fn snapshot(&self) -> Result<JsValue, JsValue> {

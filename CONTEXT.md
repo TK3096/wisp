@@ -56,6 +56,18 @@ _Avoid_: sprite, skin, class
 The deterministic seed used to specialize an individual within its archetype.
 _Avoid_: random number, nonce
 
+**Tone Tag**:
+The single accepted expression tone that weights which greeting or idle line a character may speak.
+_Avoid_: mood, vibe, style flag
+
+**Feedback Cue**:
+The bounded, character-scoped cognition opportunity opened by an explicit shell delight or dismiss action and claimed by at most one visible expression.
+_Avoid_: reward event, personality command, shell reward
+
+**Session Reward Drift**:
+The bounded, in-session adjustment to personality dimensions produced only by an accepted expression; it never persists with Cognition State.
+_Avoid_: durable personality, learning, passive reward
+
 **Persistent Cognition State**:
 A versioned, serializable snapshot of one character's cognition state that TypeScript may store but cannot interpret.
 _Avoid_: save data, render state, personality profile
