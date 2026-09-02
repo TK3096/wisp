@@ -1,5 +1,11 @@
-import { createHash, randomInt } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -38,7 +44,18 @@ function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
-function parseSeed(): number {
+function parseSeed(): number | undefined {
+  const environmentSeed = Number(process.env.HUMAN_KIT_SEED);
+  if (process.env.HUMAN_KIT_SEED) {
+    if (
+      !Number.isInteger(environmentSeed) ||
+      environmentSeed < 0 ||
+      environmentSeed > 0xffffffff
+    ) {
+      throw new Error("HUMAN_KIT_SEED must be a 32-bit integer");
+    }
+    return environmentSeed;
+  }
   const index = process.argv.indexOf("--seed");
   if (index >= 0) {
     const value = Number(process.argv[index + 1]);
@@ -47,7 +64,9 @@ function parseSeed(): number {
     }
     return value;
   }
-  return randomInt(0, 0x100000000);
+  // The seed is the secret behind the assignment digest. Require it explicitly
+  // for reproduction instead of publishing a seed that reveals future arms.
+  return undefined;
 }
 
 async function createLiveCognition() {
@@ -169,6 +188,11 @@ render(0); previous = performance.now(); raf = requestAnimationFrame(frame);
 
 async function main() {
   const assignmentSeed = parseSeed();
+  if (assignmentSeed === undefined) {
+    throw new Error(
+      "assignment seed is required; pass --seed from the administrator's private record",
+    );
+  }
   const plan = createHumanEvaluationPlan({
     studyId,
     evaluatorIds,
@@ -346,11 +370,12 @@ async function main() {
   );
 
   for (const kit of plan.publicPlan.kits) {
-    writeFileSync(
-      path.join(formsDir, `${kit.evaluatorId}.md`),
-      evaluatorForm(kit),
-      { mode: 0o644 },
-    );
+    const formPath = path.join(formsDir, `${kit.evaluatorId}.md`);
+    if (existsSync(formPath) && !process.argv.includes("--overwrite-forms")) {
+      console.log(`Preserving completed/issued form: ${formPath}`);
+      continue;
+    }
+    writeFileSync(formPath, evaluatorForm(kit), { mode: 0o644 });
   }
 
   writeFileSync(
@@ -368,12 +393,12 @@ async function main() {
   );
   writeFileSync(
     path.join(outputDir, "ADMIN.md"),
-    `# Issue #58 evaluation administration\n\nStatus: **awaiting three independent human evaluations**. This repository currently has a solo developer, so the developer cannot satisfy the evaluator-count gate by rating their own work.\n\nThe default numeric gates in \`manifest.json\` are proposed, not accepted. Before collecting responses, record the product-owner acceptance decision in a linked comment. Do not mark \`acceptedByProductOwner\` true without that explicit decision.\n\n- Keep \`assignments.private.json\` and \`study-assets.private.json\` uncommitted and give them only to the study administrator.\n- Give each evaluator only their form and replay links/files.\n- Do not reveal A/B identities until ratings and free-text descriptions are captured.\n- After collection, code each free-text principal reaction as true/false in \`results.json\`; do not attach evaluator names or contact details.\n- Verify with \`evaluateHumanResults()\` using the public plan, private assignments, and responses.\n- A pass still requires the product decision to enable default-on; a safety report blocks activation and must be recorded with its scenario.\n`,
+    `# Issue #58 evaluation administration\n\nStatus: **activated by product-owner waiver; human evaluation remains open**. One pilot evaluator completed, but at least two more independent evaluators are still required.\n\nThe default numeric gates in \`manifest.json\` are proposed, not accepted. Do not mark \`acceptedByProductOwner\` true without an explicit decision recorded on issue #58. Existing issued/completed forms are preserved unless \`--overwrite-forms\` is supplied.\n\n- Keep \`assignments.private.json\` and \`study-assets.private.json\` uncommitted and give them only to the study administrator.\n- Give each evaluator only their form and replay links/files.\n- Do not reveal A/B identities until ratings and free-text descriptions are captured.\n- After collection, code each free-text principal reaction as true/false in \`results.json\`; do not attach evaluator names or contact details.\n- Verify with \`evaluateHumanResults()\` using the public plan, private assignments, and responses.\n- A pass still requires the product decision; a safety report blocks activation and must be recorded with its scenario. Reassess the current waiver against the later evidence.\n`,
     { mode: 0o644 },
   );
   writeFileSync(
     path.join(outputDir, "README.md"),
-    `# Live-cognition human A/B kit\n\nThis kit prepares, but does not claim, the human evaluation required by issue #58. It contains four 70-second deterministic scenario traces rendered at 30 Hz with baseline-neutral behavior and optimized WASM cognition. Each scenario passed an automated visible-behavior precheck: it differs in at least one scheduler-owned bubble or jump event between arms. Each evaluator receives two differently labeled replays per scenario, with both scenario order and first-replay arm randomized. The committed manifest binds the hidden assignment mapping only by SHA-256.\n\nThe experimental live app now keeps \`COGNITION_LIVE_DEFAULT_ENABLED\` false, so default-on activation cannot occur before the human gates pass. The included replay viewer is a behavior-event preview for reviewer convenience, not the production Pixi renderer. Before treating visual responses as final acceptance evidence, the product owner should accept this presentation or reproduce the same traces through the desktop rendering stack and use those recordings instead.\n\nForms are under \`forms/\`; replay checksums are in \`manifest.json\`. The study remains blocked because three external human evaluators have not participated and the product owner has not yet accepted the numeric gates.\n`,
+    `# Live-cognition human A/B kit\n\nThis kit does not claim that the human evaluation required by issue #58 has passed. It contains four 70-second deterministic scenario traces rendered at 30 Hz with baseline-neutral behavior and optimized WASM cognition. Each scenario passed an automated visible-behavior precheck: it differs in at least one scheduler-owned bubble or jump event between arms. Each evaluator receives two differently labeled replays per scenario, with both scenario order and first-replay arm randomized. The committed manifest binds the hidden assignment mapping only by SHA-256.\n\nThe experimental live app uses \`COGNITION_LIVE_DEFAULT_ENABLED = true\` under an explicit product-owner waiver; this is not acceptance. The included replay viewer is a behavior-event preview for reviewer convenience, not the production Pixi renderer. Before treating visual responses as final acceptance evidence, the product owner should accept this presentation or reproduce the same traces through the desktop rendering stack and use those recordings instead.\n\nForms are under \`forms/\`; replay checksums are in \`manifest.json\`. The study remains open because only one external human evaluator has participated and the numeric gates have not passed.\n`,
     { mode: 0o644 },
   );
 

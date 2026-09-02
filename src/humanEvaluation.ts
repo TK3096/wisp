@@ -89,7 +89,17 @@ export interface HumanEvaluationStudyManifest {
     sha256: string;
   }>;
   liveCognitionDefaultEnabled: boolean;
-  status: "awaiting-human-evaluations";
+  status:
+    | "awaiting-human-evaluations"
+    | "activated-by-waiver-human-evaluation-open";
+  activationWaiver?: {
+    confirmedByProductOwner: boolean;
+    issue: 58;
+    reason:
+      "Experimental default-on rollout authorized despite incomplete human evaluation.";
+    revertCondition:
+      "Revert if later evaluation reports noisy/disturbing behavior or cognition remains worse than baseline.";
+  };
   soloDeveloperLimitation:
     "The sole developer cannot serve as all three independent evaluators.";
 }
@@ -310,8 +320,16 @@ export function createHumanEvaluationPlan(input: {
           ]),
         ),
         replayAssets: [],
-        liveCognitionDefaultEnabled: false,
-        status: "awaiting-human-evaluations",
+        liveCognitionDefaultEnabled: true,
+        status: "activated-by-waiver-human-evaluation-open",
+        activationWaiver: {
+          confirmedByProductOwner: true,
+          issue: 58,
+          reason:
+            "Experimental default-on rollout authorized despite incomplete human evaluation.",
+          revertCondition:
+            "Revert if later evaluation reports noisy/disturbing behavior or cognition remains worse than baseline.",
+        },
         soloDeveloperLimitation:
           "The sole developer cannot serve as all three independent evaluators.",
       },

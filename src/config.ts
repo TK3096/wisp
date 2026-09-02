@@ -92,10 +92,11 @@ export const COGNITION_DEBUG = {
 import type { TaggedLine } from "./speech";
 
 /**
- * Live cognition stays opt-in until issue #58's accepted human evidence gates
- * pass. Turn this on only in the same review that accepts those results.
+ * Product-owner waiver for issue #58: enable experimental live cognition even
+ * though the three-evaluator comparison is incomplete. Revert if later human
+ * evidence reports noisy/disturbing behavior or baseline remains preferred.
  */
-export const COGNITION_LIVE_DEFAULT_ENABLED = false;
+export const COGNITION_LIVE_DEFAULT_ENABLED = true;
 
 export const GREETINGS: TaggedLine[] = [
   { text: "hi!", tone: "cheerful" },

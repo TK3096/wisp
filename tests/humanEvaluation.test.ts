@@ -51,8 +51,20 @@ function responseFor(
 }
 
 describe("blind human A/B evaluation plan", () => {
-  it("keeps live cognition default-off before human acceptance", () => {
-    expect(COGNITION_LIVE_DEFAULT_ENABLED).toBe(false);
+  it("records the issue #58 experimental activation waiver", () => {
+    expect(COGNITION_LIVE_DEFAULT_ENABLED).toBe(true);
+    const plan = createHumanEvaluationPlan({
+      studyId: "issue-58",
+      evaluatorIds: ["evaluator-1", "evaluator-2", "evaluator-3"],
+      assignmentSeed: 58,
+    });
+    expect(plan.publicPlan.manifest.liveCognitionDefaultEnabled).toBe(true);
+    expect(plan.publicPlan.manifest.status).toBe(
+      "activated-by-waiver-human-evaluation-open",
+    );
+    expect(plan.publicPlan.manifest.activationWaiver?.confirmedByProductOwner).toBe(
+      true,
+    );
   });
 
   it("requires three independent evaluators", () => {

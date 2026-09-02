@@ -72,7 +72,13 @@
       "sha256": "51f028391633bf92c064676b32e36ee3d3b4a897cb565b6951704da8afcd5ed0"
     }
   ],
-  "liveCognitionDefaultEnabled": false,
-  "status": "awaiting-human-evaluations",
+  "liveCognitionDefaultEnabled": true,
+  "status": "activated-by-waiver-human-evaluation-open",
+  "activationWaiver": {
+    "confirmedByProductOwner": true,
+    "issue": 58,
+    "reason": "Experimental default-on rollout authorized despite incomplete human evaluation.",
+    "revertCondition": "Revert if later evaluation reports noisy/disturbing behavior or cognition remains worse than baseline."
+  },
   "soloDeveloperLimitation": "The sole developer cannot serve as all three independent evaluators."
 }

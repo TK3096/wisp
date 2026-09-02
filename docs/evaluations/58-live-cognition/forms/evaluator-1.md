@@ -23,11 +23,11 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ✅ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
 
 ### Replay 2 — 70 seconds
 Replay ID: `issue-58-e1-s1-r2`
@@ -37,21 +37,21 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
 
 **Pair preference:**
 
 - [ ] Replay 1
-- [ ] Replay 2
+- [x] Replay 2
 
 **Describe the main reaction you saw in your own words:**
 
 What did the character seem to notice or react to, and what visible behavior changed? Write one or two sentences.
-
+ตัว Replay 2 มีจังหวะที่ทั้ง 2 ตัว กระโดดพร้อมกัน อาจจะมาจากการส่ง signal หากัน
 
 ## S2
 
@@ -63,11 +63,11 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ✅ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
 
 ### Replay 2 — 70 seconds
 Replay ID: `issue-58-e1-s2-r2`
@@ -77,21 +77,21 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ✅ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ✅ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ✅ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ✅ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
 
 **Pair preference:**
 
-- [ ] Replay 1
+- [x] Replay 1
 - [ ] Replay 2
 
 **Describe the main reaction you saw in your own words:**
 
 What did the character seem to notice or react to, and what visible behavior changed? Write one or two sentences.
-
+Replay 1 ตัวละครดูมีมิติมากกว่า ไม่แน่ใจว่าคิดไปเองไหม แต่จังหวะที่ตัวละครพูด 😱 แล้วดูเหมือนความเร็วในการเดินของตัวละครจะเพิ่มขึ้น
 
 ## S3
 
@@ -103,11 +103,11 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
 
 ### Replay 2 — 70 seconds
 Replay ID: `issue-58-e1-s3-r2`
@@ -117,21 +117,21 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
 
 **Pair preference:**
 
-- [ ] Replay 1
+- [x] Replay 1
 - [ ] Replay 2
 
 **Describe the main reaction you saw in your own words:**
 
 What did the character seem to notice or react to, and what visible behavior changed? Write one or two sentences.
-
+ดูไม่ค่อยแตกต่างกันมาก
 
 ## S4
 
@@ -143,11 +143,11 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ✅ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ✅ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ✅ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ✅ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ✅ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
 
 ### Replay 2 — 70 seconds
 Replay ID: `issue-58-e1-s4-r2`
@@ -157,21 +157,21 @@ Check exactly one score in every row.
 
 | Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |
 |---|:-:|:-:|:-:|:-:|:-:|
-| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
-| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ☐ 5 |
+| **Alive/Aware** — looks present and responsive to the situation, not mechanically random | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Individuality** — has a recognizable temperament instead of feeling generic | ☐ 1 | ☐ 2 | ☐ 3 | ☐ 4 | ✅ 5 |
+| **Appropriateness** — the type and strength of visible reactions fit what happened | ☐ 1 | ☐ 2 | ✅ 3 | ☐ 4 | ☐ 5 |
+| **Variation** — behavior has useful variety without becoming repetitive or chaotic | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
+| **Calm** — feels relaxed and pleasant rather than busy, noisy, or unsettling | ☐ 1 | ☐ 2 | ☐ 3 | ✅ 4 | ☐ 5 |
 
 **Pair preference:**
 
 - [ ] Replay 1
-- [ ] Replay 2
+- [x] Replay 2
 
 **Describe the main reaction you saw in your own words:**
 
 What did the character seem to notice or react to, and what visible behavior changed? Write one or two sentences.
-
+Replay 2 ดูมีมิติมากกว่า Replay 1
 
 ## Final Overall Preference
 
@@ -179,7 +179,7 @@ Choose the single replay you would most want running on your desktop.
 
 - [ ] Replay 1 (S1)
 - [ ] Replay 2 (S1)
-- [ ] Replay 1 (S2)
+- [x] Replay 1 (S2)
 - [ ] Replay 2 (S2)
 - [ ] Replay 1 (S3)
 - [ ] Replay 2 (S3)
