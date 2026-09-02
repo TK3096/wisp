@@ -1,4 +1,5 @@
 import { stableStringify } from "./scenarioHarness";
+import { HUMAN_EVALUATION_SCENARIO_DEFINITIONS } from "./humanEvaluationScenarios";
 
 export const HUMAN_EVALUATION_DIMENSIONS = [
   "Alive/Aware",
@@ -18,6 +19,11 @@ export interface HumanEvaluationScenario {
   title: string;
   durationS: number;
   principalReaction: string;
+  visibleDelta: {
+    event: "jump_started" | "bubble_started";
+    baselineCount: number;
+    cognitionCount: number;
+  };
 }
 
 export interface HumanEvaluationCriteria {
@@ -152,31 +158,36 @@ export const DEFAULT_HUMAN_EVALUATION_CRITERIA: HumanEvaluationCriteria = {
 
 const HUMAN_EVALUATION_SCENARIOS: HumanEvaluationScenario[] = [
   {
-    id: "novel-strong-gesture",
-    title: "Novel Strong Gesture",
-    durationS: 21.3,
-    principalReaction: "The novel open-palm gesture produces a scheduler-gated jump response.",
+    id: "habituation-gate",
+    title: "Habituation Gate",
+    durationS: HUMAN_EVALUATION_SCENARIO_DEFINITIONS["habituation-gate"]!.durationS,
+    principalReaction:
+      "Habituated cognition suppresses the later scheduler-gated idle bubble.",
+    visibleDelta: { event: "bubble_started", baselineCount: 2, cognitionCount: 1 },
   },
   {
-    id: "habituation",
-    title: "Habituation",
-    durationS: 21.3,
+    id: "boredom-gate",
+    title: "Boredom Gate",
+    durationS: HUMAN_EVALUATION_SCENARIO_DEFINITIONS["boredom-gate"]!.durationS,
     principalReaction:
-      "Repeated identical gestures become familiar and stop producing the novel jump response.",
+      "Quiet low-arousal time leads boredom to suppress the later idle bubble.",
+    visibleDelta: { event: "bubble_started", baselineCount: 2, cognitionCount: 1 },
   },
   {
-    id: "personality-contrast",
-    title: "Personality Contrast",
-    durationS: 9.5,
+    id: "personality-gate",
+    title: "Personality Gate",
+    durationS: HUMAN_EVALUATION_SCENARIO_DEFINITIONS["personality-gate"]!.durationS,
     principalReaction:
-      "Characters with different Personality Seeds respond differently to the same gesture.",
+      "Personality probability gates suppress one character's scheduled jumps while the baseline accepts them.",
+    visibleDelta: { event: "jump_started", baselineCount: 4, cognitionCount: 0 },
   },
   {
-    id: "quiet-boredom",
-    title: "Quiet Boredom",
-    durationS: 11.5,
+    id: "caution-gate",
+    title: "Caution Gate",
+    durationS: HUMAN_EVALUATION_SCENARIO_DEFINITIONS["caution-gate"]!.durationS,
     principalReaction:
-      "A long quiet, low-arousal period eventually produces the boredom reaction.",
+      "Accumulated caution suppresses a later scheduler-gated idle bubble.",
+    visibleDelta: { event: "bubble_started", baselineCount: 2, cognitionCount: 1 },
   },
 ];
 

@@ -1,16 +1,13 @@
 import { createHash, randomInt } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  HABITUATION_SCENARIO,
-  NOVEL_STRONG_GESTURE_SCENARIO,
-  PERSONALITY_CONTRAST_SCENARIO,
-  QUIET_BOREDOM_SCENARIO,
   formatScenarioTraceNdjson,
   runScenario,
   type ScenarioDefinition,
 } from "../src/scenarioHarness.ts";
+import { HUMAN_EVALUATION_SCENARIO_DEFINITIONS } from "../src/humanEvaluationScenarios.ts";
 import { bindWasmCognition } from "../src/cognitionFacade.ts";
 import {
   DEFAULT_HUMAN_EVALUATION_CRITERIA,
@@ -24,15 +21,13 @@ import {
 
 const outputDir = path.resolve("docs/evaluations/58-live-cognition");
 const studyId = "issue-58";
-const evaluatorIds = ["evaluator-1", "evaluator-2", "evaluator-3"];
-const scenarioById = new Map(
-  [
-    NOVEL_STRONG_GESTURE_SCENARIO,
-    HABITUATION_SCENARIO,
-    PERSONALITY_CONTRAST_SCENARIO,
-    QUIET_BOREDOM_SCENARIO,
-  ].map((scenario) => [scenario.name, scenario]),
-);
+  const evaluatorIds = ["evaluator-1", "evaluator-2", "evaluator-3"];
+  const scenarioById = new Map(
+    Object.entries(HUMAN_EVALUATION_SCENARIO_DEFINITIONS).map(([
+      id,
+      scenario,
+    ]) => [id, scenario]),
+  );
 
 function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
@@ -165,6 +160,7 @@ async function main() {
 
   const replaysDir = path.join(outputDir, "replays");
   const formsDir = path.join(outputDir, "forms");
+  rmSync(replaysDir, { recursive: true, force: true });
   mkdirSync(replaysDir, { recursive: true });
   mkdirSync(formsDir, { recursive: true });
 
@@ -193,20 +189,40 @@ async function main() {
       const tracePath = `replays/${replayId}.ndjson`;
       const viewerPath = `replays/${replayId}.html`;
       writeFileSync(path.join(outputDir, tracePath), ndjson, { mode: 0o644 });
+      const actorIds = new Map<string, string>();
       const events = ndjson
         .split("\n")
         .filter(Boolean)
         .map((line) => JSON.parse(line) as Record<string, unknown>)
-        .map((record) => ({
-          t: record.clockS,
-          type: record.type,
-          characterId: record.characterId,
-          archetype: record.archetype,
-          x: record.x,
-          to: record.to,
-          facing: record.facing,
-          text: record.text,
-        }));
+        .filter((record) =>
+          [
+            "character_materialized",
+            "animation_changed",
+            "facing_changed",
+            "jump_started",
+            "jump_ended",
+            "bubble_started",
+            "bubble_ended",
+            "character_vanished",
+          ].includes(record.type as string),
+        )
+        .map((record) => {
+          const sourceId = String(record.characterId ?? "");
+          if (!actorIds.has(sourceId)) {
+            actorIds.set(sourceId, `actor-${actorIds.size + 1}`);
+          }
+          return {
+            t: record.clockS,
+            type: record.type,
+            characterId: record.characterId
+              ? actorIds.get(sourceId)
+              : undefined,
+            x: record.x,
+            to: record.to,
+            facing: record.facing,
+            text: record.text,
+          };
+        });
       writeFileSync(
         path.join(outputDir, viewerPath),
         replayViewer(events, definition.durationS),
@@ -339,7 +355,7 @@ async function main() {
   );
   writeFileSync(
     path.join(outputDir, "README.md"),
-    `# Live-cognition human A/B kit\n\nThis kit prepares, but does not claim, the human evaluation required by issue #58. It contains four deterministic scenario traces rendered at 30 Hz with baseline-neutral behavior and optimized WASM cognition. Each evaluator receives two differently labeled replays per scenario, with both scenario order and first-replay arm randomized. The committed manifest binds the hidden assignment mapping only by SHA-256.\n\nThe experimental live app now keeps \`COGNITION_LIVE_DEFAULT_ENABLED\` false, so default-on activation cannot occur before the human gates pass. The included replay viewer is a behavior-event preview for reviewer convenience, not the production Pixi renderer. Before treating visual responses as final acceptance evidence, the product owner should accept this presentation or reproduce the same traces through the desktop rendering stack and use those recordings instead.\n\nForms are under \`forms/\`; replay checksums are in \`manifest.json\`. The study remains blocked because three external human evaluators have not participated and the product owner has not yet accepted the numeric gates.\n`,
+    `# Live-cognition human A/B kit\n\nThis kit prepares, but does not claim, the human evaluation required by issue #58. It contains four 70-second deterministic scenario traces rendered at 30 Hz with baseline-neutral behavior and optimized WASM cognition. Each scenario passed an automated visible-behavior precheck: it differs in at least one scheduler-owned bubble or jump event between arms. Each evaluator receives two differently labeled replays per scenario, with both scenario order and first-replay arm randomized. The committed manifest binds the hidden assignment mapping only by SHA-256.\n\nThe experimental live app now keeps \`COGNITION_LIVE_DEFAULT_ENABLED\` false, so default-on activation cannot occur before the human gates pass. The included replay viewer is a behavior-event preview for reviewer convenience, not the production Pixi renderer. Before treating visual responses as final acceptance evidence, the product owner should accept this presentation or reproduce the same traces through the desktop rendering stack and use those recordings instead.\n\nForms are under \`forms/\`; replay checksums are in \`manifest.json\`. The study remains blocked because three external human evaluators have not participated and the product owner has not yet accepted the numeric gates.\n`,
     { mode: 0o644 },
   );
 

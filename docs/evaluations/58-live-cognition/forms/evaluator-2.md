@@ -15,9 +15,9 @@ After each pair, choose the replay you preferred in that pair and describe the m
 
 ## S1
 
-### Replay 1 — 21.3 seconds
+### Replay 1 — 70 seconds
 Replay ID: `issue-58-e2-s1-r1`
-Open: [behavior replay](../replays/trace-b346bc120fc2.html)
+Open: [behavior replay](../replays/trace-ae85b1196b7e.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|
@@ -27,9 +27,9 @@ Open: [behavior replay](../replays/trace-b346bc120fc2.html)
  | 4 |          |
  | 5 |          |
 
-### Replay 2 — 21.3 seconds
+### Replay 2 — 70 seconds
 Replay ID: `issue-58-e2-s1-r2`
-Open: [behavior replay](../replays/trace-50e460243037.html)
+Open: [behavior replay](../replays/trace-0381eda96036.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|
@@ -49,9 +49,9 @@ Open: [behavior replay](../replays/trace-50e460243037.html)
 
 ## S2
 
-### Replay 1 — 9.5 seconds
+### Replay 1 — 70 seconds
 Replay ID: `issue-58-e2-s2-r1`
-Open: [behavior replay](../replays/trace-c5404e000959.html)
+Open: [behavior replay](../replays/trace-d7e62f9b0f42.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|
@@ -61,9 +61,9 @@ Open: [behavior replay](../replays/trace-c5404e000959.html)
  | 4 |          |
  | 5 |          |
 
-### Replay 2 — 9.5 seconds
+### Replay 2 — 70 seconds
 Replay ID: `issue-58-e2-s2-r2`
-Open: [behavior replay](../replays/trace-e7401fbd18c1.html)
+Open: [behavior replay](../replays/trace-506bf0f5d4fd.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|
@@ -83,9 +83,9 @@ Open: [behavior replay](../replays/trace-e7401fbd18c1.html)
 
 ## S3
 
-### Replay 1 — 21.3 seconds
+### Replay 1 — 70 seconds
 Replay ID: `issue-58-e2-s3-r1`
-Open: [behavior replay](../replays/trace-3835c153a7a3.html)
+Open: [behavior replay](../replays/trace-016ef04edd21.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|
@@ -95,9 +95,9 @@ Open: [behavior replay](../replays/trace-3835c153a7a3.html)
  | 4 |          |
  | 5 |          |
 
-### Replay 2 — 21.3 seconds
+### Replay 2 — 70 seconds
 Replay ID: `issue-58-e2-s3-r2`
-Open: [behavior replay](../replays/trace-da3e498080b9.html)
+Open: [behavior replay](../replays/trace-82d5cec948e7.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|
@@ -117,9 +117,9 @@ Open: [behavior replay](../replays/trace-da3e498080b9.html)
 
 ## S4
 
-### Replay 1 — 11.5 seconds
+### Replay 1 — 70 seconds
 Replay ID: `issue-58-e2-s4-r1`
-Open: [behavior replay](../replays/trace-c7cb2e2c5d82.html)
+Open: [behavior replay](../replays/trace-51f028391633.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|
@@ -129,9 +129,9 @@ Open: [behavior replay](../replays/trace-c7cb2e2c5d82.html)
  | 4 |          |
  | 5 |          |
 
-### Replay 2 — 11.5 seconds
+### Replay 2 — 70 seconds
 Replay ID: `issue-58-e2-s4-r2`
-Open: [behavior replay](../replays/trace-39620a21888f.html)
+Open: [behavior replay](../replays/trace-a8428e82ec80.html)
 
 | Score | Rating | Comment (optional) |
 |---:|---|---|

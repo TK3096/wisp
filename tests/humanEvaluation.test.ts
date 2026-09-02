@@ -82,10 +82,10 @@ describe("blind human A/B evaluation plan", () => {
 
     for (const kit of first.publicPlan.kits) {
       expect([...kit.scenarioOrder].sort()).toEqual([
-        "habituation",
-        "novel-strong-gesture",
-        "personality-contrast",
-        "quiet-boredom",
+        "boredom-gate",
+        "caution-gate",
+        "habituation-gate",
+        "personality-gate",
       ]);
       expect(kit.comparisons).toHaveLength(kit.scenarioOrder.length);
       for (const comparison of kit.comparisons) {
