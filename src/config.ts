@@ -91,6 +91,12 @@ export const COGNITION_DEBUG = {
 
 import type { TaggedLine } from "./speech";
 
+/**
+ * Live cognition stays opt-in until issue #58's accepted human evidence gates
+ * pass. Turn this on only in the same review that accepts those results.
+ */
+export const COGNITION_LIVE_DEFAULT_ENABLED = false;
+
 export const GREETINGS: TaggedLine[] = [
   { text: "hi!", tone: "cheerful" },
   { text: "hello!", tone: "cheerful" },

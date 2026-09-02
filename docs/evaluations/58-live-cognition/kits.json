@@ -1,0 +1,287 @@
+[
+  {
+    "evaluatorId": "evaluator-1",
+    "scenarioOrder": [
+      "habituation",
+      "novel-strong-gesture",
+      "quiet-boredom",
+      "personality-contrast"
+    ],
+    "comparisons": [
+      {
+        "scenarioCode": "S1",
+        "replays": [
+          {
+            "replayId": "issue-58-e1-s1-r1",
+            "label": "Replay 1",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-50e460243037.ndjson",
+            "viewerPath": "replays/trace-50e460243037.html",
+            "traceSha256": "50e460243037dd550a1ffd1d59848d918e3a1939f173c72ce8cc4dac8319b48b"
+          },
+          {
+            "replayId": "issue-58-e1-s1-r2",
+            "label": "Replay 2",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-b346bc120fc2.ndjson",
+            "viewerPath": "replays/trace-b346bc120fc2.html",
+            "traceSha256": "b346bc120fc29c1c1e15c69affa8af0675fb6f750ce6d5bc617aa7fd40bcc740"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S2",
+        "replays": [
+          {
+            "replayId": "issue-58-e1-s2-r1",
+            "label": "Replay 1",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-3835c153a7a3.ndjson",
+            "viewerPath": "replays/trace-3835c153a7a3.html",
+            "traceSha256": "3835c153a7a318736e9a5db035d04e89f2d5b48679d998cad36c4ca465fc8d28"
+          },
+          {
+            "replayId": "issue-58-e1-s2-r2",
+            "label": "Replay 2",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-da3e498080b9.ndjson",
+            "viewerPath": "replays/trace-da3e498080b9.html",
+            "traceSha256": "da3e498080b99ea32bd22397814bc6c90ad095bd92b05167d421624d3d42f03f"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S3",
+        "replays": [
+          {
+            "replayId": "issue-58-e1-s3-r1",
+            "label": "Replay 1",
+            "durationS": 11.5,
+            "tracePath": "replays/trace-39620a21888f.ndjson",
+            "viewerPath": "replays/trace-39620a21888f.html",
+            "traceSha256": "39620a21888fdbe64bb83437014045dd63f33f72f533e4293aaebe4635160da8"
+          },
+          {
+            "replayId": "issue-58-e1-s3-r2",
+            "label": "Replay 2",
+            "durationS": 11.5,
+            "tracePath": "replays/trace-c7cb2e2c5d82.ndjson",
+            "viewerPath": "replays/trace-c7cb2e2c5d82.html",
+            "traceSha256": "c7cb2e2c5d827c6c15dac88e2b92e46b2d9d8fc287c2a95b12e6ea361abcdbea"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S4",
+        "replays": [
+          {
+            "replayId": "issue-58-e1-s4-r1",
+            "label": "Replay 1",
+            "durationS": 9.5,
+            "tracePath": "replays/trace-c5404e000959.ndjson",
+            "viewerPath": "replays/trace-c5404e000959.html",
+            "traceSha256": "c5404e0009594017e6a9f7bd4b092a6f6aed12123fe663fc19e1f8ec8ace1708"
+          },
+          {
+            "replayId": "issue-58-e1-s4-r2",
+            "label": "Replay 2",
+            "durationS": 9.5,
+            "tracePath": "replays/trace-e7401fbd18c1.ndjson",
+            "viewerPath": "replays/trace-e7401fbd18c1.html",
+            "traceSha256": "e7401fbd18c120328c7dc7b815f453d3a62fff719095af0930778062fdd07cf6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "evaluatorId": "evaluator-2",
+    "scenarioOrder": [
+      "habituation",
+      "personality-contrast",
+      "novel-strong-gesture",
+      "quiet-boredom"
+    ],
+    "comparisons": [
+      {
+        "scenarioCode": "S1",
+        "replays": [
+          {
+            "replayId": "issue-58-e2-s1-r1",
+            "label": "Replay 1",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-b346bc120fc2.ndjson",
+            "viewerPath": "replays/trace-b346bc120fc2.html",
+            "traceSha256": "b346bc120fc29c1c1e15c69affa8af0675fb6f750ce6d5bc617aa7fd40bcc740"
+          },
+          {
+            "replayId": "issue-58-e2-s1-r2",
+            "label": "Replay 2",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-50e460243037.ndjson",
+            "viewerPath": "replays/trace-50e460243037.html",
+            "traceSha256": "50e460243037dd550a1ffd1d59848d918e3a1939f173c72ce8cc4dac8319b48b"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S2",
+        "replays": [
+          {
+            "replayId": "issue-58-e2-s2-r1",
+            "label": "Replay 1",
+            "durationS": 9.5,
+            "tracePath": "replays/trace-c5404e000959.ndjson",
+            "viewerPath": "replays/trace-c5404e000959.html",
+            "traceSha256": "c5404e0009594017e6a9f7bd4b092a6f6aed12123fe663fc19e1f8ec8ace1708"
+          },
+          {
+            "replayId": "issue-58-e2-s2-r2",
+            "label": "Replay 2",
+            "durationS": 9.5,
+            "tracePath": "replays/trace-e7401fbd18c1.ndjson",
+            "viewerPath": "replays/trace-e7401fbd18c1.html",
+            "traceSha256": "e7401fbd18c120328c7dc7b815f453d3a62fff719095af0930778062fdd07cf6"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S3",
+        "replays": [
+          {
+            "replayId": "issue-58-e2-s3-r1",
+            "label": "Replay 1",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-3835c153a7a3.ndjson",
+            "viewerPath": "replays/trace-3835c153a7a3.html",
+            "traceSha256": "3835c153a7a318736e9a5db035d04e89f2d5b48679d998cad36c4ca465fc8d28"
+          },
+          {
+            "replayId": "issue-58-e2-s3-r2",
+            "label": "Replay 2",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-da3e498080b9.ndjson",
+            "viewerPath": "replays/trace-da3e498080b9.html",
+            "traceSha256": "da3e498080b99ea32bd22397814bc6c90ad095bd92b05167d421624d3d42f03f"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S4",
+        "replays": [
+          {
+            "replayId": "issue-58-e2-s4-r1",
+            "label": "Replay 1",
+            "durationS": 11.5,
+            "tracePath": "replays/trace-c7cb2e2c5d82.ndjson",
+            "viewerPath": "replays/trace-c7cb2e2c5d82.html",
+            "traceSha256": "c7cb2e2c5d827c6c15dac88e2b92e46b2d9d8fc287c2a95b12e6ea361abcdbea"
+          },
+          {
+            "replayId": "issue-58-e2-s4-r2",
+            "label": "Replay 2",
+            "durationS": 11.5,
+            "tracePath": "replays/trace-39620a21888f.ndjson",
+            "viewerPath": "replays/trace-39620a21888f.html",
+            "traceSha256": "39620a21888fdbe64bb83437014045dd63f33f72f533e4293aaebe4635160da8"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "evaluatorId": "evaluator-3",
+    "scenarioOrder": [
+      "habituation",
+      "quiet-boredom",
+      "novel-strong-gesture",
+      "personality-contrast"
+    ],
+    "comparisons": [
+      {
+        "scenarioCode": "S1",
+        "replays": [
+          {
+            "replayId": "issue-58-e3-s1-r1",
+            "label": "Replay 1",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-50e460243037.ndjson",
+            "viewerPath": "replays/trace-50e460243037.html",
+            "traceSha256": "50e460243037dd550a1ffd1d59848d918e3a1939f173c72ce8cc4dac8319b48b"
+          },
+          {
+            "replayId": "issue-58-e3-s1-r2",
+            "label": "Replay 2",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-b346bc120fc2.ndjson",
+            "viewerPath": "replays/trace-b346bc120fc2.html",
+            "traceSha256": "b346bc120fc29c1c1e15c69affa8af0675fb6f750ce6d5bc617aa7fd40bcc740"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S2",
+        "replays": [
+          {
+            "replayId": "issue-58-e3-s2-r1",
+            "label": "Replay 1",
+            "durationS": 11.5,
+            "tracePath": "replays/trace-c7cb2e2c5d82.ndjson",
+            "viewerPath": "replays/trace-c7cb2e2c5d82.html",
+            "traceSha256": "c7cb2e2c5d827c6c15dac88e2b92e46b2d9d8fc287c2a95b12e6ea361abcdbea"
+          },
+          {
+            "replayId": "issue-58-e3-s2-r2",
+            "label": "Replay 2",
+            "durationS": 11.5,
+            "tracePath": "replays/trace-39620a21888f.ndjson",
+            "viewerPath": "replays/trace-39620a21888f.html",
+            "traceSha256": "39620a21888fdbe64bb83437014045dd63f33f72f533e4293aaebe4635160da8"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S3",
+        "replays": [
+          {
+            "replayId": "issue-58-e3-s3-r1",
+            "label": "Replay 1",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-3835c153a7a3.ndjson",
+            "viewerPath": "replays/trace-3835c153a7a3.html",
+            "traceSha256": "3835c153a7a318736e9a5db035d04e89f2d5b48679d998cad36c4ca465fc8d28"
+          },
+          {
+            "replayId": "issue-58-e3-s3-r2",
+            "label": "Replay 2",
+            "durationS": 21.3,
+            "tracePath": "replays/trace-da3e498080b9.ndjson",
+            "viewerPath": "replays/trace-da3e498080b9.html",
+            "traceSha256": "da3e498080b99ea32bd22397814bc6c90ad095bd92b05167d421624d3d42f03f"
+          }
+        ]
+      },
+      {
+        "scenarioCode": "S4",
+        "replays": [
+          {
+            "replayId": "issue-58-e3-s4-r1",
+            "label": "Replay 1",
+            "durationS": 9.5,
+            "tracePath": "replays/trace-e7401fbd18c1.ndjson",
+            "viewerPath": "replays/trace-e7401fbd18c1.html",
+            "traceSha256": "e7401fbd18c120328c7dc7b815f453d3a62fff719095af0930778062fdd07cf6"
+          },
+          {
+            "replayId": "issue-58-e3-s4-r2",
+            "label": "Replay 2",
+            "durationS": 9.5,
+            "tracePath": "replays/trace-c5404e000959.ndjson",
+            "viewerPath": "replays/trace-c5404e000959.html",
+            "traceSha256": "c5404e0009594017e6a9f7bd4b092a6f6aed12123fe663fc19e1f8ec8ace1708"
+          }
+        ]
+      }
+    ]
+  }
+]

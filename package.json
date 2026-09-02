@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:acceptance": "npm run build:cognition && vitest run --config vitest.cognition.config.ts integration/phase1Acceptance.integration.test.ts"
+    "test:acceptance": "npm run build:cognition && vitest run --config vitest.cognition.config.ts integration/phase1Acceptance.integration.test.ts",
+    "generate:human-kit": "esbuild scripts/generate-human-evaluation-kit.ts --bundle --platform=node --format=esm --outfile=target/tmp/generate-human-kit.mjs && node target/tmp/generate-human-kit.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

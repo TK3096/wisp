@@ -1,13 +1,19 @@
 import { Application, Sprite, Texture, Assets } from "pixi.js";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { ASSET_MANIFEST, EFFECT, FLOOR_BAND_PX } from "./config";
+import {
+  ASSET_MANIFEST,
+  COGNITION_LIVE_DEFAULT_ENABLED,
+  EFFECT,
+  FLOOR_BAND_PX,
+} from "./config";
 import { loadAsset, loadEffect } from "./spriteLoader";
 import { CharacterRegistry } from "./characterRegistry";
 import { defaultCreateBubbleHandle, defaultCreateHandle } from "./rendering";
 import { EffectKind } from "./effect";
 import { connectShellEvents } from "./shellBridge";
 import { bindWasmCognition } from "./cognitionFacade";
+import { createNeutralCognitionHandle } from "./cognition";
 import {
   createNativeIdentityFactory,
   createTauriPersistence,
@@ -55,7 +61,9 @@ async function init() {
     floorY: window.innerHeight - FLOOR_BAND_PX,
     createHandle: defaultCreateHandle,
     createBubbleHandle: defaultCreateBubbleHandle,
-    createCognitionHandle: await bindWasmCognition(),
+    createCognitionHandle: COGNITION_LIVE_DEFAULT_ENABLED
+      ? await bindWasmCognition()
+      : createNeutralCognitionHandle,
     createCharacterId: createNativeIdentityFactory(),
     persistence: createTauriPersistence(),
     onPersistenceError: console.error,

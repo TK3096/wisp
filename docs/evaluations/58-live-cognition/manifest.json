@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "issue": 58,
+  "studyId": "issue-58",
+  "assignmentDigest": "f20a129c4b2be8cc62bbb0cbf53b03bb16c134cbd101a5a950846c0fe9ce0a31",
+  "evaluatorIds": [
+    "evaluator-1",
+    "evaluator-2",
+    "evaluator-3"
+  ],
+  "criteria": {
+    "minimumEvaluators": 3,
+    "medianCognitionDimensionMinimum": 4,
+    "cognitionOverallPreferenceMinimum": 2,
+    "correctPrincipalReactionMinimum": 2,
+    "noisyOrDisturbingAllowed": false,
+    "acceptedByProductOwner": false
+  },
+  "replayDurationSByScenario": {
+    "novel-strong-gesture": 21.3,
+    "habituation": 21.3,
+    "personality-contrast": 9.5,
+    "quiet-boredom": 11.5
+  },
+  "replayAssets": [
+    {
+      "replayId": "trace-3835c153a7a3",
+      "path": "replays/trace-3835c153a7a3.ndjson",
+      "viewerPath": "replays/trace-3835c153a7a3.html",
+      "sha256": "3835c153a7a318736e9a5db035d04e89f2d5b48679d998cad36c4ca465fc8d28"
+    },
+    {
+      "replayId": "trace-da3e498080b9",
+      "path": "replays/trace-da3e498080b9.ndjson",
+      "viewerPath": "replays/trace-da3e498080b9.html",
+      "sha256": "da3e498080b99ea32bd22397814bc6c90ad095bd92b05167d421624d3d42f03f"
+    },
+    {
+      "replayId": "trace-b346bc120fc2",
+      "path": "replays/trace-b346bc120fc2.ndjson",
+      "viewerPath": "replays/trace-b346bc120fc2.html",
+      "sha256": "b346bc120fc29c1c1e15c69affa8af0675fb6f750ce6d5bc617aa7fd40bcc740"
+    },
+    {
+      "replayId": "trace-50e460243037",
+      "path": "replays/trace-50e460243037.ndjson",
+      "viewerPath": "replays/trace-50e460243037.html",
+      "sha256": "50e460243037dd550a1ffd1d59848d918e3a1939f173c72ce8cc4dac8319b48b"
+    },
+    {
+      "replayId": "trace-c5404e000959",
+      "path": "replays/trace-c5404e000959.ndjson",
+      "viewerPath": "replays/trace-c5404e000959.html",
+      "sha256": "c5404e0009594017e6a9f7bd4b092a6f6aed12123fe663fc19e1f8ec8ace1708"
+    },
+    {
+      "replayId": "trace-e7401fbd18c1",
+      "path": "replays/trace-e7401fbd18c1.ndjson",
+      "viewerPath": "replays/trace-e7401fbd18c1.html",
+      "sha256": "e7401fbd18c120328c7dc7b815f453d3a62fff719095af0930778062fdd07cf6"
+    },
+    {
+      "replayId": "trace-39620a21888f",
+      "path": "replays/trace-39620a21888f.ndjson",
+      "viewerPath": "replays/trace-39620a21888f.html",
+      "sha256": "39620a21888fdbe64bb83437014045dd63f33f72f533e4293aaebe4635160da8"
+    },
+    {
+      "replayId": "trace-c7cb2e2c5d82",
+      "path": "replays/trace-c7cb2e2c5d82.ndjson",
+      "viewerPath": "replays/trace-c7cb2e2c5d82.html",
+      "sha256": "c7cb2e2c5d827c6c15dac88e2b92e46b2d9d8fc287c2a95b12e6ea361abcdbea"
+    }
+  ],
+  "liveCognitionDefaultEnabled": false,
+  "status": "awaiting-human-evaluations",
+  "soloDeveloperLimitation": "The sole developer cannot serve as all three independent evaluators."
+}

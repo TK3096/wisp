@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "studyId": "issue-58",
+  "responses": [
+    {
+      "evaluatorId": "evaluator-1",
+      "ratings": [
+        {
+          "replayId": "issue-58-e1-s1-r1",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        },
+        {
+          "replayId": "issue-58-e1-s1-r2",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        },
+        {
+          "replayId": "issue-58-e1-s2-r1",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        },
+        {
+          "replayId": "issue-58-e1-s2-r2",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        },
+        {
+          "replayId": "issue-58-e1-s3-r1",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        },
+        {
+          "replayId": "issue-58-e1-s3-r2",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        },
+        {
+          "replayId": "issue-58-e1-s4-r1",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        },
+        {
+          "replayId": "issue-58-e1-s4-r2",
+          "scores": {
+            "Alive/Aware": 0,
+            "Individuality": 0,
+            "Appropriateness": 0,
+            "Variation": 0,
+            "Calm": 0
+          }
+        }
+      ],
+      "preferredReplayId": "",
+      "pairPreferredReplayIds": [
+        "",
+        "",
+        "",
+        ""
+      ],
+      "principalReactionDescriptions": {
+        "S1": "",
+        "S2": "",
+        "S3": "",
+        "S4": ""
+      },
+      "principalReactionCorrect": {
+        "S1": false,
+        "S2": false,
+        "S3": false,
+        "S4": false
+      },
+      "safetyReports": []
+    }
+  ]
+}
