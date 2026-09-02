@@ -11,7 +11,7 @@ npm run tauri dev   # launch the full overlay app (starts vite dev server + Taur
 npm test            # run Vitest unit suite (no WebGL or Tauri required)
 npm run test:cognition # run Rust core tests and the Node-backed WASM facade test
 npm run test:cognition:scenario # build WASM and replay it through the Scenario Harness
-npm run build:cognition # regenerate public/cognition (build state; never commit)
+npm run build:cognition # regenerate src/cognitionWasm (build state; never commit)
 npm run build:debug # build a debug-mode frontend that includes cognition inspection
 npm run build       # tsc + vite production build
 ```

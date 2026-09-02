@@ -25,11 +25,11 @@ async function createLiveCognition(): Promise<
   (init: CognitionInit) => CognitionHandle
 > {
   const moduleUrl = new URL(
-    "../public/cognition/wisp_cognition_wasm.js",
+    "../src/cognitionWasm/wisp_cognition_wasm.js",
     import.meta.url,
   );
   const wasmUrl = new URL(
-    "../public/cognition/wisp_cognition_wasm_bg.wasm",
+    "../src/cognitionWasm/wisp_cognition_wasm_bg.wasm",
     import.meta.url,
   );
   const rawModule = (await import(moduleUrl.href)) as unknown as {

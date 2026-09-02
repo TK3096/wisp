@@ -31,9 +31,8 @@ export interface CognitionWasmModule {
 
 export type CognitionWasmLoader = () => Promise<CognitionWasmModule>;
 
-const generatedCognitionUrl: string = "/cognition/wisp_cognition_wasm.js";
 const loadGeneratedCognition: CognitionWasmLoader = () =>
-  import(generatedCognitionUrl) as Promise<CognitionWasmModule>;
+  import("./cognitionWasm/wisp_cognition_wasm.js") as Promise<CognitionWasmModule>;
 
 /**
  * Bind the coarse-grained WASM facade to the injected Cognition Handle seam.

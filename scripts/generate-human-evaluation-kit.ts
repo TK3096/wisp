@@ -71,10 +71,10 @@ function parseSeed(): number | undefined {
 
 async function createLiveCognition() {
   const moduleUrl = pathToFileURL(
-    path.resolve("public/cognition/wisp_cognition_wasm.js"),
+    path.resolve("src/cognitionWasm/wisp_cognition_wasm.js"),
   );
   const wasmUrl = pathToFileURL(
-    path.resolve("public/cognition/wisp_cognition_wasm_bg.wasm"),
+    path.resolve("src/cognitionWasm/wisp_cognition_wasm_bg.wasm"),
   );
   const rawModule = (await import(moduleUrl.href)) as {
     WispCognition: new (init: unknown) => unknown;

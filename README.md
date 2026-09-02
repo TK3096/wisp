@@ -24,11 +24,11 @@ npm run tauri dev   # launch the overlay
 npm test            # run the Vitest suite
 npm run test:cognition  # run Rust core and Node-backed WASM facade tests
 npm run test:cognition:scenario # build and replay the generated facade in the Scenario Harness
-npm run build:cognition # generate public/cognition (also part of npm run build)
+npm run build:cognition # generate src/cognitionWasm (also part of npm run build)
 npm run build:debug # production-shaped frontend with the debug overlay mode
 ```
 
-The WASM cognition package under `public/cognition/` is generated build state:
+The WASM cognition package under `src/cognitionWasm/` is generated build state:
 do not commit it. `npm run build` regenerates it with wasm-pack before
 TypeScript compilation and the Vite production bundle. Plain Vite development
 should run `npm run build:cognition` first; `npm run tauri dev` does this
