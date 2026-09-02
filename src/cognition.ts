@@ -109,6 +109,16 @@ export interface ToneSeed {
   affect: Affect;
 }
 
+/** Bounded peer-visible view; Cognition State itself never crosses this seam. */
+export type SocialProjection = number[];
+
+/** One bounded receiver-scoped social contribution accepted by Cognition. */
+export interface SocialInfluence {
+  receiverId: string;
+  sourceId: string;
+  value: number;
+}
+
 export interface PersistentCognitionState {
   schemaVersion: number;
   characterId: string;
@@ -119,6 +129,11 @@ export interface CognitionHandle {
   observe(stimulus: Stimulus): void;
   /** Read-only tone projection; available before the first cadence tick. */
   toneSeed(): ToneSeed;
+  /** Read-only bounded peer view for Population Cognition. */
+  /** Optional for older handles; production Cognition supplies both. */
+  socialProjection?(): SocialProjection;
+  /** Queue or apply one bounded slow Social Influence through the cognition boundary. */
+  applySocialInfluence?(influence: SocialInfluence): void;
   tick(dt: number): BehaviorSignal;
   /** Credit a character expression when an accepted feedback cue is active. */
   noteExpression(): void;
@@ -198,6 +213,10 @@ export const NEUTRAL_TONE_SEED: ToneSeed = Object.freeze({
   affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
 }) as ToneSeed;
 
+export const NEUTRAL_SOCIAL_PROJECTION: SocialProjection = Object.freeze([
+  0.5, 0.5, 0.5, 0.5, 0, 0, 0, 0,
+]) as SocialProjection;
+
 export function createNeutralCognitionHandle(
   init: CognitionInit,
 ): CognitionHandle {
@@ -207,6 +226,12 @@ export function createNeutralCognitionHandle(
     },
     toneSeed() {
       return NEUTRAL_TONE_SEED;
+    },
+    socialProjection() {
+      return [0.5, 0.5, 0.5, 0.5, 0, 0, 0, 0];
+    },
+    applySocialInfluence(_influence) {
+      // The neutral implementation intentionally has no social dynamics.
     },
     tick(dt) {
       if (!Number.isFinite(dt) || dt < 0) {

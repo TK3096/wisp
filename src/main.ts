@@ -6,6 +6,7 @@ import {
   COGNITION_LIVE_DEFAULT_ENABLED,
   EFFECT,
   FLOOR_BAND_PX,
+  POPULATION_COGNITION_ENABLED,
 } from "./config";
 import { loadAsset, loadEffect } from "./spriteLoader";
 import { CharacterRegistry } from "./characterRegistry";
@@ -65,6 +66,7 @@ async function init() {
       ? await bindWasmCognition()
       : createNeutralCognitionHandle,
     createCharacterId: createNativeIdentityFactory(),
+    populationCognitionEnabled: POPULATION_COGNITION_ENABLED,
     persistence: createTauriPersistence(),
     onPersistenceError: console.error,
     onIdentityError: console.error,

@@ -54,3 +54,31 @@ fn exposes_bounded_temporal_surprise_without_substrate_apis() {
     assert!(signal.micro_belief.novelty > 0.0);
     assert!((0.0..=2.0).contains(&signal.behavior_bias.jump_chance));
 }
+
+#[wasm_bindgen_test]
+fn exposes_bounded_social_projection_and_slow_influence() {
+    use wisp_cognition_wasm::WispCognition;
+
+    let init = r#"{
+        "schemaVersion": 3,
+        "characterId": "social-character",
+        "archetype": "ninja-frog",
+        "personalitySeed": 17
+    }"#;
+    let mut handle = WispCognition::new(js_sys::JSON::parse(init).unwrap()).unwrap();
+
+    let baseline: Vec<f64> = handle.social_projection().into();
+    assert_eq!(baseline.len(), 8);
+    assert!(baseline
+        .iter()
+        .all(|value| value.is_finite() && (-1.0..=1.0).contains(value)));
+
+    handle.apply_social_influence(0.5).unwrap();
+    let influenced: Vec<f64> = handle.social_projection().into();
+    assert!(influenced[7] > baseline[7]);
+
+    let signal = handle.tick(0.1).unwrap();
+    let signal: wisp_cognition_core::BehaviorSignal =
+        serde_wasm_bindgen::from_value(signal).unwrap();
+    assert!(signal.micro_belief.social_positivity > 0.0);
+}

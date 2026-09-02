@@ -16,6 +16,7 @@ import {
   CognitionHandle,
   CognitionInit,
   NEUTRAL_BEHAVIOR_SIGNAL,
+  NEUTRAL_SOCIAL_PROJECTION,
   PersistentCognitionState,
   ToneSeed,
   StimulusEnvelope,
@@ -29,6 +30,13 @@ import {
   projectCognitionDebugSnapshot,
 } from "./cognitionDebugSnapshot";
 import { TaggedLine, selectTaggedLine } from "./speech";
+import {
+  MAX_POPULATION_CATCHUP_PASSES,
+  PopulationPassSummary,
+  POPULATION_COGNITION_CADENCE_S,
+  SOCIAL_PROJECTION_INDEX,
+  runPopulationCognitionPass,
+} from "./socialAttention";
 import {
   CHARACTER_AUTOSAVE_INTERVAL_S,
   MAX_CHARACTER_PERSISTENCE_BYTES,
@@ -119,6 +127,13 @@ export interface RegistryOptions {
    * from the stable Character Identity and Archetype.
    */
   derivePersonalitySeed?: (characterId: string, archetype: string) => number;
+  /**
+   * Issue #59 experimental gate. It is false unless a caller explicitly
+   * enables it; normal production wiring keeps Set Attention off.
+   */
+  populationCognitionEnabled?: boolean;
+  /** Canonical bounded Population Cognition trace callback. */
+  onPopulationCognitionPass?: (summary: PopulationPassSummary) => void;
 }
 
 function createInertCharacterHandle(): CharacterHandle {
@@ -145,6 +160,7 @@ interface CharEntry {
   archetype: string;
   personalitySeed: number;
   displayName: string;
+  lifecyclePhase: "materialized" | "vanishing";
   cognition: CognitionHandle;
   /** Render time not yet consumed by a fixed cognition step. */
   cognitionAccumulator: number;
@@ -180,6 +196,8 @@ export class CharacterRegistry {
   private readonly opts: ResolvedOptions;
   /** Total elapsed seconds since the registry was created. */
   private elapsed = 0;
+  /** Render time not yet consumed by a fixed Population Cognition Pass. */
+  private populationCognitionAccumulatorS = 0;
   /** Elapsed time at which the last bubble was emitted (idle rolls only). */
   private lastBubbleAt = -Infinity;
   /** Monotonically increasing ID counter; never resets within a session. */
@@ -234,6 +252,7 @@ export class CharacterRegistry {
   /** Deliver one envelope to eligible Materialized characters in registry order. */
   dispatch(envelope: StimulusEnvelope): void {
     validateStimulusEnvelope(envelope);
+
     for (const entry of this.entries) {
       const matches =
         envelope.target === "all" ||
@@ -274,6 +293,7 @@ export class CharacterRegistry {
         void persistenceQueue.finally(() => persistence.delete(characterId));
       }
     }
+    this.entries[idx].lifecyclePhase = "vanishing";
     this.observeVanishing(this.entries[idx]);
     const x = char.x;
     const y = char.renderY;
@@ -430,6 +450,7 @@ export class CharacterRegistry {
       archetype: entry.name,
       personalitySeed,
       displayName: entry.displayName,
+      lifecyclePhase: "materialized",
       cognition,
       cognitionAccumulator: 0,
       latestSignal: null,
@@ -617,6 +638,7 @@ export class CharacterRegistry {
     this.pending.length = 0;
 
     for (const entry of this.entries) {
+      entry.lifecyclePhase = "vanishing";
       this.observeVanishing(entry);
       const x = entry.char.x;
       const y = entry.char.renderY;
@@ -647,6 +669,35 @@ export class CharacterRegistry {
       target: { characterId: entry.characterId },
       stimulus: { kind: "lifecycle", phase: "vanishing" },
     });
+  }
+
+  private runPopulationCognitionPass(): void {
+    const enabled = this.opts.populationCognitionEnabled === true;
+    // Only Materialized entries ever enter this list. Pending transitions live
+    // in pending[], and entries are marked Vanishing before despawn removal.
+    const eligible = this.entries.filter((entry) => entry.lifecyclePhase === "materialized");
+    const participants = eligible.map((entry) => {
+      const projection = entry.cognition.socialProjection?.() ?? NEUTRAL_SOCIAL_PROJECTION;
+      return {
+        characterId: entry.characterId,
+        sociability: projection[SOCIAL_PROJECTION_INDEX.sociability],
+        projection,
+      };
+    });
+    const cognitionFor = (characterId: string): CognitionHandle | undefined =>
+      eligible.find((entry) => entry.characterId === characterId)?.cognition;
+
+    const summary = runPopulationCognitionPass({
+      atS: this.elapsed,
+      enabled,
+      participants,
+      applyInfluence: (influence) => {
+        const cognition = cognitionFor(influence.receiverId);
+        cognition?.applySocialInfluence?.(influence);
+        return cognition?.socialProjection?.()[SOCIAL_PROJECTION_INDEX.socialPositivity] ?? 0;
+      },
+    });
+    this.opts.onPopulationCognitionPass?.(summary);
   }
 
   /**
@@ -708,6 +759,23 @@ export class CharacterRegistry {
     }
     if (synchronouslyMaterialized > 0) this.opts.onChange?.(this.snapshot());
 
+    this.populationCognitionAccumulatorS += dt;
+    let populationPasses = 0;
+    while (
+      populationPasses < MAX_POPULATION_CATCHUP_PASSES &&
+      this.populationCognitionAccumulatorS >=
+      POPULATION_COGNITION_CADENCE_S - COGNITION_CADENCE_EPSILON_S
+    ) {
+      this.populationCognitionAccumulatorS -= POPULATION_COGNITION_CADENCE_S;
+      populationPasses++;
+    }
+    if (
+      this.populationCognitionAccumulatorS >=
+      POPULATION_COGNITION_CADENCE_S - COGNITION_CADENCE_EPSILON_S
+    ) {
+      this.populationCognitionAccumulatorS = 0;
+    }
+
     for (const entry of this.entries) {
       entry.cognitionAccumulator += dt;
       let cognitionSteps = 0;
@@ -727,7 +795,13 @@ export class CharacterRegistry {
         entry.cognitionAccumulator = 0;
       }
       if (cognitionSteps > 0) this.markDirty(entry);
+    }
 
+    for (let pass = 0; pass < populationPasses; pass++) {
+      this.runPopulationCognitionPass();
+    }
+
+    for (const entry of this.entries) {
       entry.char.tick(dt);
 
       entry.rollTimer -= dt;

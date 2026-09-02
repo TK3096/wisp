@@ -19,6 +19,7 @@ import {
   derivePersonalitySeed,
 } from "./cognition";
 import { LoadedAsset } from "./simulationAsset";
+import { PopulationPassSummary } from "./socialAttention";
 
 export interface ScenarioStimulus {
   atS: number;
@@ -45,6 +46,8 @@ export interface ScenarioDefinition {
   personalitySeeds?: number[];
   stimuli?: ScenarioStimulus[];
   despawns?: ScenarioDespawn[];
+  /** Issue #59 replay gate; omitted scenarios remain default-off. */
+  populationCognitionEnabled?: boolean;
 }
 
 export type ScenarioTraceRecordType =
@@ -54,6 +57,7 @@ export type ScenarioTraceRecordType =
   | "character_materialized"
   | "stimulus_dispatch"
   | "stimulus_observed"
+  | "population_cognition_pass"
   | "expression_noted"
   | "cognition_step"
   | "scheduler_roll"
@@ -100,6 +104,8 @@ export interface ScenarioRunOptions {
   /** Optional wall-clock instrumentation; it never changes the virtual trace. */
   instrumentation?: ScenarioInstrumentation;
 }
+
+export type { PopulationPassSummary };
 
 /** Optional wall-clock instrumentation; it never changes the virtual trace. */
 export interface ScenarioInstrumentation {
@@ -355,6 +361,38 @@ export const PHASE1_STRESS_SCENARIO: ScenarioDefinition = {
       },
     },
   })),
+};
+
+/** Paired deterministic Set Attention acceptance/rejection replay. */
+const POPULATION_COGNITION_REPLAY: Omit<ScenarioDefinition, "name" | "populationCognitionEnabled"> = {
+  seed: 0x53455441,
+  durationS: 2.2,
+  spawnTimes: [0, 0],
+  spawnRolls: [0, 0.25, 0.25, 0, 0.75, 0.75],
+  schedulerRolls: [],
+  personalitySeeds: [17, 23],
+  stimuli: [
+    {
+      atS: 1.8,
+      envelope: {
+        target: "all",
+        stimulus: { kind: "gesture", gesture: "openPalm", confidence: 0.96 },
+      },
+    },
+  ],
+  despawns: [],
+};
+
+export const POPULATION_COGNITION_ON_SCENARIO: ScenarioDefinition = {
+  ...POPULATION_COGNITION_REPLAY,
+  name: "population-cognition-on",
+  populationCognitionEnabled: true,
+};
+
+export const POPULATION_COGNITION_OFF_SCENARIO: ScenarioDefinition = {
+  ...POPULATION_COGNITION_REPLAY,
+  name: "population-cognition-off",
+  populationCognitionEnabled: false,
 };
 
 export interface ScenarioCognitionStep {
@@ -996,6 +1034,8 @@ export function runScenario(
     createEffectHandle: makeEffectHandle,
     createCognitionHandle: makeCognitionHandle,
     createCharacterId: nextCharacterId,
+    populationCognitionEnabled: scenario.populationCognitionEnabled === true,
+    onPopulationCognitionPass: (summary) => emit("population_cognition_pass", { summary }),
     derivePersonalitySeed: (characterId, archetype) => {
       const seed = scenario.personalitySeeds?.[nextPersonalitySeedIndex++];
       return seed ?? derivePersonalitySeed(characterId, archetype);

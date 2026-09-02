@@ -29,6 +29,16 @@ impl WispCognition {
         serde_wasm_bindgen::to_value(&self.core.tone_signal()).map_err(error_to_js)
     }
 
+    pub fn social_projection(&self) -> Vec<f64> {
+        self.core.social_projection().to_vec()
+    }
+
+    pub fn apply_social_influence(&mut self, influence: f64) -> Result<(), JsValue> {
+        self.core
+            .apply_social_influence(influence)
+            .map_err(error_to_js)
+    }
+
     pub fn tick(&mut self, dt: f64) -> Result<JsValue, JsValue> {
         let signal = self.core.tick(dt).map_err(error_to_js)?;
         serde_wasm_bindgen::to_value(&signal).map_err(error_to_js)

@@ -5,6 +5,7 @@ import {
   CognitionInit,
   PersonalityDimensions,
   PersistentCognitionState,
+  SocialProjection,
   Stimulus,
 } from "./cognition";
 
@@ -17,6 +18,8 @@ export interface WispCognitionBinding {
   new (init: CognitionInit): {
     observe(stimulus: Stimulus): void;
     tone_seed(): { personality: PersonalityDimensions; affect: Affect };
+    social_projection(): Float64Array | SocialProjection;
+    apply_social_influence(influence: number): void;
     tick(dt: number): unknown;
     note_expression(): void;
     snapshot(): PersistentCognitionState;
@@ -48,6 +51,9 @@ export async function bindWasmCognition(
     return {
       observe: (stimulus) => binding.observe(stimulus),
       toneSeed: () => binding.tone_seed(),
+      socialProjection: () => binding.social_projection() as SocialProjection,
+      applySocialInfluence: (influence) =>
+        binding.apply_social_influence(influence.value),
       tick: (dt) => binding.tick(dt) as BehaviorSignal,
       noteExpression: () => binding.note_expression(),
       snapshot: () => binding.snapshot(),

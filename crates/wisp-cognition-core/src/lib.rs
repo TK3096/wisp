@@ -205,6 +205,7 @@ pub enum CognitionError {
     EmptyArchetype,
     InvalidCognitionState,
     InvalidStimulus,
+    InvalidSocialInfluence,
     InvalidDt,
 }
 
@@ -216,6 +217,7 @@ impl fmt::Display for CognitionError {
             Self::EmptyArchetype => "Archetype must not be empty",
             Self::InvalidCognitionState => "Persistent Cognition State is invalid",
             Self::InvalidStimulus => "Stimulus is invalid",
+            Self::InvalidSocialInfluence => "Social Influence must be finite",
             Self::InvalidDt => "Cognition dt must be finite and non-negative",
         };
         f.write_str(message)
@@ -276,6 +278,8 @@ const REACTION_DURATION_S: ReactionTimes = [0.8, 2.0, 3.0, 4.0];
 const REACTION_COOLDOWN_S: ReactionTimes = [4.0, 5.0, 3.0, 12.0];
 const REACTION_THRESHOLD: ReactionTimes = [0.58, 0.62, 0.35, 0.75];
 const COGNITION_STATE_KIND: &str = "micro-belief-reactions-v3";
+/// The accepted modelless cross-character Social Projection width.
+const SOCIAL_PROJECTION_DIMENSIONS: usize = 8;
 /// One shell action opens one bounded opportunity for a visible expression.
 const FEEDBACK_CREDIT_WINDOW_S: f64 = 2.0;
 const REWARD_EVENT_STEP: f64 = 0.04;
@@ -427,6 +431,35 @@ impl CognitionCore {
             personality: self.signal.personality,
             affect: self.signal.affect,
         }
+    }
+
+    /// The bounded peer-visible projection used by Population Cognition.
+    pub fn social_projection(&self) -> [f64; SOCIAL_PROJECTION_DIMENSIONS] {
+        [
+            self.signal.personality.energy,
+            self.signal.personality.curiosity,
+            self.signal.personality.boldness,
+            self.signal.personality.sociability,
+            self.signal.affect.surprise,
+            self.signal.affect.valence,
+            self.signal.affect.arousal,
+            self.signal.micro_belief.social_positivity,
+        ]
+    }
+
+    /// Apply one bounded population contribution to the slow Social channel.
+    ///
+    /// This is the only Set Attention mutation permitted across the Cognition
+    /// boundary. It composes a new Behavior Signal immediately but never adds
+    /// a Stimulus, bypasses reaction locks, or commands behavior.
+    pub fn apply_social_influence(&mut self, influence: f64) -> CognitionResult<()> {
+        if !influence.is_finite() {
+            return Err(CognitionError::InvalidSocialInfluence);
+        }
+        let channel = &mut self.micro_belief.channels[SOCIAL_CHANNEL];
+        *channel = (*channel + influence.clamp(-1.0, 1.0)).clamp(-1.0, 1.0);
+        self.signal = Self::compose_signal(self.dimensions, &self.temporal, &self.micro_belief);
+        Ok(())
     }
 
     pub fn observe(&mut self, stimulus: Stimulus) -> CognitionResult<()> {
