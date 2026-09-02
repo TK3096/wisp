@@ -11,6 +11,7 @@ import { HUMAN_EVALUATION_SCENARIO_DEFINITIONS } from "../src/humanEvaluationSce
 import { bindWasmCognition } from "../src/cognitionFacade.ts";
 import {
   DEFAULT_HUMAN_EVALUATION_CRITERIA,
+  HUMAN_EVALUATION_DIMENSIONS,
   assignmentDigest,
   createHumanEvaluationPlan,
   humanEvaluationScenarios,
@@ -65,23 +66,40 @@ async function createLiveCognition() {
 }
 
 function evaluatorForm(kit: PublicHumanEvaluationPlan["kits"][number]): string {
+  const dimensionDescriptions: Record<
+    (typeof HUMAN_EVALUATION_DIMENSIONS)[number],
+    string
+  > = {
+    "Alive/Aware":
+      "looks present and responsive to the situation, not mechanically random",
+    Individuality:
+      "has a recognizable temperament instead of feeling generic",
+    Appropriateness:
+      "the type and strength of visible reactions fit what happened",
+    Variation:
+      "behavior has useful variety without becoming repetitive or chaotic",
+    Calm: "feels relaxed and pleasant rather than busy, noisy, or unsettling",
+  };
+  const ratingRows = HUMAN_EVALUATION_DIMENSIONS.map((dimension) => {
+    const cells = ["1", "2", "3", "4", "5"]
+      .map((score) => ` ☐ ${score} `)
+      .join("|");
+    return `| **${dimension}** — ${dimensionDescriptions[dimension]} |${cells}|`;
+  }).join("\n");
   const sections = kit.comparisons
     .map((comparison) => {
       const rows = comparison.replays
         .map((replay) => {
-          const cells = ["1", "2", "3", "4", "5"]
-            .map((score) => ` | ${score} |          |`)
-            .join("\n");
-          return `### ${replay.label} — ${replay.durationS} seconds\nReplay ID: \`${replay.replayId}\`\nOpen: [behavior replay](../${replay.viewerPath})\n\n| Score | Rating | Comment (optional) |\n|---:|---|---|\n${cells}`;
+          return `### ${replay.label} — ${replay.durationS} seconds\nReplay ID: \`${replay.replayId}\`\nOpen: [behavior replay](../${replay.viewerPath})\n\nCheck exactly one score in every row.\n\n| Dimension | 1 Poor | 2 Below average | 3 Acceptable | 4 Good | 5 Excellent |\n|---|:-:|:-:|:-:|:-:|:-:|\n${ratingRows}`;
         })
         .join("\n\n");
-      return `## ${comparison.scenarioCode}\n\n${rows}\n\n**Pair preference:**\n\n- [ ] ${comparison.replays[0]?.label}\n- [ ] ${comparison.replays[1]?.label}\n\n**Describe the main reaction you saw in your own words:**\n\n`;
+      return `## ${comparison.scenarioCode}\n\n${rows}\n\n**Pair preference:**\n\n- [ ] ${comparison.replays[0]?.label}\n- [ ] ${comparison.replays[1]?.label}\n\n**Describe the main reaction you saw in your own words:**\n\nWhat did the character seem to notice or react to, and what visible behavior changed? Write one or two sentences.\n\n`;
     })
     .join("\n");
   const overallChoices = kit.comparisons
     .flatMap(comparison => comparison.replays.map(replay => `- [ ] ${replay.label} (${comparison.scenarioCode})\n`))
     .join("");
-  return `# Wisp Blind Replay Evaluation — ${kit.evaluatorId}\n\nPlease complete this form alone, without inspecting source files, trace data, or discussing the replays. Do not record your name or contact information.\n\nBefore starting, close other distracting applications. Watch each replay once at normal speed and rate it immediately.\n\nRate every replay from 1 (poor) to 5 (excellent):\n- Alive/Aware\n- Individuality\n- Appropriateness\n- Variation\n- Calm\n\nAfter each pair, choose the replay you preferred in that pair and describe the main reaction in plain words. After all pairs, choose the one replay you would most want to keep.\n\n${sections}\n## Final Overall Preference\n\n${overallChoices}\n## Safety\n\nDid any replay feel noisy or disturbing? If yes, identify only the Replay ID and describe the concern. Do not identify yourself or another person.\n\n- Replay ID:\n- Concern:\n\nThank you. Return only this completed form to the study administrator.\n`;
+  return `# Wisp Blind Replay Evaluation — ${kit.evaluatorId}\n\nPlease complete this form alone, without inspecting source files, trace data, or page source, and without discussing the replays. Do not record your name or contact information.\n\nBefore starting, close other distracting applications. Watch each replay once at normal speed, then rate it immediately before opening the next replay.\n\nFor every replay, rate all five dimensions. Check exactly one score per dimension. Use the whole scale, not only 4 and 5:\n- **1** = poor\n- **2** = below average\n- **3** = acceptable\n- **4** = good\n- **5** = excellent\n\nAfter each pair, choose the replay you preferred in that pair and describe the main reaction in plain words. After all pairs, choose the one replay you would most want to keep.\n\n${sections}\n## Final Overall Preference\n\nChoose the single replay you would most want running on your desktop.\n\n${overallChoices}\n## Safety\n\nDid any replay feel noisy, overwhelming, or disturbing? If yes, identify only the Replay ID and describe the concern. If no replay caused a concern, leave this section blank. Do not identify yourself or another person.\n\n- Replay ID:\n- Concern:\n\nThank you. Return only this completed form to the study administrator.\n`;
 }
 
 function replayViewer(
