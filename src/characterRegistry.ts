@@ -134,6 +134,14 @@ export interface RegistryOptions {
   populationCognitionEnabled?: boolean;
   /** Canonical bounded Population Cognition trace callback. */
   onPopulationCognitionPass?: (summary: PopulationPassSummary) => void;
+  /**
+   * Host instrumentation only; duration never enters deterministic trace or
+   * simulation state.
+   */
+  onPopulationCognitionPassDurationMs?: (
+    durationMs: number,
+    summary: PopulationPassSummary,
+  ) => void;
 }
 
 function createInertCharacterHandle(): CharacterHandle {
@@ -672,6 +680,7 @@ export class CharacterRegistry {
   }
 
   private runPopulationCognitionPass(): void {
+    const startedAtMs = performance.now();
     const enabled = this.opts.populationCognitionEnabled === true;
     // Only Materialized entries ever enter this list. Pending transitions live
     // in pending[], and entries are marked Vanishing before despawn removal.
@@ -697,7 +706,9 @@ export class CharacterRegistry {
         return cognition?.socialProjection?.()[SOCIAL_PROJECTION_INDEX.socialPositivity] ?? 0;
       },
     });
+    const durationMs = performance.now() - startedAtMs;
     this.opts.onPopulationCognitionPass?.(summary);
+    this.opts.onPopulationCognitionPassDurationMs?.(durationMs, summary);
   }
 
   /**

@@ -30,6 +30,9 @@ describe("Set Attention deterministic replay", () => {
         expect.objectContaining({ characterId: "population-cognition-on-character-2" }),
       ],
     });
+    expect(
+      (on[1].summary as { influenceNorm: number }).influenceNorm,
+    ).toBeGreaterThan(0);
   });
 
   it("produces byte-identical NDJSON on repeat for social-on and social-off", () => {

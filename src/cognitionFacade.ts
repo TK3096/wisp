@@ -51,7 +51,8 @@ export async function bindWasmCognition(
     return {
       observe: (stimulus) => binding.observe(stimulus),
       toneSeed: () => binding.tone_seed(),
-      socialProjection: () => binding.social_projection() as SocialProjection,
+      socialProjection: () =>
+        Array.from(binding.social_projection()) as SocialProjection,
       applySocialInfluence: (influence) =>
         binding.apply_social_influence(influence.value),
       tick: (dt) => binding.tick(dt) as BehaviorSignal,

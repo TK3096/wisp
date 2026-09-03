@@ -15,6 +15,8 @@ import {
   PersistentCognitionState,
   Stimulus,
   StimulusEnvelope,
+  NEUTRAL_SOCIAL_PROJECTION,
+  SocialInfluence,
   createNeutralCognitionHandle,
   derivePersonalitySeed,
 } from "./cognition";
@@ -119,6 +121,11 @@ export interface ScenarioInstrumentation {
   ) => void;
   /** Real milliseconds from an observe call through its next fixed tick. */
   onStimulusToBias?: (characterId: string, durationMs: number) => void;
+  /** Real milliseconds spent in one Population Cognition Pass. */
+  onPopulationPass?: (
+    durationMs: number,
+    summary: PopulationPassSummary,
+  ) => void;
 }
 
 
@@ -361,6 +368,35 @@ export const PHASE1_STRESS_SCENARIO: ScenarioDefinition = {
       },
     },
   })),
+};
+
+/** Issue #60 eight-character, five-minute deterministic social soak. */
+export const PHASE2_SOCIAL_SOAK_SCENARIO: ScenarioDefinition = {
+  name: "phase2-social-soak-8x300",
+  seed: 0x534f4132,
+  durationS: 300,
+  spawnTimes: Array.from({ length: 8 }, () => 0),
+  spawnRolls: Array.from(
+    { length: 16 },
+    (_, index) => hashRoll(index, 0x53505132),
+  ),
+  personalitySeeds: Array.from({ length: 8 }, (_, index) => 31 + index * 7),
+  schedulerRolls: Array.from(
+    { length: 768 },
+    (_, index) => hashRoll(index, 0x53434846),
+  ),
+  stimuli: Array.from({ length: 2_990 }, (_, index) => ({
+    atS: 1 + index * 0.1,
+    envelope: {
+      target: "all" as const,
+      stimulus: {
+        kind: "gesture" as const,
+        gesture: "openPalm" as const,
+        confidence: index % 2 === 0 ? 0.96 : 0.32,
+      },
+    },
+  })),
+  despawns: [{ atS: 299.7, target: "newest" }],
 };
 
 /** Paired deterministic Set Attention acceptance/rejection replay. */
@@ -842,6 +878,10 @@ export function runScenario(
         });
       },
       toneSeed: () => cognition.toneSeed(),
+      socialProjection: () =>
+        cognition.socialProjection?.() ?? NEUTRAL_SOCIAL_PROJECTION,
+      applySocialInfluence: (influence: SocialInfluence) =>
+        cognition.applySocialInfluence?.(influence),
       tick(dt: number) {
         const tickStartedAtMs = instrumentation ? performance.now() : 0;
         const signal = cognition.tick(dt);
@@ -1036,6 +1076,9 @@ export function runScenario(
     createCharacterId: nextCharacterId,
     populationCognitionEnabled: scenario.populationCognitionEnabled === true,
     onPopulationCognitionPass: (summary) => emit("population_cognition_pass", { summary }),
+    onPopulationCognitionPassDurationMs: (durationMs, summary) => {
+      instrumentation?.onPopulationPass?.(durationMs, summary);
+    },
     derivePersonalitySeed: (characterId, archetype) => {
       const seed = scenario.personalitySeeds?.[nextPersonalitySeedIndex++];
       return seed ?? derivePersonalitySeed(characterId, archetype);
