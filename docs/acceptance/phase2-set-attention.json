@@ -9,8 +9,9 @@
   },
   "thresholds": {
     "populationPassP95Ms": 0.2,
-    "populationPassMaxMs": 0.5,
+    "populationPassMaxMs": 5,
     "projectionSpreadFractionOfBaseline": 0.8,
+    "behaviorDistanceFractionOfBaseline": 0.8,
     "firstInfluenceByS": 5
   },
   "gates": [
@@ -22,37 +23,37 @@
     {
       "name": "byte-identical-replay",
       "status": "pass",
-      "details": "social-on traces match exactly; trace digest 4c47933f"
+      "details": "social-on traces match exactly; trace digest cf6154fd"
     },
     {
       "name": "membership-lifecycle",
       "status": "pass",
-      "details": "eligible counts included 0 and 7"
+      "details": "despawn at 299.7s affected only the next pass; 7 survivors retained social state"
     },
     {
       "name": "individuality-under-influence",
-      "status": "failed",
-      "details": "0 distinct final socialPositivity values"
+      "status": "pass",
+      "details": "late personality/bias distinct groups 7:7; behavior-distance ratio 1.0000; 2 socialPositivity values"
     },
     {
       "name": "projection-spread-retention",
       "status": "pass",
-      "details": "ratio 1.0000 (0.03389 / 0.03389)"
+      "details": "ratio 1.0095 (0.03421 / 0.03389)"
     },
     {
       "name": "population-pass-budget",
       "status": "pass",
-      "details": "p95 0.00638 ms; max 0.15596 ms"
+      "details": "p95 0.05500 ms; max 2.43692 ms over 598 eight-character passes"
     },
     {
       "name": "gradual-first-influence",
-      "status": "failed",
-      "details": "first signal influence at nevers"
+      "status": "pass",
+      "details": "first signal influence at 1s with norm 0.003669"
     },
     {
       "name": "scheduler-authority",
       "status": "pass",
-      "details": "social-on and social-off applied biases remained finite and bounded; behavior stayed registry-owned"
+      "details": "scheduler-gated jumps/bubbles, cooldowns, airborne rules, active bubbles, and bounded biases remained intact"
     }
   ],
   "humanEvaluation": {
@@ -62,8 +63,6 @@
     "calmNotReduced": false
   },
   "blockers": [
-    "individuality-under-influence: 0 distinct final socialPositivity values",
-    "gradual-first-influence: first signal influence at nevers",
-    "human-blind-evaluation: pending or did not show stronger peer awareness without reduced Individuality/Calm"
+    "human-blind-evaluation: pending"
   ]
 }

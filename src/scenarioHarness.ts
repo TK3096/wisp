@@ -375,6 +375,7 @@ export const PHASE2_SOCIAL_SOAK_SCENARIO: ScenarioDefinition = {
   name: "phase2-social-soak-8x300",
   seed: 0x534f4132,
   durationS: 300,
+  populationCognitionEnabled: true,
   spawnTimes: Array.from({ length: 8 }, () => 0),
   spawnRolls: Array.from(
     { length: 16 },
@@ -433,6 +434,7 @@ export const POPULATION_COGNITION_OFF_SCENARIO: ScenarioDefinition = {
 
 export interface ScenarioCognitionStep {
   characterId: string;
+  clockS: number;
   cognitionStep: number;
   dtS: number;
   elapsedCognitionS: number;
@@ -596,6 +598,7 @@ export function scenarioCognitionSteps(
     .filter((record) => record.type === "cognition_step")
     .map((record) => ({
       characterId: record.characterId as string,
+      clockS: record.clockS,
       cognitionStep: record.cognitionStep as number,
       dtS: record.dtS as number,
       elapsedCognitionS: record.elapsedCognitionS as number,
@@ -903,6 +906,7 @@ export function runScenario(
         cognitionStep++;
         emit("cognition_step", {
           characterId: init.characterId,
+          clockS,
           archetype: init.archetype,
           cognitionStep,
           dtS: dt,
