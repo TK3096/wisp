@@ -107,3 +107,23 @@ _Avoid_: acceptance authority, release setting, debug brain
 **Scenario Harness**:
 The deterministic headless replay that advances Wisp behavior on a virtual clock and records observable cognition/behavior traces without a renderer or shell.
 _Avoid_: integration test, browser harness, playback recorder
+
+**Speech Handle**:
+The injected per-character seam through which the behavior orchestrator requests one bounded short expression.
+_Avoid_: mouth, bubble owner, renderer hook, model service
+
+**Speech Request**:
+The bounded expression-time projection containing occasion, personality, affect, reaction, recent-expression context, and deterministic seed.
+_Avoid_: prompt, cognition state, conversation transcript
+
+**Speech Expression**:
+The immutable final utterance value carrying display text, accepted Tone Tag, and whether it was generated or substituted.
+_Avoid_: stream, generator result object, raw model output
+
+**Neutral Speech Handle**:
+The default Speech Handle that supplies no generated expression, leaving the behavior orchestrator to use its ordinary fallback.
+_Avoid_: disabled speech, empty speaker, silent mode
+
+**Fixed-Line Fallback**:
+The behavior orchestrator's deterministic use of an authored expression when no generated expression is accepted.
+_Avoid_: error message, retry, generated filler
