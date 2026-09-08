@@ -26,10 +26,17 @@ async function createLiveCognition(): Promise<
   return bindWasmCognition(async () => rawModule as unknown as CognitionWasmModule);
 }
 
-it("validates deterministic Set Attention gates and remains blocked on human evaluation", async () => {
+it("validates deterministic Set Attention gates and records the inconclusive human gate", async () => {
   const report = buildSetAttentionDeterministicReport({
     createCognitionHandle: await createLiveCognition(),
     generatedAt: "2026-01-01T00:00:00.000Z",
+    humanEvaluation: {
+      completed: true,
+      perceivedPeerAwarenessStronger: false,
+      individualityNotReduced: true,
+      calmNotReduced: true,
+      evidenceUrl: "docs/acceptance/phase2-set-attention.md",
+    },
   });
   const outputPath = process.env.PHASE2_SET_ATTENTION_OUTPUT;
   if (outputPath) {
@@ -55,7 +62,7 @@ it("validates deterministic Set Attention gates and remains blocked on human eva
   }
   expect(gateByName.get("gradual-first-influence")?.status).toBe("pass");
   expect(report.blockers).toEqual([
-    "human-blind-evaluation: pending",
+    "human-blind-evaluation: peer awareness was not stronger",
   ]);
   expect(report.status).toBe("blocked");
 }, 60_000);

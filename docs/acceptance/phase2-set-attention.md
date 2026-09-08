@@ -1,6 +1,6 @@
 # Phase 2 Set Attention Acceptance Evidence
 
-Status: **blocked — remains default-off**
+Status: **deterministic gates pass; activated under product-owner waiver**
 
 The committed JSON is deterministic evidence for issue #60:
 [`phase2-set-attention.json`](./phase2-set-attention.json).
@@ -24,10 +24,11 @@ remained legible at the end of the soak. Population pass cost was within the
 
 ## Blockers
 
-1. **Human evaluation pending.** The required blind social-on/social-off review
-   has not shown stronger perceived peer awareness without reduced
-   Individuality or Calm.
+1. **Human gate inconclusive.** Manual social-on/social-off evaluation found
+   the arms difficult to distinguish and did not demonstrate stronger perceived
+   peer awareness without reduced Individuality or Calm.
 
-All deterministic gates pass, but activation is still blocked because issue #60
-explicitly requires the human gate before real desktop use. Set Attention
-therefore remains guarded by `POPULATION_COGNITION_ENABLED = false`.
+All deterministic gates pass, but the original human gate is not accepted as
+passed. The product owner explicitly waived that gate for experimental desktop
+use and activated `POPULATION_COGNITION_ENABLED = true` while moving social
+evaluation toward generated speech instead of the fixed-text pool.

@@ -43,7 +43,7 @@
     {
       "name": "population-pass-budget",
       "status": "pass",
-      "details": "p95 0.05500 ms; max 2.43692 ms over 598 eight-character passes"
+      "details": "p95 0.05125 ms; max 1.95837 ms over 598 eight-character passes"
     },
     {
       "name": "gradual-first-influence",
@@ -57,12 +57,13 @@
     }
   ],
   "humanEvaluation": {
-    "completed": false,
+    "completed": true,
     "perceivedPeerAwarenessStronger": false,
-    "individualityNotReduced": false,
-    "calmNotReduced": false
+    "individualityNotReduced": true,
+    "calmNotReduced": true,
+    "evidenceUrl": "docs/acceptance/phase2-set-attention.md"
   },
   "blockers": [
-    "human-blind-evaluation: pending"
+    "human-blind-evaluation: peer awareness was not stronger"
   ]
 }

@@ -99,10 +99,11 @@ import type { TaggedLine } from "./speech";
 export const COGNITION_LIVE_DEFAULT_ENABLED = true;
 
 /**
- * Issue #59 experimental gate. Set Attention starts off in every normal
- * build; an explicit caller/test injection is required to turn it on.
+ * Issue #60 experimental activation. The deterministic gates pass, but the
+ * human A/B gate was inconclusive. This product-owner waiver enables Set
+ * Attention while generated-speech work replaces the fixed-text A/B surface.
  */
-export const POPULATION_COGNITION_ENABLED = false;
+export const POPULATION_COGNITION_ENABLED = true;
 
 export const GREETINGS: TaggedLine[] = [
   { text: "hi!", tone: "cheerful" },
