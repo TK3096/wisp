@@ -104,6 +104,10 @@ _Avoid_: raw Cognition State, trace record, telemetry payload
 A development-only presentation of selected Cognition Debug Snapshots; it never owns behavior, cognition, lifecycle, or persistence.
 _Avoid_: acceptance authority, release setting, debug brain
 
+**Speech Debug Snapshot**:
+A bounded, read-only projection of one character's latest generated-speech outcome, Expression Direction, attempt accounting, and generation cost for development inspection.
+_Avoid_: raw Cognition State, full candidate pool, banned-word detail, production telemetry
+
 **Scenario Harness**:
 The deterministic headless replay that advances Wisp behavior on a virtual clock and records observable cognition/behavior traces without a renderer or shell.
 _Avoid_: integration test, browser harness, playback recorder
