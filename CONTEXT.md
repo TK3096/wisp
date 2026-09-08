@@ -120,6 +120,22 @@ _Avoid_: prompt, cognition state, conversation transcript
 The immutable final utterance value carrying display text, accepted Tone Tag, and whether it was generated or substituted.
 _Avoid_: stream, generator result object, raw model output
 
+**Expression Direction**:
+The bounded speech-conditioning projection derived from observable cognition state; it proposes Style, Intent, and Intensity but never owns speech scheduling or behavior.
+_Avoid_: speech command, generation prompt, behavior override
+
+**Utterance Intent**:
+The bounded expression purpose carried by Expression Direction; an active Reaction may override the occasion baseline, but it never commands behavior.
+_Avoid_: action, behavior goal, conversation plan
+
+**Expression Intensity**:
+The bounded quiet/neutral/charged strength of an utterance derived from combined cognition projections.
+_Avoid_: emotion level, volume, personality strength
+
+**Stance Modifier**:
+The bounded lexical posture selected from at most one dominant Micro-belief signal.
+_Avoid_: belief statement, topic, opinion command
+
 **Neutral Speech Handle**:
 The default Speech Handle that supplies no generated expression, leaving the behavior orchestrator to use its ordinary fallback.
 _Avoid_: disabled speech, empty speaker, silent mode
