@@ -136,6 +136,22 @@ _Avoid_: app version, forever-stable output promise, personality generation
 The immutable final utterance value carrying display text, accepted Tone Tag, and whether it was generated or substituted.
 _Avoid_: stream, generator result object, raw model output
 
+**Expression Occasion**:
+The bounded behavior-owned reason for requesting one final expression, such as a greeting or idle line.
+_Avoid_: scheduler randomness, speech command, conversation plan
+
+**Expression Ordinal**:
+The per-character monotonic ordering of final expressions across generated and substituted outcomes.
+_Avoid_: render tick, cognition step, global expression counter
+
+**Expression Seed**:
+The opaque deterministic lineage identifier for one Speech Expression.
+_Avoid_: raw RNG state, generation input dump, output compatibility version
+
+**Expression Trace Record**:
+The canonical Scenario Harness projection of one final Speech Expression, its accepted direction, voice lineage, source status, and ordering.
+_Avoid_: generator internals, validation diagnostics, bubble lifetime
+
 **Expression Direction**:
 The bounded speech-conditioning projection derived from observable cognition state; it proposes Style, Intent, and Intensity but never owns speech scheduling or behavior.
 _Avoid_: speech command, generation prompt, behavior override
