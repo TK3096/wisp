@@ -116,6 +116,18 @@ _Avoid_: mouth, bubble owner, renderer hook, model service
 The bounded expression-time projection containing occasion, personality, affect, reaction, recent-expression context, and deterministic seed.
 _Avoid_: prompt, cognition state, conversation transcript
 
+**Speech Voice Identity**:
+The reproducible speaker identity derived from an immutable Archetype, Personality Seed, and Voice Profile Version rather than stored as a mutable profile.
+_Avoid_: audio voice, account identity, unique persona guarantee
+
+**Speech Voice Profile**:
+The immutable, bounded speaker projection that shapes phrase patterns, syntax, lexicon, cadence, and verbal tics; expression-time state may bias its use but never mutate it.
+_Avoid_: personality state, durable speech memory, generator-local identity
+
+**Voice Profile Version**:
+The compatibility boundary for a Speech Voice Profile generation contract; a meaningful generator change requires a new version.
+_Avoid_: app version, forever-stable output promise, personality generation
+
 **Speech Expression**:
 The immutable final utterance value carrying display text, accepted Tone Tag, and whether it was generated or substituted.
 _Avoid_: stream, generator result object, raw model output
