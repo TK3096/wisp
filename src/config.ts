@@ -53,20 +53,87 @@ export const BUBBLE = {
   PER_CHAR_JITTER_S: 20,
 };
 
-export const GREETINGS = ["hi!", "hello!", "hey!", "*waves*", "yo", "👋", "🫡"];
+/**
+ * Accepted tone-selection tunables. Small opposite-polarity base weights keep
+ * every tone possible; larger personality/affect coefficients make character
+ * state the usual reason a tone wins.
+ */
+export const BUBBLE_TONE_WEIGHTS = {
+  cheerful: {
+    base: 0.06,
+    sociability: 0.45,
+    energy: 0.25,
+    positiveValence: 0.35,
+  },
+  curious: {
+    base: 0.06,
+    curiosity: 0.5,
+    surprise: 0.3,
+    arousal: 0.15,
+  },
+  grumpy: {
+    base: 0.05,
+    negativeValence: 0.4,
+    arousal: 0.25,
+    lowSociability: 0.12,
+  },
+} as const;
 
-export const IDLE_LINES = [
-  "zzz",
-  "hmm",
-  "...",
-  "😂",
-  "🤪",
-  "where am I?",
-  "*looks around*",
-  "la la la",
-  "what's up?",
-  "*yawns*",
-  "😱",
+/**
+ * Development-only Cognition Debug Overlay gates. The frame budget is the
+ * accepted trace/debug overhead budget; normal release builds do not wire it.
+ */
+export const COGNITION_DEBUG = {
+  FRAME_BUDGET_MS: 0.2,
+  /** The accepted 120-second stress replay at 60 fps. */
+  METRIC_WINDOW_FRAMES: 7200,
+};
+
+import type { TaggedLine } from "./speech";
+
+/**
+ * Product-owner waiver for issue #58: enable experimental live cognition even
+ * though the three-evaluator comparison is incomplete. Revert if later human
+ * evidence reports noisy/disturbing behavior or baseline remains preferred.
+ */
+export const COGNITION_LIVE_DEFAULT_ENABLED = true;
+
+/**
+ * Issue #60 experimental activation. The deterministic gates pass, but the
+ * human A/B gate was inconclusive. This product-owner waiver enables Set
+ * Attention while generated-speech work replaces the fixed-text A/B surface.
+ */
+export const POPULATION_COGNITION_ENABLED = true;
+
+/**
+ * Generated speech is implementation-complete but remains disabled pending the
+ * accepted performance soak and product-owner smoke review.
+ */
+export const GENERATED_SPEECH_ENABLED = false;
+
+export const GREETINGS: TaggedLine[] = [
+  { text: "hi!", tone: "cheerful" },
+  { text: "hello!", tone: "cheerful" },
+  { text: "hey!", tone: "cheerful" },
+  { text: "*waves*", tone: "cheerful" },
+  { text: "yo", tone: "grumpy" },
+  { text: "👋", tone: "cheerful" },
+  { text: "🫡", tone: "grumpy" },
+  { text: "what's this?", tone: "curious" },
+];
+
+export const IDLE_LINES: TaggedLine[] = [
+  { text: "zzz", tone: "grumpy" },
+  { text: "hmm", tone: "curious" },
+  { text: "...", tone: "grumpy" },
+  { text: "😂", tone: "cheerful" },
+  { text: "🤪", tone: "cheerful" },
+  { text: "where am I?", tone: "curious" },
+  { text: "*looks around*", tone: "curious" },
+  { text: "la la la", tone: "cheerful" },
+  { text: "what's up?", tone: "curious" },
+  { text: "*yawns*", tone: "grumpy" },
+  { text: "😱", tone: "grumpy" },
 ];
 
 export const EFFECT = {

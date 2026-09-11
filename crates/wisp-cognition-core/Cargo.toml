@@ -1,0 +1,9 @@
+[package]
+name = "wisp-cognition-core"
+version.workspace = true
+edition.workspace = true
+description = "Wisp-owned renderer-independent personality cognition core"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

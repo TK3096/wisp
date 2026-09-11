@@ -1,0 +1,121 @@
+lemma	category	tones	persona	reason
+the	function	cheerful|curious|grumpy		core determiner
+a	function	cheerful|curious|grumpy		core determiner
+an	function	cheerful|curious|grumpy		core determiner
+this	function	cheerful|curious|grumpy		core determiner
+that	function	cheerful|curious|grumpy		core determiner
+these	function	cheerful|curious|grumpy		core determiner
+those	function	cheerful|curious|grumpy		core determiner
+my	function	cheerful|curious|grumpy		core possessive determiner
+your	function	cheerful|curious|grumpy	social	core possessive determiner
+our	function	cheerful|curious|grumpy	social	core possessive determiner
+their	function	cheerful|curious|grumpy		core possessive determiner
+some	function	cheerful|curious		core determiner
+i	function	cheerful|curious|grumpy		core pronoun
+you	function	cheerful|curious|grumpy	social	core pronoun
+he	function	cheerful|curious|grumpy		core pronoun
+she	function	cheerful|curious|grumpy		core pronoun
+it	function	cheerful|curious|grumpy		core pronoun
+we	function	cheerful|curious|grumpy	social	core pronoun
+they	function	cheerful|curious|grumpy		core pronoun
+me	function	cheerful|curious|grumpy		core pronoun
+him	function	cheerful|curious|grumpy		core pronoun
+her	function	cheerful|curious|grumpy		core pronoun
+us	function	cheerful|curious|grumpy	social	core pronoun
+them	function	cheerful|curious|grumpy		core pronoun
+mine	function	cheerful|curious|grumpy		core possessive pronoun
+yours	function	cheerful|curious|grumpy	social	core possessive pronoun
+hers	function	cheerful|curious|grumpy		core possessive pronoun
+ours	function	cheerful|curious|grumpy	social	core possessive pronoun
+theirs	function	cheerful|curious|grumpy		core possessive pronoun
+who	function	curious		core interrogative pronoun
+what	function	curious		core interrogative pronoun
+someone	function	cheerful|curious	social	indefinite pronoun
+something	function	curious		indefinite pronoun
+am	function	cheerful|curious|grumpy		core auxiliary
+is	function	cheerful|curious|grumpy		core auxiliary
+are	function	cheerful|curious|grumpy		core auxiliary
+was	function	cheerful|curious|grumpy		core auxiliary
+were	function	cheerful|curious|grumpy		core auxiliary
+be	function	cheerful|curious|grumpy		core auxiliary
+do	function	cheerful|curious|grumpy		core auxiliary
+does	function	cheerful|curious|grumpy		core auxiliary
+did	function	cheerful|curious|grumpy		core auxiliary
+have	function	cheerful|curious|grumpy		core auxiliary
+has	function	cheerful|curious|grumpy		core auxiliary
+had	function	cheerful|curious|grumpy		core auxiliary
+can	function	cheerful|curious|grumpy		core modal auxiliary
+could	function	curious		core modal auxiliary
+may	function	curious		core modal auxiliary
+might	function	curious		core modal auxiliary
+must	function	grumpy		core modal auxiliary
+will	function	cheerful|grumpy		core modal auxiliary
+and	function	cheerful|curious|grumpy		core conjunction
+but	function	curious|grumpy		core conjunction
+or	function	curious		core conjunction
+nor	function	grumpy		core conjunction
+so	function	cheerful|curious|grumpy		core conjunction
+because	function	curious		core conjunction
+although	function	grumpy		core conjunction
+though	function	grumpy|curious		core conjunction
+while	function	curious		core conjunction
+if	function	curious		core conjunction
+when	function	curious		core conjunction
+where	function	curious		core conjunction
+before	function	curious		core preposition
+than	function	grumpy|curious		core conjunction
+in	function	cheerful|curious|grumpy		core preposition
+on	function	cheerful|curious|grumpy		core preposition
+at	function	cheerful|curious|grumpy		core preposition
+by	function	curious		core preposition
+with	function	cheerful|curious|grumpy	social	core preposition
+from	function	curious|grumpy		core preposition
+to	function	cheerful|curious|grumpy		core preposition
+of	function	curious		core preposition
+for	function	cheerful|curious|grumpy		core preposition
+about	function	curious	social	core preposition
+above	function	curious		core preposition
+across	function	curious		core preposition
+along	function	cheerful|curious		core preposition
+among	function	cheerful|curious	social	core preposition
+around	function	curious		core preposition
+behind	function	curious		core preposition
+below	function	curious		core preposition
+beside	function	cheerful|curious	social	core preposition
+between	function	curious	social	core preposition
+beyond	function	curious		core preposition
+during	function	curious		core preposition
+inside	function	curious		core preposition
+near	function	cheerful|curious	social	core preposition
+off	function	grumpy		core preposition
+out	function	cheerful|curious|grumpy		core preposition
+outside	function	curious|grumpy		core preposition
+over	function	cheerful|curious		core preposition
+through	function	curious		core preposition
+under	function	curious		core preposition
+up	function	cheerful|curious		core preposition
+upon	function	curious		core preposition
+within	function	curious		core preposition
+without	function	grumpy		core preposition
+toward	function	curious		core preposition
+towards	function	curious		core preposition
+despite	function	grumpy		core preposition
+each	function	cheerful|curious		core determiner
+every	function	cheerful|curious		core determiner
+all	function	cheerful|curious|grumpy		core determiner
+any	function	curious		core determiner
+other	function	curious		core determiner
+hello	function	cheerful|curious	social	greeting token
+hi	function	cheerful	social	greeting token
+hey	function	cheerful	social	greeting token
+goodbye	function	cheerful|grumpy	social	closing token
+bye	function	cheerful	social	closing token
+thanks	function	cheerful	social	reaction token
+please	function	cheerful|curious	social	courtesy token
+sorry	function	grumpy|curious	social	apology token
+welcome	function	cheerful	social	greeting token
+yes	function	cheerful|curious|grumpy		reaction token
+yeah	function	cheerful	social	reaction token
+no	function	grumpy|curious		reaction token
+oops	function	cheerful|grumpy		reaction token
+wow	function	cheerful|curious		reaction token

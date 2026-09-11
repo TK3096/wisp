@@ -10,6 +10,11 @@ import {
   JUMP,
 } from "./config";
 import { Bubble } from "./bubble";
+import {
+  BehaviorSignal,
+  NEUTRAL_BEHAVIOR_SIGNAL,
+  validateBehaviorSignal,
+} from "./cognition";
 
 export type Facing = "right" | "left";
 export type CharacterState = "idle" | "walk";
@@ -78,6 +83,7 @@ export class Character {
   private airborneTimer = 0;
 
   private readonly handle: CharacterHandle;
+  private behaviorBias = NEUTRAL_BEHAVIOR_SIGNAL.behaviorBias;
   private readonly idleFrameCount: number;
   private readonly walkFrameCount: number;
   private readonly cfg: CharacterConfig;
@@ -114,6 +120,22 @@ export class Character {
     return this.displayY;
   }
 
+  /** Apply the latest bounded cognition tendencies before behavior advances. */
+  applyBehaviorSignal(signal: BehaviorSignal): void {
+    validateBehaviorSignal(signal);
+    this.behaviorBias = { ...signal.behaviorBias };
+  }
+
+  /** Apply the bounded jump tendency at the existing scheduler roll. */
+  shouldJumpOnRoll(roll: () => number): boolean {
+    return this.rollByBias(roll, this.behaviorBias.jumpChance);
+  }
+
+  /** Apply the bounded bubble tendency at the existing scheduler roll. */
+  shouldSpeakOnRoll(roll: () => number): boolean {
+    return this.rollByBias(roll, this.behaviorBias.bubbleChance);
+  }
+
   /**
    * Trigger a jump. No-op if already airborne.
    * Can be called imperatively by external systems (registry, events, etc.).
@@ -129,11 +151,17 @@ export class Character {
    * No-op if a bubble is already active (skip-while-active rule).
    * No-op if no createBubble factory was injected.
    */
-  say(text: string): void {
-    if (this.bubble !== null) return;
-    if (!this.cfg.createBubble) return;
+  say(text: string): boolean {
+    if (this.bubble !== null) return false;
+    if (!this.cfg.createBubble) return false;
     this.bubble = this.cfg.createBubble(text);
     this.bubble.setPosition(this.x, this.y + BUBBLE.OFFSET_Y_PX);
+    return true;
+  }
+
+  /** Whether the next synchronous expression has a display lifecycle. */
+  canSay(): boolean {
+    return this.bubble === null && this.cfg.createBubble !== undefined;
   }
 
   tick(dt: number): void {
@@ -175,7 +203,11 @@ export class Character {
   }
 
   private tickIdle(dt: number): void {
-    this.advanceFrame(dt, this.cfg.idleFps, this.idleFrameCount);
+    this.advanceFrame(
+      dt,
+      this.cfg.idleFps * this.behaviorBias.animationPace,
+      this.idleFrameCount,
+    );
     this.dwellTimer -= dt;
     if (this.dwellTimer <= 0) {
       this.enterWalk();
@@ -183,11 +215,15 @@ export class Character {
   }
 
   private tickWalk(dt: number): void {
-    this.advanceFrame(dt, this.cfg.walkFps, this.walkFrameCount);
+    this.advanceFrame(
+      dt,
+      this.cfg.walkFps * this.behaviorBias.animationPace,
+      this.walkFrameCount,
+    );
 
     const { walkSpeedPxS, floorLeft, floorRight } = this.cfg;
     const dir = this.walkTargetX > this.x ? 1 : -1;
-    const step = walkSpeedPxS * dt;
+    const step = walkSpeedPxS * this.behaviorBias.walkSpeed * dt;
     const remaining = Math.abs(this.walkTargetX - this.x);
 
     if (remaining <= step) {
@@ -225,7 +261,8 @@ export class Character {
       state === "idle"
         ? [idleDwellMsMin, idleDwellMsMax]
         : [walkDwellMsMin, walkDwellMsMax];
-    return (min + rng() * (max - min)) / 1000;
+    const dwell = (min + rng() * (max - min)) / 1000;
+    return state === "idle" ? dwell * this.behaviorBias.idleDwell : dwell;
   }
 
   private advanceFrame(dt: number, fps: number, frameCount: number): void {
@@ -243,4 +280,11 @@ export class Character {
     this.bubble = null;
     this.handle.destroy();
   }
+
+  private rollByBias(roll: () => number, multiplier: number): boolean {
+    if (multiplier <= 0) return false;
+    if (multiplier >= 1) return true;
+    return roll() < multiplier;
+  }
+
 }

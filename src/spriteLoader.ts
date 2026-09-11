@@ -1,18 +1,12 @@
 import { Assets, Texture, Rectangle } from "pixi.js";
 import { AssetEntry } from "./config";
+import type { LoadedAsset } from "./simulationAsset";
 
 // Pixi.js v8 mis-resolves paths under the tauri:// custom scheme, dropping the
 // host and producing tauri://assets/... instead of tauri://localhost/assets/...
 // Pre-expand every /path to an absolute URL so Pixi never needs to resolve it.
 function abs(path: string): string {
   return `${window.location.origin}${path}`;
-}
-
-export interface LoadedAsset {
-  idleTextures: Texture[];
-  walkTextures: Texture[];
-  jumpTexture: Texture;
-  fallTexture: Texture;
 }
 
 /** Slice a horizontal sprite strip into individual frame textures. */

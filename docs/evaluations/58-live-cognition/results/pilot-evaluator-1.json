@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "resultKind": "postStudyPilotSummary",
+  "issue": 58,
+  "evaluatorId": "evaluator-1",
+  "phase": "pilot",
+  "form": "../forms/evaluator-1.md",
+  "ratings": [
+    {
+      "scenario": "personality-gate",
+      "replayId": "issue-58-e1-s1-r1",
+      "arm": "cognition",
+      "scores": {
+        "Alive/Aware": 2,
+        "Individuality": 4,
+        "Appropriateness": 3,
+        "Variation": 4,
+        "Calm": 4
+      },
+      "preferred": false,
+      "mainReaction": "ตัว Replay 2 มีจังหวะที่ทั้ง 2 ตัว กระโดดพร้อมกัน อาจจะมาจากการส่ง signal หากัน"
+    },
+    {
+      "scenario": "personality-gate",
+      "replayId": "issue-58-e1-s1-r2",
+      "arm": "baseline",
+      "scores": {
+        "Alive/Aware": 4,
+        "Individuality": 4,
+        "Appropriateness": 3,
+        "Variation": 4,
+        "Calm": 4
+      },
+      "preferred": true,
+      "mainReaction": "ตัว Replay 2 มีจังหวะที่ทั้ง 2 ตัว กระโดดพร้อมกัน อาจจะมาจากการส่ง signal หากัน"
+    },
+    {
+      "scenario": "boredom-gate",
+      "replayId": "issue-58-e1-s2-r1",
+      "arm": "baseline",
+      "scores": {
+        "Alive/Aware": 5,
+        "Individuality": 4,
+        "Appropriateness": 4,
+        "Variation": 4,
+        "Calm": 4
+      },
+      "preferred": true,
+      "mainReaction": "ตัวละครพูด 😱 แล้วดูเหมือนความเร็วในการเดินของตัวละครจะเพิ่มขึ้น"
+    },
+    {
+      "scenario": "boredom-gate",
+      "replayId": "issue-58-e1-s2-r2",
+      "arm": "cognition",
+      "scores": {
+        "Alive/Aware": 2,
+        "Individuality": 2,
+        "Appropriateness": 2,
+        "Variation": 2,
+        "Calm": 3
+      },
+      "preferred": false,
+      "mainReaction": "ตัวละครพูด 😱 แล้วดูเหมือนความเร็วในการเดินของตัวละครจะเพิ่มขึ้น"
+    },
+    {
+      "scenario": "caution-gate",
+      "replayId": "issue-58-e1-s3-r1",
+      "arm": "baseline",
+      "scores": {
+        "Alive/Aware": 4,
+        "Individuality": 4,
+        "Appropriateness": 3,
+        "Variation": 3,
+        "Calm": 4
+      },
+      "preferred": true,
+      "mainReaction": "ดูไม่ค่อยแตกต่างกันมาก"
+    },
+    {
+      "scenario": "caution-gate",
+      "replayId": "issue-58-e1-s3-r2",
+      "arm": "cognition",
+      "scores": {
+        "Alive/Aware": 3,
+        "Individuality": 3,
+        "Appropriateness": 3,
+        "Variation": 3,
+        "Calm": 4
+      },
+      "preferred": false,
+      "mainReaction": "ดูไม่ค่อยแตกต่างกันมาก"
+    },
+    {
+      "scenario": "habituation-gate",
+      "replayId": "issue-58-e1-s4-r1",
+      "arm": "cognition",
+      "scores": {
+        "Alive/Aware": 1,
+        "Individuality": 1,
+        "Appropriateness": 1,
+        "Variation": 1,
+        "Calm": 1
+      },
+      "preferred": false,
+      "mainReaction": "Replay 2 ดูมีมิติมากกว่า Replay 1"
+    },
+    {
+      "scenario": "habituation-gate",
+      "replayId": "issue-58-e1-s4-r2",
+      "arm": "baseline",
+      "scores": {
+        "Alive/Aware": 4,
+        "Individuality": 5,
+        "Appropriateness": 3,
+        "Variation": 4,
+        "Calm": 4
+      },
+      "preferred": true,
+      "mainReaction": "Replay 2 ดูมีมิติมากกว่า Replay 1"
+    }
+  ],
+  "overallPreference": {
+    "replayId": "issue-58-e1-s2-r1",
+    "arm": "baseline"
+  },
+  "safetyReports": [],
+  "principalReactionCorrect": {
+    "personality-gate": false,
+    "boredom-gate": false,
+    "caution-gate": false,
+    "habituation-gate": false
+  },
+  "summary": {
+    "evaluatorCount": 1,
+    "requiredEvaluatorCount": 3,
+    "cognitionPairPreferences": 0,
+    "baselinePairPreferences": 4,
+    "medianCognitionScores": {
+      "Alive/Aware": 2.5,
+      "Individuality": 2.5,
+      "Appropriateness": 2.5,
+      "Variation": 2.5,
+      "Calm": 3.5
+    },
+    "gatesPassed": false
+  }
+}

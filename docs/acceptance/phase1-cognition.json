@@ -1,0 +1,474 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-01T14:38:07.131Z",
+  "status": "pass",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "runtime": "node",
+    "runtimeVersion": "v24.15.0",
+    "cpuModel": "Apple M5",
+    "cpuCount": 10
+  },
+  "buildIdentity": {
+    "packageVersion": "0.1.0",
+    "gitBranch": "feature/character-simulation-engine",
+    "gitSha": "22b8b162a3b034c1fd64934c2f499deecb0ab419",
+    "gitDirty": true
+  },
+  "contracts": {
+    "acceptance": 1,
+    "cognition": 3,
+    "characterPersistence": 1,
+    "scenario": "canonical-scenario-contract-v1"
+  },
+  "command": "npm run test:acceptance",
+  "canonicalScenarios": [
+    {
+      "name": "neutral-baseline",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "cognitionStepCounts": [
+        88,
+        88,
+        88,
+        88
+      ],
+      "repeatedTraceDigests": [
+        "66d75942",
+        "2833a46d",
+        "4c76eef7",
+        "2833a46d"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    },
+    {
+      "name": "novel-strong-gesture",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        229,
+        229,
+        229,
+        229
+      ],
+      "cognitionStepCounts": [
+        206,
+        206,
+        206,
+        206
+      ],
+      "repeatedTraceDigests": [
+        "297efe24",
+        "86982a8a",
+        "37828938",
+        "86982a8a"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    },
+    {
+      "name": "habituation",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        420,
+        420,
+        420,
+        420
+      ],
+      "cognitionStepCounts": [
+        206,
+        206,
+        206,
+        206
+      ],
+      "repeatedTraceDigests": [
+        "c0d5e5c0",
+        "1149d92b",
+        "3136b07a",
+        "1149d92b"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    },
+    {
+      "name": "caution-startle-arc",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        169,
+        169,
+        169,
+        169
+      ],
+      "cognitionStepCounts": [
+        55,
+        55,
+        55,
+        55
+      ],
+      "repeatedTraceDigests": [
+        "4326bd69",
+        "be668e78",
+        "942bb825",
+        "be668e78"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    },
+    {
+      "name": "quiet-boredom",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        124,
+        124,
+        124,
+        124
+      ],
+      "cognitionStepCounts": [
+        108,
+        108,
+        108,
+        108
+      ],
+      "repeatedTraceDigests": [
+        "dcd03e60",
+        "070b5763",
+        "3f2295b6",
+        "070b5763"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    },
+    {
+      "name": "personality-contrast",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        198,
+        198,
+        198,
+        198
+      ],
+      "cognitionStepCounts": [
+        175,
+        175,
+        175,
+        175
+      ],
+      "repeatedTraceDigests": [
+        "c19fc8df",
+        "01412b8c",
+        "78171787",
+        "01412b8c"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    },
+    {
+      "name": "reaction-storm",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        1562,
+        1562,
+        1562,
+        1562
+      ],
+      "cognitionStepCounts": [
+        313,
+        313,
+        313,
+        313
+      ],
+      "repeatedTraceDigests": [
+        "36584435",
+        "630a1fb0",
+        "8931f024",
+        "630a1fb0"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    },
+    {
+      "name": "phase1-stress-8x120",
+      "passed": true,
+      "failures": [],
+      "renderSchedulesHz": [
+        30,
+        60,
+        120,
+        60
+      ],
+      "traceRecordCounts": [
+        20883,
+        20886,
+        20887,
+        20886
+      ],
+      "cognitionStepCounts": [
+        9544,
+        9544,
+        9544,
+        9544
+      ],
+      "repeatedTraceDigests": [
+        "a42c908d",
+        "b40427b3",
+        "a752df6e",
+        "b40427b3"
+      ],
+      "repeatedTraceIdentical": true,
+      "crossScheduleCognitionEquivalent": true,
+      "crossScheduleDecisionsEquivalent": true
+    }
+  ],
+  "budgets": [
+    {
+      "name": "per-character-cognition-tick-p95",
+      "value": 0.002333000000021457,
+      "threshold": 0.1,
+      "comparison": "<=",
+      "unit": "ms",
+      "status": "pass",
+      "raw": {
+        "count": 9544,
+        "min": 0.0016660000000001673,
+        "p50": 0.0019170000000485743,
+        "p95": 0.002333000000021457,
+        "max": 1.3577080000000024,
+        "unit": "ms"
+      }
+    },
+    {
+      "name": "cognition-batch-p95",
+      "value": 0.01821000000006734,
+      "threshold": 0.8,
+      "comparison": "<=",
+      "unit": "ms",
+      "status": "pass",
+      "raw": {
+        "count": 1193,
+        "min": 0.013833999999974367,
+        "p50": 0.015500000000088221,
+        "p95": 0.01821000000006734,
+        "max": 1.3745820000000322,
+        "unit": "ms"
+      }
+    },
+    {
+      "name": "render-tick-p95",
+      "value": 0.1340420000000222,
+      "threshold": 33.333,
+      "comparison": "<=",
+      "unit": "ms",
+      "status": "pass",
+      "raw": {
+        "count": 3600,
+        "min": 0.0002499999999940883,
+        "p50": 0.0005409999999983484,
+        "p95": 0.1340420000000222,
+        "max": 2.4966249999999945,
+        "unit": "ms"
+      }
+    },
+    {
+      "name": "trace-write-p95",
+      "value": 0.00020799999992959783,
+      "threshold": 0.5,
+      "comparison": "<=",
+      "unit": "ms",
+      "status": "pass",
+      "raw": {
+        "count": 20883,
+        "min": 0,
+        "p50": 0.00004200000000764703,
+        "p95": 0.00020799999992959783,
+        "max": 165.355958,
+        "unit": "ms"
+      }
+    },
+    {
+      "name": "stimulus-to-bias-p95",
+      "value": 0.10445800000002237,
+      "threshold": 1,
+      "comparison": "<=",
+      "unit": "ms",
+      "status": "pass",
+      "raw": {
+        "count": 9528,
+        "min": 0.01599999999996271,
+        "p50": 0.06174999999996089,
+        "p95": 0.10445800000002237,
+        "max": 2.32166600000005,
+        "unit": "ms"
+      }
+    },
+    {
+      "name": "additional-memory",
+      "value": 105967928,
+      "threshold": 268435456,
+      "comparison": "<=",
+      "unit": "bytes",
+      "status": "pass",
+      "raw": {
+        "count": 2,
+        "min": 14436984,
+        "p50": 120404912,
+        "p95": 120404912,
+        "max": 120404912,
+        "unit": "bytes"
+      }
+    },
+    {
+      "name": "wasm-initialization",
+      "value": 3.8858749999999986,
+      "threshold": 500,
+      "comparison": "<=",
+      "unit": "ms",
+      "status": "pass",
+      "raw": {
+        "count": 1,
+        "min": 3.8858749999999986,
+        "p50": 3.8858749999999986,
+        "p95": 3.8858749999999986,
+        "max": 3.8858749999999986,
+        "unit": "ms"
+      }
+    },
+    {
+      "name": "frame-time-p95",
+      "value": 0.1340420000000222,
+      "threshold": 33.333,
+      "comparison": "<=",
+      "unit": "ms",
+      "status": "pass",
+      "raw": {
+        "count": 3600,
+        "min": 0.0002499999999940883,
+        "p50": 0.0005409999999983484,
+        "p95": 0.1340420000000222,
+        "max": 2.4966249999999945,
+        "unit": "ms"
+      }
+    },
+    {
+      "name": "cpu-milliseconds-per-simulated-second",
+      "value": 2.393625,
+      "threshold": 40,
+      "comparison": "<=",
+      "unit": "ms/s",
+      "status": "pass",
+      "raw": {
+        "count": 1,
+        "min": 2.393625,
+        "p50": 2.393625,
+        "p95": 2.393625,
+        "max": 2.393625,
+        "unit": "ms/s"
+      }
+    }
+  ],
+  "persistenceChecks": [
+    {
+      "name": "restart-persistence",
+      "passed": true,
+      "details": "one valid durable snapshot was written"
+    },
+    {
+      "name": "no-offline-replay",
+      "passed": true,
+      "details": "restored 1; first cadence tick count=1"
+    },
+    {
+      "name": "despawn-deletion",
+      "passed": true,
+      "details": "delete calls=0198c0de-0000-7000-8000-000000000001"
+    },
+    {
+      "name": "future-version",
+      "passed": true,
+      "details": "accepted=0, quarantined=future"
+    },
+    {
+      "name": "corruption",
+      "passed": true,
+      "details": "accepted=0, quarantined=corruption"
+    }
+  ],
+  "determinism": {
+    "identicalScenarios": 9,
+    "totalScenarios": 9,
+    "passed": true,
+    "stressTraceDigest": "a42c908d"
+  },
+  "stressReplay": {
+    "name": "phase1-stress-8x120",
+    "durationS": 120,
+    "characters": 8,
+    "renderScheduleHz": 30,
+    "cognitionCadenceHz": 10,
+    "simulatedStimulusDeliveries": 9520,
+    "traceRecords": 20883,
+    "droppedTraceEvents": 0
+  },
+  "blockers": []
+}

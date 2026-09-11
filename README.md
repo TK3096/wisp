@@ -22,7 +22,19 @@ A desktop overlay app where pixel-art characters wander around on your screen an
 npm install
 npm run tauri dev   # launch the overlay
 npm test            # run the Vitest suite
+npm run test:cognition  # run Rust core and Node-backed WASM facade tests
+npm run test:cognition:scenario # build and replay the generated facade in the Scenario Harness
+npm run build:cognition # generate src/cognitionWasm (also part of npm run build)
+npm run build:debug # production-shaped frontend with the debug overlay mode
 ```
+
+The WASM cognition package under `src/cognitionWasm/` is generated build state:
+do not commit it. `npm run build` regenerates it with wasm-pack before
+TypeScript compilation and the Vite production bundle. Plain Vite development
+should run `npm run build:cognition` first; `npm run tauri dev` does this
+automatically. The Vitest suite deliberately does not build or import WASM—it
+uses injected Cognition Handle mocks so simulation tests stay fast and
+renderer/Rust-toolchain free.
 
 ## Customizing
 
@@ -48,21 +60,35 @@ Everything tunable lives in `src/config.ts`:
 
 ## Architecture
 
-The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubble.ts`) is pure logic with no Pixi imports — rendering is injected through `CharacterHandle` / `BubbleHandle` interfaces. That keeps the unit tests fast and WebGL-free. The Pixi-specific factories (`defaultCreateHandle`, `defaultCreateBubbleHandle`) live in `characterRegistry.ts` and are only wired up from `src/main.ts`.
+The simulation layer (`src/character.ts`, `src/characterRegistry.ts`, `src/bubble.ts`, `src/scenarioHarness.ts`) is pure logic with no Pixi imports — rendering is injected through `CharacterHandle` / `BubbleHandle` interfaces. That keeps the unit tests and deterministic replays fast and WebGL-free. The Pixi-specific factories (`defaultCreateHandle`, `defaultCreateBubbleHandle`) live in `src/rendering.ts` and are wired from `src/main.ts`.
 
 **Key files**
 
 - `src/config.ts` — tunables, asset manifest, greeting / idle line pools, `BUBBLE` and `JUMP` config.
+- `src/cognition.ts` — pure stimulus/Behavior Signal contract, fixed 10 Hz cadence limits, and neutral default handle.
+- `crates/wisp-cognition-core` — Wisp-owned, renderer-independent Personality + Temporal Derivative + Micro-belief reaction core.
+- `crates/wisp-cognition-wasm` — coarse-grained `observe` / `tick` / `snapshot` / `restore` facade around that core.
+- `src/cognitionFacade.ts` — runtime loader that adapts the generated WASM facade to the injected Cognition Handle seam.
+- `src/ingressBridge.ts` — validates real shell/sidecar payloads and converts accepted observations into Stimulus Envelopes.
+- `src/shellBridge.ts` — transport-free shell-event wiring around spawn/despawn commands and stimulus ingress.
 - `src/character.ts` — character state machine (idle ↔ walk), jump arc (`tickAirborne`), bubble ownership.
-- `src/characterRegistry.ts` — spawn/despawn, idle-bubble scheduler, jump scheduler, `onChange` callback for tray sync, Pixi factories.
+- `src/characterRegistry.ts` — spawn/despawn, stimulus dispatch, fixed-cadence cognition, idle-bubble scheduler, jump scheduler, and `onChange` callback for tray sync.
+- `src/scenarioHarness.ts` — deterministic headless replay, canonical NDJSON cognition traces, frame-rate comparison projections, and lossy trace writing.
+- `src/cognitionDebugSnapshot.ts` / `src/cognitionDebug.ts` / `src/cognitionDebugView.ts` — bounded Cognition Debug Snapshots, development presenter, and compact overlay view.
+- `src/rendering.ts` — Pixi-backed character and bubble handle factories kept outside the pure simulation module.
 - `src/bubble.ts` — pure-logic speech bubble (typing, lifetime).
 - `src/spriteLoader.ts` — spritesheet slicing.
 - `src-tauri/src/lib.rs` — tray menu (with per-character Despawn submenu), hotkey, window config.
+
+Development and debug-mode frontends can enable the Cognition Debug Overlay from the tray. It shows the selected Materialized character's current reaction, affect summary, active Behavior Bias values, latest Stimulus, and Cognition Cadence lag. Its frame cost is measured against the accepted 0.20 ms p95 debug budget. Normal production builds compile the overlay out, while Rust debug builds alone expose its tray commands.
 
 ## Testing
 
 ```bash
 npm test
+npm run test:cognition
+npm run test:acceptance
 ```
 
-Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`) with fake RNG, fake clock, and mock handles — no WebGL or Tauri bridge required.
+Vitest runs the deep modules (`Character`, `CharacterRegistry`, `Bubble`, `IngressBridge`) with fake RNG, fake clocks, mock handles, and injected shell events — no WebGL or Tauri bridge required. `test:cognition` runs the Rust core and Node-backed WASM facade tests; `test:acceptance` regenerates WASM and produces the Phase 1 evidence pack described in [`docs/acceptance/phase1-cognition.md`](docs/acceptance/phase1-cognition.md).
+The Scenario Harness runs the same behavior orchestration headlessly and verifies that a seeded baseline produces the same cognition steps and decisions at 30, 60, and 120 fps. Its Novel Strong Gesture and Habituation scenarios prove that a novel gesture creates centered Temporal Derivative surprise and a visibly stronger scheduler-gated reaction than a habituated repetition. Neutral Baseline, Caution/Startle Arc, Quiet Boredom, Personality Contrast, and Reaction Storm add the live Micro-belief acceptance coverage; every reaction reaches behavior only through bounded Behavior Bias values.

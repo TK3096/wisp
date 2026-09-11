@@ -1,99 +1,91 @@
-import { Sprite, Container, Texture, Graphics, Text } from "pixi.js";
 import { AssetEntry, BUBBLE, EFFECT, GREETINGS, IDLE_LINES, JUMP } from "./config";
 import {
   Character,
   CharacterHandle,
   CharacterConfig,
-  CharacterState,
 } from "./character";
 import { BubbleHandle, Bubble } from "./bubble";
 import { Effect, EffectHandle, EffectKind } from "./effect";
-import { LoadedAsset } from "./spriteLoader";
+import { LoadedAsset } from "./simulationAsset";
+import {
+  COGNITION_CADENCE_S,
+  COGNITION_CADENCE_EPSILON_S,
+  COGNITION_SCHEMA_VERSION,
+  MAX_COGNITION_CATCHUP_STEPS,
+  BehaviorSignal,
+  CognitionHandle,
+  CognitionInit,
+  NEUTRAL_BEHAVIOR_SIGNAL,
+  NEUTRAL_SOCIAL_PROJECTION,
+  PersistentCognitionState,
+  ToneSeed,
+  StimulusEnvelope,
+  createNeutralCognitionHandle,
+  derivePersonalitySeed,
+  validateStimulusEnvelope,
+} from "./cognition";
+import {
+  CognitionDebugSnapshot,
+  CognitionDebugStimulus,
+  projectCognitionDebugSnapshot,
+} from "./cognitionDebugSnapshot";
+import {
+  MAX_RECENT_EXPRESSIONS,
+  NEUTRAL_SPEECH_VOICE_PROFILE_VERSION,
+  GENERATED_REPETITION_WINDOW,
+  SpeechHandle,
+  SpeechHandleFactory,
+  SpeechHandleInit,
+  SpeechOccasionKind,
+  SpeechExpression,
+  SpeechExpressionRecord,
+  TaggedLine,
+  createNeutralSpeechHandle,
+  deriveExpressionDirection,
+  deriveExpressionSeed,
+  isValidGeneratedSpeechExpression,
+  neutralSpeechSignal,
+  selectTaggedLine,
+} from "./speech";
+import {
+  MAX_POPULATION_CATCHUP_PASSES,
+  PopulationPassSummary,
+  POPULATION_COGNITION_CADENCE_S,
+  SOCIAL_PROJECTION_INDEX,
+  runPopulationCognitionPass,
+} from "./socialAttention";
+import {
+  CHARACTER_AUTOSAVE_INTERVAL_S,
+  MAX_CHARACTER_PERSISTENCE_BYTES,
+  CharacterPersistenceQuarantineArea,
+  CharacterPersistenceRecord,
+  CharacterPersistenceStore,
+  MAX_DURABLE_CHARACTERS,
+  PersistenceReason,
+  characterPersistenceRecordSize,
+  classifyCharacterPersistenceRecord,
+  createCharacterPersistenceRecord,
+  isBoundedPersonalitySeed,
+  verifyCharacterPersistenceRecord,
+} from "./characterPersistence";
 
-const SPRITE_SCALE = 2;
-const BUBBLE_FONT_SIZE = 12;
-const BUBBLE_PADDING = 5;
-const BUBBLE_TAIL_H = 6;
-
-export function defaultCreateBubbleHandle(
-  stage: Container,
-  text: string,
-): BubbleHandle {
-  const pixiText = new Text({
-    text,
-    style: {
-      fontFamily: '"Apple Color Emoji", monospace',
-      fontSize: BUBBLE_FONT_SIZE,
-      fill: "#222222",
-    },
-  });
-
-  const bubbleW = Math.min(
-    Math.max(pixiText.width + BUBBLE_PADDING * 2, 24),
-    BUBBLE.MAX_WIDTH_PX,
-  );
-  const bubbleH = pixiText.height + BUBBLE_PADDING * 2;
-
-  pixiText.x = BUBBLE_PADDING;
-  pixiText.y = BUBBLE_PADDING;
-
-  const gfx = new Graphics();
-  // Bubble body: crisp rect with dark 1px border (pixel-art style, no smooth corners).
-  gfx
-    .rect(0, 0, bubbleW, bubbleH)
-    .fill({ color: 0xf5f0e8 })
-    .stroke({ color: 0x222222, width: 1 });
-  // Downward tail centered below bubble.
-  const tailX = Math.floor(bubbleW / 2);
-  gfx
-    .poly([
-      tailX - 4,
-      bubbleH,
-      tailX + 4,
-      bubbleH,
-      tailX,
-      bubbleH + BUBBLE_TAIL_H,
-    ])
-    .fill({ color: 0xf5f0e8 });
-
-  const container = new Container();
-  container.addChild(gfx);
-  container.addChild(pixiText);
-  // Pivot at tail tip so setPosition(charX, charY) anchors the tail to the character head.
-  container.pivot.set(tailX, bubbleH + BUBBLE_TAIL_H);
-  stage.addChild(container);
-
-  // Code-point-safe character array so emoji (surrogate pairs) aren't split.
-  const codepoints = Array.from(text);
-
-  return {
-    setText(t: string) {
-      pixiText.text = t;
-    },
-    setVisibleChars(n: number) {
-      pixiText.text = codepoints.slice(0, n).join("");
-    },
-    setPosition(x: number, y: number) {
-      container.x = x;
-      container.y = y;
-    },
-    destroy() {
-      stage.removeChild(container);
-      container.destroy({ children: true });
-    },
-  };
+export interface RenderOwner {
+  registryId: number;
+  characterId: string;
 }
 
 export interface SpawnContext {
   entry: AssetEntry;
   loaded: LoadedAsset;
-  stage: Container;
+  stage: unknown;
   x: number;
   floorY: number;
+  registryId: number;
+  characterId: string;
 }
 
 export interface RegistryOptions {
-  stage: Container;
+  stage: unknown;
   manifest: AssetEntry[];
   loadedAssets: Map<string, LoadedAsset>;
   rng: () => number;
@@ -101,8 +93,7 @@ export interface RegistryOptions {
   floorY: number;
   /**
    * Factory for creating a CharacterHandle.
-   * Defaults to the real Pixi.js Sprite-based handle.
-   * Override in tests to inject mocks.
+   * Defaults to an inert headless handle; production wires the Pixi factory.
    */
   createHandle?: (ctx: SpawnContext) => CharacterHandle;
   /**
@@ -110,7 +101,11 @@ export interface RegistryOptions {
    * When undefined, no bubble is injected and say() is a no-op.
    * Override in tests with a fake to avoid Pixi imports.
    */
-  createBubbleHandle?: (stage: Container, text: string) => BubbleHandle;
+  createBubbleHandle?: (
+    stage: unknown,
+    text: string,
+    owner: RenderOwner,
+  ) => BubbleHandle;
   /**
    * Called after every mutation (spawn, despawn, despawnAll) with a full
    * snapshot of the live character list. Use to sync external state (e.g.
@@ -123,59 +118,112 @@ export interface RegistryOptions {
    * Override in tests with a fake to avoid Pixi imports.
    */
   createEffectHandle?: (kind: EffectKind) => EffectHandle;
+  /**
+   * Factory for a character-scoped cognition seam. The default is neutral;
+   * production may later inject a WASM-backed facade without changing the
+   * simulation's rendering or shell dependencies.
+   */
+  createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
+  /**
+   * Per-character synchronous generation seam. The default is disabled and
+   * every refused or invalid result falls back to the existing fixed line.
+   */
+  createSpeechHandle?: SpeechHandleFactory;
+  /**
+   * Canonical final-expression projection. Called after fallback/generation
+   * resolution and before the display-only bubble lifecycle begins.
+   */
+  onExpressionRecorded?: (record: SpeechExpressionRecord) => void;
+  /** Separate deterministic stream for idle-bubble and jump scheduler draws. */
+  schedulerRng?: () => number;
+  /**
+   * The sole identity seam. The native shell supplies production identities;
+   * tests and replays inject deterministic opaque IDs.
+   */
+  createCharacterId: () => string | Promise<string>;
+  /** Injected durable-record sink; production uses the native atomic store. */
+  persistence?: CharacterPersistenceStore;
+  /** Operational error reporting; persistence failures never break the render loop. */
+  onPersistenceError?: (error: unknown) => void;
+  /** Operational error reporting; identity failures never break the render loop. */
+  onIdentityError?: (error: unknown) => void;
+  /** Wall clock belongs only to durable metadata, never Cognition cadence. */
+  nowMs?: () => number;
+  /**
+   * Deterministic Personality Seed source for replays. Production derives it
+   * from the stable Character Identity and Archetype.
+   */
+  derivePersonalitySeed?: (characterId: string, archetype: string) => number;
+  /**
+   * Issue #59 experimental gate. It is false unless a caller explicitly
+   * enables it; normal production wiring keeps Set Attention off.
+   */
+  populationCognitionEnabled?: boolean;
+  /** Canonical bounded Population Cognition trace callback. */
+  onPopulationCognitionPass?: (summary: PopulationPassSummary) => void;
+  /**
+   * Host instrumentation only; duration never enters deterministic trace or
+   * simulation state.
+   */
+  onPopulationCognitionPassDurationMs?: (
+    durationMs: number,
+    summary: PopulationPassSummary,
+  ) => void;
 }
 
-function defaultCreateHandle({ loaded, stage }: SpawnContext): CharacterHandle {
-  const sprite = loaded.idleTextures[0]
-    ? new Sprite(loaded.idleTextures[0] as unknown as Texture)
-    : new Sprite();
-
-  sprite.scale.set(SPRITE_SCALE);
-  sprite.anchor.set(0.5, 1);
-  stage.addChild(sprite);
-
-  let currentTextures: (Texture | null)[] = loaded.idleTextures;
-
+function createInertCharacterHandle(): CharacterHandle {
   return {
-    setAnimation(anim: CharacterState) {
-      currentTextures =
-        anim === "walk" ? loaded.walkTextures : loaded.idleTextures;
-    },
-    setTexture(frameIndex: number) {
-      const tex = currentTextures[frameIndex];
-      if (tex) sprite.texture = tex as unknown as Texture;
-    },
-    setPosition(x: number, y: number) {
-      sprite.x = x;
-      sprite.y = y;
-    },
-    setFlip(facingLeft: boolean) {
-      sprite.scale.x = facingLeft ? -SPRITE_SCALE : SPRITE_SCALE;
-    },
-    setAirborneSprite(kind: "jump" | "fall" | null) {
-      if (kind === "jump") sprite.texture = loaded.jumpTexture as unknown as Texture;
-      else if (kind === "fall") sprite.texture = loaded.fallTexture as unknown as Texture;
-      // null: no-op — next setTexture call from ground tick restores the ground frame
-    },
-    destroy() {
-      stage.removeChild(sprite);
-      sprite.destroy();
-    },
+    setAnimation() {},
+    setTexture() {},
+    setPosition() {},
+    setFlip() {},
+    setAirborneSprite() {},
+    destroy() {},
   };
 }
 
 type ResolvedOptions = RegistryOptions & {
   createHandle: (ctx: SpawnContext) => CharacterHandle;
+  createCognitionHandle: (init: CognitionInit) => CognitionHandle;
+  createSpeechHandle: SpeechHandleFactory;
 };
 
 interface CharEntry {
   char: Character;
   id: number;
+  /** Stable opaque Character Identity used by cognition and future persistence. */
+  characterId: string;
+  archetype: string;
+  personalitySeed: number;
   displayName: string;
+  lifecyclePhase: "materialized" | "vanishing";
+  cognition: CognitionHandle;
+  /** Render time not yet consumed by a fixed cognition step. */
+  cognitionAccumulator: number;
+  /** Latest bounded Behavior Signal; null until the first fixed step. */
+  latestSignal: BehaviorSignal | null;
+  /** Latest semantic Stimulus accepted by this Materialized character. */
+  latestStimulus: CognitionDebugStimulus | null;
+  /** Virtual time at which the latest fixed cognition step completed. */
+  lastCognitionAtS: number;
   /** Seconds until this character's next idle-line roll. */
   rollTimer: number;
   /** Seconds until this character's next jump roll. */
   jumpRollTimer: number;
+  dirty: boolean;
+  dirtyGeneration: number;
+  persistenceWriteCount: number;
+  persistedCreatedAtMs: number;
+  nextAutosaveAtS: number;
+  persistenceQueue: Promise<void> | null;
+  /** Per-character synchronous pure generation seam. */
+  speech: SpeechHandle;
+  /** Immutable lineage of the active voice, used by seed derivation and traces. */
+  voiceProfileVersion: string;
+  /** One-based ordering of accepted final expressions in this session. */
+  expressionOrdinal: number;
+  /** Bounded, non-durable final-text context used by generation requests. */
+  recentExpressions: string[];
 }
 
 interface PendingSpawn {
@@ -192,13 +240,20 @@ export class CharacterRegistry {
   private readonly opts: ResolvedOptions;
   /** Total elapsed seconds since the registry was created. */
   private elapsed = 0;
+  /** Render time not yet consumed by a fixed Population Cognition Pass. */
+  private populationCognitionAccumulatorS = 0;
   /** Elapsed time at which the last bubble was emitted (idle rolls only). */
   private lastBubbleAt = -Infinity;
   /** Monotonically increasing ID counter; never resets within a session. */
   private nextId = 1;
 
   constructor(opts: RegistryOptions) {
-    this.opts = { createHandle: defaultCreateHandle, ...opts };
+    this.opts = {
+      createHandle: createInertCharacterHandle,
+      createCognitionHandle: createNeutralCognitionHandle,
+      createSpeechHandle: createNeutralSpeechHandle,
+      ...opts,
+    };
   }
 
   get count(): number {
@@ -213,6 +268,59 @@ export class CharacterRegistry {
     }));
   }
 
+  /** Resolve a shell-selected registry ID to its stable Cognition target. */
+  characterIdFor(registryId: number): string | null {
+    return (
+      this.entries.find((entry) => entry.id === registryId)?.characterId ?? null
+    );
+  }
+
+  /**
+   * Read-only, bounded development inspection surface. Pending and Vanishing
+   * characters are intentionally absent, and no opaque Cognition State leaves
+   * the Cognition Handle boundary.
+   */
+  debugSnapshots(): CognitionDebugSnapshot[] {
+    return this.entries.map((entry) =>
+      projectCognitionDebugSnapshot({
+        registryId: entry.id,
+        characterId: entry.characterId,
+        archetype: entry.archetype,
+        label: `${entry.displayName} #${entry.id}`,
+        signal: entry.latestSignal,
+        latestStimulus: entry.latestStimulus,
+        cadenceLagS: this.elapsed - entry.lastCognitionAtS,
+      }),
+    );
+  }
+
+  /** Deliver one envelope to eligible Materialized characters in registry order. */
+  dispatch(envelope: StimulusEnvelope): void {
+    validateStimulusEnvelope(envelope);
+
+    for (const entry of this.entries) {
+      const matches =
+        envelope.target === "all" ||
+        envelope.target.characterId === entry.characterId;
+      if (matches) {
+        entry.cognition.observe(envelope.stimulus);
+        this.markDirty(entry);
+        if (entry.dirty) {
+          entry.nextAutosaveAtS = Math.min(
+            entry.nextAutosaveAtS,
+            this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S,
+          );
+        }
+      }
+      if (matches) {
+        entry.latestStimulus = {
+          observedAtS: this.elapsed,
+          stimulus: { ...envelope.stimulus },
+        };
+      }
+    }
+  }
+
   /**
    * Removes the character with the given ID.
    * Returns true on success, false if the ID is not found (silent no-op).
@@ -220,7 +328,18 @@ export class CharacterRegistry {
   despawn(id: number): boolean {
     const idx = this.entries.findIndex((e) => e.id === id);
     if (idx === -1) return false;
-    const { char } = this.entries[idx];
+    const { char, characterId, persistenceQueue } = this.entries[idx];
+    // A user deletion is authoritative. Do not enqueue a farewell snapshot.
+    void persistenceQueue?.catch(() => undefined);
+    const persistence = this.opts.persistence;
+    if (persistence) {
+      void persistence.delete(characterId);
+      if (persistenceQueue) {
+        void persistenceQueue.finally(() => persistence.delete(characterId));
+      }
+    }
+    this.entries[idx].lifecyclePhase = "vanishing";
+    this.observeVanishing(this.entries[idx]);
     const x = char.x;
     const y = char.renderY;
     char.destroy();
@@ -233,6 +352,7 @@ export class CharacterRegistry {
   spawn(): void {
     const { manifest, loadedAssets, rng, screenWidth, floorY, createEffectHandle } = this.opts;
 
+    if (this.entries.length + this.pending.length >= MAX_DURABLE_CHARACTERS) return;
     const entry = manifest[Math.floor(rng() * manifest.length)];
     const loaded = loadedAssets.get(entry.name)!;
     const x = rng() * screenWidth;
@@ -246,8 +366,13 @@ export class CharacterRegistry {
       // No onChange — character is not yet visible in the tray.
     } else {
       // Immediate: construct character now (backward-compat when no effect factory).
-      this.materializeEntry(entry, loaded, x);
-      this.opts.onChange?.(this.snapshot());
+      const materializedSynchronously = this.materializeResolved(
+        entry,
+        loaded,
+        x,
+        this.opts.createCharacterId(),
+      );
+      if (materializedSynchronously) this.opts.onChange?.(this.snapshot());
     }
   }
 
@@ -255,16 +380,63 @@ export class CharacterRegistry {
    * Construct a Character from resolved asset data, push it into entries[],
    * and fire a greeting bubble. Does NOT emit onChange — callers handle that.
    */
-  private materializeEntry(entry: AssetEntry, loaded: LoadedAsset, x: number): void {
-    const { rng, stage, floorY, screenWidth, createHandle, createBubbleHandle } = this.opts;
+  private materializeResolved(
+    entry: AssetEntry,
+    loaded: LoadedAsset,
+    x: number,
+    identity: string | Promise<string>,
+    onMaterialized?: () => void,
+  ): boolean {
+    if (identity instanceof Promise) {
+      void identity.then(
+        (characterId) => {
+          this.materializeEntry(entry, loaded, x, characterId);
+          onMaterialized?.();
+        },
+        (error) => this.opts.onIdentityError?.(error),
+      );
+      return false;
+    }
+    this.materializeEntry(entry, loaded, x, identity);
+    return true;
+  }
 
-    const handle = createHandle({ entry, loaded, stage, x, floorY });
+  private materializeEntry(
+    entry: AssetEntry,
+    loaded: LoadedAsset,
+    x: number,
+    characterId: string,
+    restored?: CharacterPersistenceRecord,
+  ): CharEntry | null {
+    const {
+      rng,
+      stage,
+      floorY,
+      screenWidth,
+      createHandle,
+      createBubbleHandle,
+      createCognitionHandle,
+      createSpeechHandle,
+      derivePersonalitySeed: deriveSeed,
+    } = this.opts;
+
+    const id = this.nextId;
+
+    const handle = createHandle({
+      entry,
+      loaded,
+      stage,
+      x,
+      floorY,
+      registryId: id,
+      characterId,
+    });
 
     const createBubble = createBubbleHandle
       ? (text: string): Bubble =>
           new Bubble(
             text,
-            createBubbleHandle(stage, text),
+            createBubbleHandle(stage, text, { registryId: id, characterId }),
             BUBBLE.TYPING_SPEED_CPS,
             BUBBLE.LINGER_S,
             BUBBLE.MAX_DURATION_S,
@@ -285,18 +457,247 @@ export class CharacterRegistry {
       cfg,
     );
 
-    // Greeting bypasses global cooldown — spawn always produces visual feedback.
-    const greeting = GREETINGS[Math.floor(rng() * GREETINGS.length)];
-    character.say(greeting);
+    const personalitySeed = restored?.personalitySeed
+      ?? deriveSeed?.(characterId, entry.name)
+      ?? derivePersonalitySeed(characterId, entry.name);
+    const cognition = createCognitionHandle({
+      schemaVersion: COGNITION_SCHEMA_VERSION,
+      characterId,
+      archetype: entry.name,
+      personalitySeed,
+    });
+    const speechInit: SpeechHandleInit = {
+      characterId,
+      archetype: entry.name,
+      personalitySeed,
+    };
+    let speech: SpeechHandle;
+    try {
+      speech = createSpeechHandle(speechInit);
+    } catch {
+      // A malformed injected factory is just another disabled speech source.
+      speech = createNeutralSpeechHandle();
+    }
+    const speechVoiceProfileVersion =
+      typeof speech.voiceProfileVersion === "string" &&
+      speech.voiceProfileVersion.trim().length > 0
+        ? speech.voiceProfileVersion
+        : NEUTRAL_SPEECH_VOICE_PROFILE_VERSION;
+
+    let pendingInitialState: PersistentCognitionState | null = null;
 
     // Fixed initial roll timers so characters don't lock-step on the first roll.
-    this.entries.push({
+    const newEntry: CharEntry = {
       char: character,
-      id: this.nextId++,
+      id,
+      characterId,
+      archetype: entry.name,
+      personalitySeed,
       displayName: entry.displayName,
+      lifecyclePhase: "materialized",
+      cognition,
+      cognitionAccumulator: 0,
+      latestSignal: null,
+      latestStimulus: null,
+      lastCognitionAtS: this.elapsed,
       rollTimer: BUBBLE.PER_CHAR_AVG_INTERVAL_S,
       jumpRollTimer: JUMP.PER_CHAR_AVG_INTERVAL_S,
+      dirty: false,
+      dirtyGeneration: 0,
+      persistenceWriteCount: restored?.metadata.writeCount ?? 0,
+      persistedCreatedAtMs: restored?.metadata.createdAtMs ?? 0,
+      nextAutosaveAtS: this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S,
+      persistenceQueue: null,
+      speech,
+      voiceProfileVersion: speechVoiceProfileVersion,
+      expressionOrdinal: 0,
+      recentExpressions: [],
+    };
+
+    if (restored) {
+      try {
+        cognition.restore(restored.cognitionState as PersistentCognitionState);
+      } catch {
+        character.destroy();
+        return null;
+      }
+    } else {
+      // The initial read-only projection establishes personality/affect for
+      // tone selection without advancing the Temporal Derivative or cadence.
+      const initialState = this.opts.persistence ? cognition.snapshot() : null;
+      const toneSeed = cognition.toneSeed();
+      const greetingRoll = rng();
+      this.sayTagged(newEntry, GREETINGS, "greeting", toneSeed, greetingRoll);
+      if (initialState) {
+        pendingInitialState = initialState;
+      }
+    }
+
+    this.entries.push(newEntry);
+    if (pendingInitialState) {
+      this.enqueuePersistence(newEntry, "materialization", pendingInitialState);
+    }
+    this.dispatch({
+      target: { characterId },
+      stimulus: { kind: "lifecycle", phase: "materialized" },
     });
+    if (!restored) {
+      newEntry.dirty = true;
+      newEntry.dirtyGeneration++;
+      newEntry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+    } else {
+      // The restored Materialized lifecycle stimulus itself is a durable update.
+      this.markDirty(newEntry);
+      newEntry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+    }
+    this.nextId += 1;
+    return newEntry;
+  }
+
+  /** Restores only structurally and semantically safe durable records. */
+  async restore(records?: readonly unknown[]): Promise<number> {
+    const input = records ?? await this.opts.persistence?.load?.() ?? [];
+    const quarantine = this.opts.persistence?.quarantine?.bind(this.opts.persistence);
+    const quarantineRecord = async (
+      record: unknown,
+      area: CharacterPersistenceQuarantineArea,
+    ): Promise<void> => {
+      if (!quarantine) return;
+      try {
+        await quarantine(structuredClone(record), area);
+      } catch (error) {
+        this.opts.onPersistenceError?.(error);
+      }
+    };
+
+    const candidates: CharacterPersistenceRecord[] = [];
+    for (const record of input) {
+      const classification = classifyCharacterPersistenceRecord(record);
+      if (classification === "current") {
+        candidates.push(record as CharacterPersistenceRecord);
+      } else {
+        await quarantineRecord(record, classification === "future" ? "future" : "corruption");
+      }
+    }
+
+    candidates.sort((left, right) =>
+      left.characterId < right.characterId ? -1 : left.characterId > right.characterId ? 1 : 0,
+    );
+
+    const manifestEntries = new Map(this.opts.manifest.map((entry) => [entry.name, entry]));
+    const restoredIdentities = new Set<string>();
+    let restoredCount = 0;
+    for (const record of candidates) {
+      if (this.entries.length + this.pending.length + restoredCount >= MAX_DURABLE_CHARACTERS) {
+        this.opts.onPersistenceError?.(new Error("Durable character population is full"));
+        continue;
+      }
+      if (restoredIdentities.has(record.characterId)) {
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+      if (
+        !(await verifyCharacterPersistenceRecord(record)) ||
+        characterPersistenceRecordSize(record) > MAX_CHARACTER_PERSISTENCE_BYTES
+      ) {
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+      const entry = manifestEntries.get(record.archetype);
+      const seedValid = isBoundedPersonalitySeed(record.personalitySeed) &&
+        record.cognitionSnapshotVersion === COGNITION_SCHEMA_VERSION;
+      if (!entry || !seedValid) {
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+
+      const loaded = this.opts.loadedAssets.get(entry.name);
+      if (!loaded) {
+        this.opts.onPersistenceError?.(new Error("Archetype assets are not loaded"));
+        continue;
+      }
+
+      const x = this.opts.rng() * this.opts.screenWidth;
+      let restored: CharEntry | null;
+      try {
+        restored = this.materializeEntry(
+          entry,
+          loaded,
+          x,
+          record.characterId,
+          record,
+        );
+      } catch (error) {
+        this.opts.onPersistenceError?.(error);
+        continue;
+      }
+      if (!restored) {
+        // Only an unknown opaque snapshot reaches this path; the Cognition
+        // Handle rejected it, so the intact envelope is never inferred.
+        await quarantineRecord(record, "corruption");
+        continue;
+      }
+
+      restoredIdentities.add(record.characterId);
+      restoredCount++;
+    }
+
+    if (restoredCount > 0) this.opts.onChange?.(this.snapshot());
+    return restoredCount;
+  }
+
+  async flush(reason: PersistenceReason = "shutdown"): Promise<void> {
+    // Drain writes that were scheduled first, preserving the initial-write
+    // ordering. Only characters still dirty need a final shutdown snapshot.
+    await Promise.all(this.entries.map((entry) => entry.persistenceQueue));
+    const dirty = this.entries.filter((entry) => entry.dirty);
+    await Promise.all(dirty.map((entry) => this.enqueuePersistence(entry, reason)));
+    await Promise.all(dirty.map((entry) => entry.persistenceQueue));
+  }
+
+  private markDirty(entry: CharEntry): void {
+    if (!this.opts.persistence) return;
+    entry.dirty = true;
+    entry.dirtyGeneration++;
+  }
+
+  private enqueuePersistence(
+    entry: CharEntry,
+    _reason: PersistenceReason,
+    stateOverride?: PersistentCognitionState,
+  ): Promise<void> {
+    const persistence = this.opts.persistence;
+    if (!persistence) return Promise.resolve();
+    const previous = entry.persistenceQueue ?? Promise.resolve();
+    const nowMs = (this.opts.nowMs ?? Date.now)();
+    const createdAtMs = entry.persistedCreatedAtMs || nowMs;
+    const writeCount = entry.persistenceWriteCount + 1;
+    const operation = previous.then(async () => {
+      const state = stateOverride ?? entry.cognition.snapshot();
+      const generationAtSnapshot = entry.dirtyGeneration;
+      const record = await createCharacterPersistenceRecord({
+        characterId: entry.characterId,
+        archetype: entry.archetype,
+        personalitySeed: entry.personalitySeed,
+        cognitionSnapshotVersion: COGNITION_SCHEMA_VERSION,
+        cognitionState: state,
+        createdAtMs,
+        writeCount,
+      });
+      await persistence.save(record as CharacterPersistenceRecord);
+      if (generationAtSnapshot === entry.dirtyGeneration) {
+        entry.dirty = false;
+        entry.nextAutosaveAtS = this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S;
+      }
+      entry.persistenceWriteCount = writeCount;
+      entry.persistedCreatedAtMs = createdAtMs;
+    });
+    const tracked = operation.catch((error) => this.opts.onPersistenceError?.(error));
+    void tracked.finally(() => {
+      if (entry.persistenceQueue === tracked) entry.persistenceQueue = null;
+    });
+    entry.persistenceQueue = tracked;
+    return operation;
   }
 
   despawnAll(): void {
@@ -305,6 +706,8 @@ export class CharacterRegistry {
     this.pending.length = 0;
 
     for (const entry of this.entries) {
+      entry.lifecyclePhase = "vanishing";
+      this.observeVanishing(entry);
       const x = entry.char.x;
       const y = entry.char.renderY;
       entry.char.destroy();
@@ -329,9 +732,141 @@ export class CharacterRegistry {
     this.effects.push(effect);
   }
 
+  private observeVanishing(entry: CharEntry): void {
+    this.dispatch({
+      target: { characterId: entry.characterId },
+      stimulus: { kind: "lifecycle", phase: "vanishing" },
+    });
+  }
+
+  private runPopulationCognitionPass(): void {
+    const startedAtMs = performance.now();
+    const enabled = this.opts.populationCognitionEnabled === true;
+    // Only Materialized entries ever enter this list. Pending transitions live
+    // in pending[], and entries are marked Vanishing before despawn removal.
+    const eligible = this.entries.filter((entry) => entry.lifecyclePhase === "materialized");
+    const participants = eligible.map((entry) => {
+      const projection = entry.cognition.socialProjection?.() ?? NEUTRAL_SOCIAL_PROJECTION;
+      return {
+        characterId: entry.characterId,
+        sociability: projection[SOCIAL_PROJECTION_INDEX.sociability],
+        projection,
+      };
+    });
+    const cognitionFor = (characterId: string): CognitionHandle | undefined =>
+      eligible.find((entry) => entry.characterId === characterId)?.cognition;
+
+    const summary = runPopulationCognitionPass({
+      atS: this.elapsed,
+      enabled,
+      participants,
+      applyInfluence: (influence) => {
+        const cognition = cognitionFor(influence.receiverId);
+        cognition?.applySocialInfluence?.(influence);
+        return cognition?.socialProjection?.()[SOCIAL_PROJECTION_INDEX.socialPositivity] ?? 0;
+      },
+    });
+    const durationMs = performance.now() - startedAtMs;
+    this.opts.onPopulationCognitionPass?.(summary);
+    this.opts.onPopulationCognitionPassDurationMs?.(durationMs, summary);
+  }
+
+  /**
+   * Select and emit one tagged expression. Every expression—greeting or
+   * idle—passes through the same Speech Handle, active-bubble, cooldown, and
+   * reward seams. The Neutral Handle returns null, making the fixed-line path
+   * below the exact production default.
+   */
+  private sayTagged(
+    entry: CharEntry,
+    lines: readonly TaggedLine[],
+    occasion: SpeechOccasionKind,
+    toneSeed: Pick<ToneSeed, "personality" | "affect">,
+    roll: number,
+  ): void {
+    if (this.elapsed - this.lastBubbleAt < BUBBLE.GLOBAL_COOLDOWN_S) return;
+
+    const direction = deriveExpressionDirection(
+      entry.latestSignal ?? neutralSpeechSignal(toneSeed),
+      occasion,
+      roll,
+    );
+    const expressionOrdinal = entry.expressionOrdinal + 1;
+    const request = {
+      occasion: { kind: occasion },
+      personality: toneSeed.personality,
+      direction,
+      context: {
+        recentExpressions: Object.freeze([...entry.recentExpressions]),
+      },
+      seed: deriveExpressionSeed(
+        entry,
+        occasion,
+        expressionOrdinal,
+        direction,
+        entry.recentExpressions,
+        entry.voiceProfileVersion,
+      ),
+    } as const;
+
+    let generated: SpeechExpression | null = null;
+    try {
+      generated = entry.speech.generate(request);
+    } catch {
+      // Generation is fail-closed: one attempt, no retry, and no error bubble.
+      generated = null;
+    }
+
+    const generatedAccepted = generated !== null &&
+      isValidGeneratedSpeechExpression(
+        generated,
+        direction,
+        entry.recentExpressions.slice(-GENERATED_REPETITION_WINDOW),
+      );
+    const finalText = generated !== null && generatedAccepted
+      ? generated.text
+      : selectTaggedLine(lines, toneSeed, roll).text;
+
+    if (!entry.char.canSay()) return;
+
+    this.opts.onExpressionRecorded?.({
+      characterId: entry.characterId,
+      occasion: { kind: occasion },
+      expressionOrdinal,
+      archetype: entry.archetype,
+      personalitySeed: entry.personalitySeed,
+      voiceProfileVersion: entry.voiceProfileVersion,
+      expressionSeed: request.seed,
+      tone: direction.tone,
+      intent: direction.intent,
+      intensity: direction.intensity,
+      stance: direction.stance,
+      status: generatedAccepted ? "generated" : "substituted",
+      text: finalText,
+    });
+
+    // Character.say is deliberately the only bubble/display lifecycle seam.
+    if (!entry.char.say(finalText)) return;
+
+    entry.expressionOrdinal = expressionOrdinal;
+    entry.recentExpressions.push(finalText);
+    if (entry.recentExpressions.length > MAX_RECENT_EXPRESSIONS) {
+      entry.recentExpressions.splice(
+        0,
+        entry.recentExpressions.length - MAX_RECENT_EXPRESSIONS,
+      );
+    }
+    entry.cognition.noteExpression();
+    this.lastBubbleAt = this.elapsed;
+  }
+
   tick(dt: number): void {
+    if (!Number.isFinite(dt) || dt < 0) {
+      throw new Error("Registry dt must be finite and non-negative");
+    }
     this.elapsed += dt;
-    const { rng } = this.opts;
+    const { rng, schedulerRng } = this.opts;
+    const behaviorRng = schedulerRng ?? rng;
 
     // Advance live (despawn) effects and remove expired ones.
     for (const e of this.effects) e.tick(dt);
@@ -351,8 +886,60 @@ export class CharacterRegistry {
     for (const p of stillPending) this.pending.push(p);
 
     // Materialize promoted characters and emit a single batched onChange.
-    for (const p of toPromote) this.materializeEntry(p.entry, p.loaded, p.x);
-    if (toPromote.length > 0) this.opts.onChange?.(this.snapshot());
+    let synchronouslyMaterialized = 0;
+    for (const p of toPromote) {
+      const materializedNow = this.materializeResolved(
+        p.entry,
+        p.loaded,
+        p.x,
+        this.opts.createCharacterId(),
+        () => this.opts.onChange?.(this.snapshot()),
+      );
+      if (materializedNow) synchronouslyMaterialized++;
+    }
+    if (synchronouslyMaterialized > 0) this.opts.onChange?.(this.snapshot());
+
+    this.populationCognitionAccumulatorS += dt;
+    let populationPasses = 0;
+    while (
+      populationPasses < MAX_POPULATION_CATCHUP_PASSES &&
+      this.populationCognitionAccumulatorS >=
+      POPULATION_COGNITION_CADENCE_S - COGNITION_CADENCE_EPSILON_S
+    ) {
+      this.populationCognitionAccumulatorS -= POPULATION_COGNITION_CADENCE_S;
+      populationPasses++;
+    }
+    if (
+      this.populationCognitionAccumulatorS >=
+      POPULATION_COGNITION_CADENCE_S - COGNITION_CADENCE_EPSILON_S
+    ) {
+      this.populationCognitionAccumulatorS = 0;
+    }
+
+    for (const entry of this.entries) {
+      entry.cognitionAccumulator += dt;
+      let cognitionSteps = 0;
+      while (
+        entry.cognitionAccumulator >=
+          COGNITION_CADENCE_S - COGNITION_CADENCE_EPSILON_S &&
+        cognitionSteps < MAX_COGNITION_CATCHUP_STEPS
+      ) {
+        const signal = entry.cognition.tick(COGNITION_CADENCE_S);
+        entry.char.applyBehaviorSignal(signal);
+        entry.latestSignal = signal;
+        entry.cognitionAccumulator -= COGNITION_CADENCE_S;
+        entry.lastCognitionAtS = this.elapsed - entry.cognitionAccumulator;
+        cognitionSteps++;
+      }
+      if (cognitionSteps === MAX_COGNITION_CATCHUP_STEPS) {
+        entry.cognitionAccumulator = 0;
+      }
+      if (cognitionSteps > 0) this.markDirty(entry);
+    }
+
+    for (let pass = 0; pass < populationPasses; pass++) {
+      this.runPopulationCognitionPass();
+    }
 
     for (const entry of this.entries) {
       entry.char.tick(dt);
@@ -363,13 +950,18 @@ export class CharacterRegistry {
         entry.rollTimer =
           BUBBLE.PER_CHAR_AVG_INTERVAL_S -
           BUBBLE.PER_CHAR_JITTER_S +
-          rng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
+          behaviorRng() * (2 * BUBBLE.PER_CHAR_JITTER_S);
 
-        // Respect global cooldown — drop the roll if a bubble just fired.
-        if (this.elapsed - this.lastBubbleAt >= BUBBLE.GLOBAL_COOLDOWN_S) {
-          const line = IDLE_LINES[Math.floor(rng() * IDLE_LINES.length)];
-          entry.char.say(line);
-          this.lastBubbleAt = this.elapsed;
+        if (entry.char.shouldSpeakOnRoll(behaviorRng)) {
+          const toneSeed = entry.latestSignal ?? NEUTRAL_BEHAVIOR_SIGNAL;
+          const lineRoll = behaviorRng();
+          this.sayTagged(
+            entry,
+            IDLE_LINES,
+            "idle",
+            toneSeed,
+            lineRoll,
+          );
         }
       }
 
@@ -379,9 +971,17 @@ export class CharacterRegistry {
         entry.jumpRollTimer =
           JUMP.PER_CHAR_AVG_INTERVAL_S -
           JUMP.PER_CHAR_JITTER_S +
-          rng() * (2 * JUMP.PER_CHAR_JITTER_S);
+          behaviorRng() * (2 * JUMP.PER_CHAR_JITTER_S);
 
-        entry.char.jump();
+        if (entry.char.shouldJumpOnRoll(behaviorRng)) entry.char.jump();
+      }
+
+      if (
+        entry.dirty &&
+        this.elapsed >= entry.nextAutosaveAtS &&
+        entry.persistenceQueue === null
+      ) {
+        this.enqueuePersistence(entry, "autosave");
       }
     }
   }

@@ -1,10 +1,24 @@
 import { Application, Sprite, Texture, Assets } from "pixi.js";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { ASSET_MANIFEST, EFFECT, FLOOR_BAND_PX } from "./config";
+import {
+  ASSET_MANIFEST,
+  COGNITION_LIVE_DEFAULT_ENABLED,
+  EFFECT,
+  FLOOR_BAND_PX,
+  POPULATION_COGNITION_ENABLED,
+} from "./config";
 import { loadAsset, loadEffect } from "./spriteLoader";
-import { CharacterRegistry, defaultCreateBubbleHandle } from "./characterRegistry";
+import { CharacterRegistry } from "./characterRegistry";
+import { defaultCreateBubbleHandle, defaultCreateHandle } from "./rendering";
 import { EffectKind } from "./effect";
+import { connectShellEvents } from "./shellBridge";
+import { bindWasmCognition } from "./cognitionFacade";
+import { createNeutralCognitionHandle } from "./cognition";
+import {
+  createNativeIdentityFactory,
+  createTauriPersistence,
+} from "./tauriPersistence";
 
 async function init() {
   // WKWebView (macOS) rejects createImageBitmap on tauri:// scheme responses;
@@ -21,7 +35,6 @@ async function init() {
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
   });
-
   document.body.appendChild(app.canvas);
 
   window.addEventListener("resize", () => {
@@ -47,7 +60,16 @@ async function init() {
     rng: Math.random,
     screenWidth: window.innerWidth,
     floorY: window.innerHeight - FLOOR_BAND_PX,
+    createHandle: defaultCreateHandle,
     createBubbleHandle: defaultCreateBubbleHandle,
+    createCognitionHandle: COGNITION_LIVE_DEFAULT_ENABLED
+      ? await bindWasmCognition()
+      : createNeutralCognitionHandle,
+    createCharacterId: createNativeIdentityFactory(),
+    populationCognitionEnabled: POPULATION_COGNITION_ENABLED,
+    persistence: createTauriPersistence(),
+    onPersistenceError: console.error,
+    onIdentityError: console.error,
     createEffectHandle: (kind: EffectKind) => {
       const textures = kind === "spawn" ? spawnTextures : despawnTextures;
       const sprite = new Sprite(textures[0] as unknown as Texture);
@@ -73,19 +95,59 @@ async function init() {
     },
   });
 
+  // Restore before the render loop starts so cognition cadence and scheduler
+  // timers begin at zero for the resumed session.
+  try {
+    await registry.restore();
+  } catch (error) {
+    console.error("Character restore failed:", error);
+  }
+
+  // Compile-time gate: Vite replaces these constants, and a normal production
+  // build drops both dynamic imports. `--mode debug` is available for a debug
+  // frontend bundle without making the overlay runtime-enableable in release.
+  const cognitionDebug =
+    import.meta.env.DEV || import.meta.env.MODE === "debug"
+      ? new (
+          await import("./cognitionDebug")
+        ).CognitionDebugOverlay(
+          (
+            await import("./cognitionDebugView")
+          ).createCognitionDebugView<HTMLElement>(document),
+          { enabled: false },
+        )
+      : undefined;
+
   app.ticker.add((ticker) => {
     registry.tick(ticker.deltaMS / 1000);
+    if (cognitionDebug?.isEnabled) {
+      cognitionDebug.update(() => registry.debugSnapshots());
+    }
   });
 
   // Tray / hotkey events — guarded so a missing Tauri bridge (e.g. running
   // under plain `vite dev`) doesn't kill the render loop.
   try {
-    await listen("spawn", () => registry.spawn());
-    await listen("despawn-all", () => registry.despawnAll());
-    await listen<number>("despawn-one", (event) => registry.despawn(event.payload));
+    await connectShellEvents(
+      (event, onPayload) =>
+        listen(event, (shellEvent) => onPayload(shellEvent.payload)),
+      registry,
+      window,
+      cognitionDebug,
+      async () => {
+        await registry.flush("shutdown");
+        await invoke("exit_after_flush");
+      },
+    );
   } catch (err) {
     console.warn("Tauri event bridge unavailable:", err);
   }
+
+  // Best-effort fallback when the shell closes without the handshake event.
+  // Graceful shutdown gives dirty characters a final durable snapshot.
+  window.addEventListener("pagehide", () => {
+    void registry.flush("shutdown").catch(console.error);
+  });
 }
 
 init();

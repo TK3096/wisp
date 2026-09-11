@@ -1,0 +1,17 @@
+[package]
+name = "wisp-cognition-wasm"
+version.workspace = true
+edition.workspace = true
+description = "Coarse-grained WASM facade for the Wisp cognition core"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = "=0.2.127"
+wisp-cognition-core = { workspace = true }
+
+[dev-dependencies]
+js-sys = "0.3"
+wasm-bindgen-test = "=0.3.77"

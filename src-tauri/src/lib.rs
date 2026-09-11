@@ -1,8 +1,12 @@
+mod persistence;
 mod sidecar;
+
+use persistence::{delete_record, load_records, persist_record, quarantine_record};
+use uuid::Uuid;
 
 use std::sync::Mutex;
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{TrayIcon, TrayIconBuilder},
     Emitter, Manager,
 };
@@ -19,6 +23,8 @@ struct CharacterItem {
 
 struct AppTray(TrayIcon);
 struct CharacterList(Mutex<Vec<CharacterItem>>);
+#[derive(Default)]
+struct PersistenceLock(Mutex<()>);
 
 fn build_tray_menu<R: tauri::Runtime>(
     manager: &impl tauri::Manager<R>,
@@ -28,13 +34,54 @@ fn build_tray_menu<R: tauri::Runtime>(
     let spawn_item = MenuItem::with_id(manager, "spawn", "Spawn", true, None::<&str>)?;
     let despawn_submenu = build_despawn_submenu(manager, items)?;
     let sep = PredefinedMenuItem::separator(manager)?;
-    let gestures_item =
-        CheckMenuItem::with_id(manager, "gestures", "Gestures", true, gestures_on, None::<&str>)?;
-    let quit_item = MenuItem::with_id(manager, "quit", "Quit", true, None::<&str>)?;
-    Menu::with_items(
+    let gestures_item = CheckMenuItem::with_id(
         manager,
-        &[&spawn_item, &despawn_submenu, &sep, &gestures_item, &quit_item],
-    )
+        "gestures",
+        "Gestures",
+        true,
+        gestures_on,
+        None::<&str>,
+    )?;
+    let quit_item = MenuItem::with_id(manager, "quit", "Quit", true, None::<&str>)?;
+    #[cfg(debug_assertions)]
+    let (debug_sep, toggle_cognition_debug, next_debug_character) = (
+        PredefinedMenuItem::separator(manager)?,
+        MenuItem::with_id(
+            manager,
+            "toggle-cognition-debug",
+            "Toggle Cognition Debug",
+            true,
+            None::<&str>,
+        )?,
+        MenuItem::with_id(
+            manager,
+            "select-next-cognition-debug",
+            "Next Debug Character",
+            true,
+            None::<&str>,
+        )?,
+    );
+
+    let delight_submenu = build_feedback_submenu(manager, items, "delight", "Delight")?;
+    let dismiss_submenu = build_feedback_submenu(manager, items, "dismiss", "Dismiss")?;
+    let mut menu_items: Vec<&dyn IsMenuItem<R>> = vec![
+        &spawn_item,
+        &despawn_submenu,
+        &delight_submenu,
+        &dismiss_submenu,
+        &sep,
+    ];
+
+    #[cfg(debug_assertions)]
+    {
+        menu_items.push(&toggle_cognition_debug);
+        menu_items.push(&next_debug_character);
+        menu_items.push(&debug_sep);
+    }
+
+    menu_items.push(&gestures_item);
+    menu_items.push(&quit_item);
+    Menu::with_items(manager, &menu_items)
 }
 
 fn build_despawn_submenu<R: tauri::Runtime>(
@@ -43,8 +90,7 @@ fn build_despawn_submenu<R: tauri::Runtime>(
 ) -> tauri::Result<Submenu<R>> {
     let submenu = Submenu::with_id(manager, "despawn", "Despawn", true)?;
     if items.is_empty() {
-        let none_item =
-            MenuItem::with_id(manager, "despawn_none", "(none)", false, None::<&str>)?;
+        let none_item = MenuItem::with_id(manager, "despawn_none", "(none)", false, None::<&str>)?;
         submenu.append(&none_item)?;
     } else {
         let all_item = MenuItem::with_id(manager, "despawn_all", "All", true, None::<&str>)?;
@@ -55,6 +101,37 @@ fn build_despawn_submenu<R: tauri::Runtime>(
             let char_item = MenuItem::with_id(
                 manager,
                 format!("despawn:{}", item.id),
+                &item.label,
+                true,
+                None::<&str>,
+            )?;
+            submenu.append(&char_item)?;
+        }
+    }
+    Ok(submenu)
+}
+
+fn build_feedback_submenu<R: tauri::Runtime>(
+    manager: &impl tauri::Manager<R>,
+    items: &[CharacterItem],
+    action: &str,
+    label: &str,
+) -> tauri::Result<Submenu<R>> {
+    let submenu = Submenu::with_id(manager, action, label, true)?;
+    if items.is_empty() {
+        let none_item = MenuItem::with_id(
+            manager,
+            format!("{action}_none"),
+            "(none)",
+            false,
+            None::<&str>,
+        )?;
+        submenu.append(&none_item)?;
+    } else {
+        for item in items {
+            let char_item = MenuItem::with_id(
+                manager,
+                format!("{action}:{}", item.id),
                 &item.label,
                 true,
                 None::<&str>,
@@ -83,10 +160,73 @@ fn update_character_list(
     char_list: tauri::State<CharacterList>,
 ) -> Result<(), String> {
     *char_list.0.lock().unwrap() = items.clone();
-    let menu =
-        build_tray_menu(&app, &items, sidecar.is_running()).map_err(|e| e.to_string())?;
+    let menu = build_tray_menu(&app, &items, sidecar.is_running()).map_err(|e| e.to_string())?;
     tray.0.set_menu(Some(menu)).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+fn create_character_identity() -> Result<String, String> {
+    Ok(Uuid::now_v7().to_string())
+}
+
+#[tauri::command]
+fn persist_character_record(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+    record: serde_json::Value,
+) -> Result<(), String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    persist_record(&root, &record)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn delete_character_record(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+    character_id: String,
+) -> Result<(), String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    delete_record(&root, &character_id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn load_character_records(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    load_records(&root).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn quarantine_character_record(
+    app: tauri::AppHandle,
+    lock: tauri::State<PersistenceLock>,
+    record: serde_json::Value,
+    area: String,
+) -> Result<(), String> {
+    let _serialization_guard = lock.0.lock().unwrap();
+    let root = persistence_root(&app)?;
+    quarantine_record(&root, &record, &area).map_err(|error| error.to_string())
+}
+
+fn persistence_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let base = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    Ok(base.join("characters").join("v1"))
+}
+
+#[tauri::command]
+fn exit_after_flush(app: tauri::AppHandle) {
+    app.exit(0);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -102,6 +242,7 @@ pub fn run() {
         .setup(|app| {
             app.manage(SidecarProcess::new());
             app.manage(CharacterList(Mutex::new(vec![])));
+            app.manage(PersistenceLock::default());
 
             let window = app.get_webview_window("main").unwrap();
 
@@ -133,8 +274,13 @@ pub fn run() {
                         let _ = app.emit("despawn-all", ());
                     }
                     "quit" => {
-                        app.state::<SidecarProcess>().stop();
-                        app.exit(0);
+                        let _ = app.emit("graceful-shutdown", ());
+                        let shutdown_app = app.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_secs(2));
+                            shutdown_app.state::<SidecarProcess>().stop();
+                            shutdown_app.exit(0);
+                        });
                     }
                     "gestures" => {
                         let sidecar = app.state::<SidecarProcess>();
@@ -154,9 +300,27 @@ pub fn run() {
                             }
                         }
                     }
+                    #[cfg(debug_assertions)]
+                    "toggle-cognition-debug" => {
+                        let _ = app.emit("toggle-cognition-debug", ());
+                    }
+                    #[cfg(debug_assertions)]
+                    "select-next-cognition-debug" => {
+                        let _ = app.emit("select-next-cognition-debug", ());
+                    }
                     id if id.starts_with("despawn:") => {
                         if let Ok(n) = id["despawn:".len()..].parse::<u32>() {
                             let _ = app.emit("despawn-one", n);
+                        }
+                    }
+                    id if id.starts_with("delight:") => {
+                        if let Ok(n) = id["delight:".len()..].parse::<u32>() {
+                            let _ = app.emit("delight-one", n);
+                        }
+                    }
+                    id if id.starts_with("dismiss:") => {
+                        if let Ok(n) = id["dismiss:".len()..].parse::<u32>() {
+                            let _ = app.emit("dismiss-one", n);
                         }
                     }
                     _ => {}
@@ -179,7 +343,15 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![update_character_list])
+        .invoke_handler(tauri::generate_handler![
+            update_character_list,
+            create_character_identity,
+            persist_character_record,
+            delete_character_record,
+            load_character_records,
+            quarantine_character_record,
+            exit_after_flush
+        ])
         .build(tauri::generate_context!())
         .expect("error building tauri application")
         .run(|app, event| {

@@ -88,7 +88,11 @@ class Detector:
                     )
 
                 if fired:
-                    self._emitter.emit_spawn()
+                    try:
+                        self._emitter.emit_open_palm(confidence)
+                    except ValueError as exc:
+                        self._emitter.emit_error("invalid_gesture", str(exc))
+                        sys.exit(1)
 
         finally:
             cap.release()

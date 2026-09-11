@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { Character, CharacterHandle } from "../src/character";
+import {
+  BehaviorSignal,
+  NEUTRAL_BEHAVIOR_SIGNAL,
+} from "../src/cognition";
 
 function makeHandle(): CharacterHandle {
   return {
@@ -202,6 +206,75 @@ describe("Character", () => {
     const calls = (h.setTexture as ReturnType<typeof vi.fn>).mock.calls;
     const lastFrame = calls[calls.length - 1][0] as number;
     expect(lastFrame).toBe(0); // wrapped back to 0
+  });
+});
+
+describe("Character Behavior Signal", () => {
+  function makeSignal(
+    behaviorBias: Partial<BehaviorSignal["behaviorBias"]>,
+  ): BehaviorSignal {
+    return {
+      personality: NEUTRAL_BEHAVIOR_SIGNAL.personality,
+      affect: NEUTRAL_BEHAVIOR_SIGNAL.affect,
+      temporalSurprise: NEUTRAL_BEHAVIOR_SIGNAL.temporalSurprise,
+      microBelief: NEUTRAL_BEHAVIOR_SIGNAL.microBelief,
+      reaction: NEUTRAL_BEHAVIOR_SIGNAL.reaction,
+      behaviorBias: {
+        ...NEUTRAL_BEHAVIOR_SIGNAL.behaviorBias,
+        ...behaviorBias,
+      },
+    };
+  }
+
+  it("applies the neutral signal without changing walking behavior", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h, () => 0.5, 500);
+
+    c.applyBehaviorSignal(NEUTRAL_BEHAVIOR_SIGNAL);
+    c.tick(2.76);
+    expect(c.state).toBe("walk");
+
+    const xAfterTransition = c.x;
+    c.tick(1);
+    expect(c.x - xAfterTransition).toBeCloseTo(80, 0);
+  });
+
+  it("uses idle dwell bias only when scheduling the next idle period", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h, () => 0.5, 500);
+    c.applyBehaviorSignal(makeSignal({ idleDwell: 0.5 }));
+
+    // Enter walk, then reach the target and return to idle.
+    c.tick(2.76);
+    c.tick(6);
+    expect(c.state).toBe("idle");
+
+    c.tick(1.35);
+    expect(c.state).toBe("idle");
+    c.tick(0.05);
+    expect(c.state).toBe("walk");
+  });
+
+  it("applies animation pace to idle animation timing", () => {
+    const h = makeHandle();
+    const c = makeCharacter(h);
+    c.applyBehaviorSignal(makeSignal({ animationPace: 0.75 }));
+
+    c.tick(1 / IDLE_FPS);
+    expect((h.setTexture as ReturnType<typeof vi.fn>).mock.calls.at(-1)[0]).toBe(0);
+
+    c.tick(0.05);
+    expect((h.setTexture as ReturnType<typeof vi.fn>).mock.calls.at(-1)[0]).toBe(1);
+  });
+
+  it("rejects an unbounded Behavior Signal before applying it", () => {
+    const c = makeCharacter(makeHandle());
+    const signal = makeSignal({ walkSpeed: 2.1 });
+    signal.affect = { ...signal.affect, surprise: Number.NaN };
+
+    expect(() => c.applyBehaviorSignal(signal)).toThrow(
+      /affect\.surprise must be finite/,
+    );
   });
 });
 

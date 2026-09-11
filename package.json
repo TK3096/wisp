@@ -4,11 +4,22 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build:cognition": "wasm-pack build crates/wisp-cognition-wasm --target web --out-dir ../../src/cognitionWasm --release",
+    "test:cognition": "cargo test -p wisp-cognition-core && wasm-pack test --node crates/wisp-cognition-wasm",
+    "lexicon:build": "node scripts/lexicon-build.mjs build",
+    "lexicon:check": "node scripts/lexicon-build.mjs check",
+    "test:cognition:scenario": "npm run build:cognition && vitest run --config vitest.cognition.config.ts",
+    "build:debug": "npm run build:cognition && tsc && vite build --mode debug",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run build:cognition && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:acceptance": "npm run build:cognition && vitest run --config vitest.cognition.config.ts integration/phase1Acceptance.integration.test.ts",
+    "test:human-kit": "npm run build:cognition && vitest run --config vitest.cognition.config.ts integration/humanEvaluationKit.integration.test.ts",
+    "generate:human-kit": "esbuild scripts/generate-human-evaluation-kit.ts --bundle --platform=node --format=esm --outfile=target/tmp/generate-human-kit.mjs && node target/tmp/generate-human-kit.mjs",
+    "test:set-attention": "npm run build:cognition && vitest run --config vitest.cognition.config.ts integration/phase2SetAttention.integration.test.ts",
+    "prototype:speech": "esbuild scripts/speechPrototype.cli.ts --bundle --platform=node --format=esm --outfile=target/tmp/speech-prototype.mjs && node target/tmp/speech-prototype.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
