@@ -30,6 +30,11 @@ import {
   projectCognitionDebugSnapshot,
 } from "./cognitionDebugSnapshot";
 import {
+  SpeechDebugSnapshot,
+  projectSpeechDebugSnapshot,
+} from "./speechDebugSnapshot";
+import {
+  MAX_GENERATED_ATTEMPTS,
   MAX_RECENT_EXPRESSIONS,
   NEUTRAL_SPEECH_VOICE_PROFILE_VERSION,
   GENERATED_REPETITION_WINDOW,
@@ -224,6 +229,8 @@ interface CharEntry {
   expressionOrdinal: number;
   /** Bounded, non-durable final-text context used by generation requests. */
   recentExpressions: string[];
+  /** Latest bounded generated-speech outcome for development inspection. */
+  latestSpeechDebug: SpeechDebugSnapshot | null;
 }
 
 interface PendingSpawn {
@@ -266,6 +273,34 @@ export class CharacterRegistry {
       id: e.id,
       label: `${e.displayName} #${e.id}`,
     }));
+  }
+
+  /**
+   * Read-only, bounded development inspection surface for the latest final
+   * expression. It never exposes rejected candidates or Speech Request state.
+   */
+  speechDebugSnapshots(): SpeechDebugSnapshot[] {
+    return this.entries.flatMap((entry) => {
+      if (!entry.latestSpeechDebug) return [];
+      const debug = entry.latestSpeechDebug;
+      return [
+        projectSpeechDebugSnapshot({
+          registryId: debug.registryId,
+          characterId: debug.characterId,
+          archetype: debug.archetype,
+          label: debug.label,
+          requestedAtS: debug.requestedAtS,
+          occasion: debug.occasion,
+          expressionOrdinal: debug.expressionOrdinal,
+          voiceProfileVersion: debug.voiceProfileVersion,
+          direction: debug.direction,
+          status: debug.outcome.status,
+          attempts: debug.outcome.attempts,
+          generationCostMs: debug.outcome.generationCostMs,
+          text: debug.outcome.text,
+        }),
+      ];
+    });
   }
 
   /** Resolve a shell-selected registry ID to its stable Cognition target. */
@@ -512,6 +547,7 @@ export class CharacterRegistry {
       voiceProfileVersion: speechVoiceProfileVersion,
       expressionOrdinal: 0,
       recentExpressions: [],
+      latestSpeechDebug: null,
     };
 
     if (restored) {
@@ -810,12 +846,26 @@ export class CharacterRegistry {
     } as const;
 
     let generated: SpeechExpression | null = null;
+    let generationAttempts = 1;
+    const generationStartedAtMs = performance.now();
+    const generateWithAttemptCount = entry.speech.generateWithAttemptCount;
     try {
-      generated = entry.speech.generate(request);
+      if (typeof generateWithAttemptCount === "function") {
+        const attempt = generateWithAttemptCount.call(entry.speech, request);
+        generated = attempt.expression;
+        generationAttempts =
+          Number.isInteger(attempt.attempts) && attempt.attempts >= 1
+            ? Math.min(attempt.attempts, MAX_GENERATED_ATTEMPTS)
+            : 1;
+      } else {
+        generated = entry.speech.generate(request);
+      }
     } catch {
       // Generation is fail-closed: one attempt, no retry, and no error bubble.
       generated = null;
+      generationAttempts = 1;
     }
+    const generationCostMs = performance.now() - generationStartedAtMs;
 
     const generatedAccepted = generated !== null &&
       isValidGeneratedSpeechExpression(
@@ -826,6 +876,22 @@ export class CharacterRegistry {
     const finalText = generated !== null && generatedAccepted
       ? generated.text
       : selectTaggedLine(lines, toneSeed, roll).text;
+
+    entry.latestSpeechDebug = projectSpeechDebugSnapshot({
+      registryId: entry.id,
+      characterId: entry.characterId,
+      archetype: entry.archetype,
+      label: `${entry.displayName} #${entry.id}`,
+      requestedAtS: this.elapsed,
+      occasion,
+      expressionOrdinal,
+      voiceProfileVersion: entry.voiceProfileVersion,
+      direction,
+      status: generatedAccepted ? "generated" : "substituted",
+      attempts: generationAttempts,
+      generationCostMs,
+      text: finalText,
+    });
 
     if (!entry.char.canSay()) return;
 

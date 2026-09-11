@@ -104,8 +104,9 @@ async function init() {
   }
 
   // Compile-time gate: Vite replaces these constants, and a normal production
-  // build drops both dynamic imports. `--mode debug` is available for a debug
-  // frontend bundle without making the overlay runtime-enableable in release.
+  // build drops every debug dynamic import. `--mode debug` is available for a
+  // debug frontend bundle without making either overlay runtime-enableable in
+  // release.
   const cognitionDebug =
     import.meta.env.DEV || import.meta.env.MODE === "debug"
       ? new (
@@ -117,11 +118,25 @@ async function init() {
           { enabled: false },
         )
       : undefined;
+  const speechDebug =
+    import.meta.env.DEV || import.meta.env.MODE === "debug"
+      ? new (
+          await import("./speechDebug")
+        ).SpeechDebugOverlay(
+          (
+            await import("./speechDebugView")
+          ).createSpeechDebugView<HTMLElement>(document),
+          { enabled: false },
+        )
+      : undefined;
 
   app.ticker.add((ticker) => {
     registry.tick(ticker.deltaMS / 1000);
     if (cognitionDebug?.isEnabled) {
       cognitionDebug.update(() => registry.debugSnapshots());
+    }
+    if (speechDebug?.isEnabled) {
+      speechDebug.update(() => registry.speechDebugSnapshots());
     }
   });
 
@@ -133,7 +148,16 @@ async function init() {
         listen(event, (shellEvent) => onPayload(shellEvent.payload)),
       registry,
       window,
-      cognitionDebug,
+      cognitionDebug || speechDebug
+        ? {
+            toggle: () => cognitionDebug?.toggle(),
+            toggleSpeech: () => speechDebug?.toggle(),
+            selectNext: (snapshots) => {
+              cognitionDebug?.selectNext(snapshots);
+              speechDebug?.selectNext(registry.speechDebugSnapshots());
+            },
+          }
+        : undefined,
       async () => {
         await registry.flush("shutdown");
         await invoke("exit_after_flush");

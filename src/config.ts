@@ -89,6 +89,16 @@ export const COGNITION_DEBUG = {
   METRIC_WINDOW_FRAMES: 7200,
 };
 
+/**
+ * Development-only Speech Debug Overlay gates. It shares the accepted
+ * projection/render budget and is wired only by debug frontend builds.
+ */
+export const SPEECH_DEBUG = {
+  FRAME_BUDGET_MS: 0.2,
+  /** The accepted 120-second stress replay at 60 fps. */
+  METRIC_WINDOW_FRAMES: 7200,
+};
+
 import type { TaggedLine } from "./speech";
 
 /**

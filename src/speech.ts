@@ -72,6 +72,15 @@ export interface SpeechExpression {
   readonly source: "generated" | "fallback";
 }
 
+/**
+ * Optional bounded telemetry for debug builds. It reports only the number of
+ * generator attempts; rejected candidate text never crosses this boundary.
+ */
+export interface SpeechGenerationAttempt {
+  readonly expression: SpeechExpression | null;
+  readonly attempts: number;
+}
+
 /** Final, immutable outcome recorded by the canonical expression trace. */
 export type SpeechExpressionStatus = "generated" | "substituted";
 
@@ -95,6 +104,10 @@ export interface SpeechHandle {
   /** Stable, optional lineage surface used by canonical expression traces. */
   readonly voiceProfileVersion?: string;
   generate(request: SpeechRequest): SpeechExpression | null;
+  /** Implemented by generators that can provide bounded attempt accounting. */
+  generateWithAttemptCount?(
+    request: SpeechRequest,
+  ): SpeechGenerationAttempt;
 }
 
 export type SpeechHandleFactory = (init: SpeechHandleInit) => SpeechHandle;

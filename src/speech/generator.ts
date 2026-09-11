@@ -294,7 +294,7 @@ export function createGeneratedSpeechHandle(
   const profile = profileFor(init.archetype, init.personalitySeed);
   return {
     voiceProfileVersion: GENERATED_SPEECH_VOICE_PROFILE_VERSION,
-    generate(request: SpeechRequest) {
+    generateWithAttemptCount(request: SpeechRequest) {
       const random = mulberry32(request.seed);
       for (let attempt = 0; attempt < MAX_GENERATED_ATTEMPTS; attempt++) {
         const skeleton = pickSkeleton(profile, request, random());
@@ -312,10 +312,20 @@ export function createGeneratedSpeechHandle(
             request.context.recentExpressions,
           )
         ) {
-          return { text, tone: request.direction.tone, source: "generated" };
+          return {
+            expression: {
+              text,
+              tone: request.direction.tone,
+              source: "generated",
+            },
+            attempts: attempt + 1,
+          };
         }
       }
-      return null;
+      return { expression: null, attempts: MAX_GENERATED_ATTEMPTS };
+    },
+    generate(request: SpeechRequest) {
+      return this.generateWithAttemptCount?.(request).expression ?? null;
     },
   };
 }

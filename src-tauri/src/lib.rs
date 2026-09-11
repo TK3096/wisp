@@ -44,12 +44,19 @@ fn build_tray_menu<R: tauri::Runtime>(
     )?;
     let quit_item = MenuItem::with_id(manager, "quit", "Quit", true, None::<&str>)?;
     #[cfg(debug_assertions)]
-    let (debug_sep, toggle_cognition_debug, next_debug_character) = (
+    let (debug_sep, toggle_cognition_debug, toggle_speech_debug, next_debug_character) = (
         PredefinedMenuItem::separator(manager)?,
         MenuItem::with_id(
             manager,
             "toggle-cognition-debug",
             "Toggle Cognition Debug",
+            true,
+            None::<&str>,
+        )?,
+        MenuItem::with_id(
+            manager,
+            "toggle-speech-debug",
+            "Toggle Speech Debug",
             true,
             None::<&str>,
         )?,
@@ -75,6 +82,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     #[cfg(debug_assertions)]
     {
         menu_items.push(&toggle_cognition_debug);
+        menu_items.push(&toggle_speech_debug);
         menu_items.push(&next_debug_character);
         menu_items.push(&debug_sep);
     }
@@ -303,6 +311,10 @@ pub fn run() {
                     #[cfg(debug_assertions)]
                     "toggle-cognition-debug" => {
                         let _ = app.emit("toggle-cognition-debug", ());
+                    }
+                    #[cfg(debug_assertions)]
+                    "toggle-speech-debug" => {
+                        let _ = app.emit("toggle-speech-debug", ());
                     }
                     #[cfg(debug_assertions)]
                     "select-next-cognition-debug" => {

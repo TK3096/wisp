@@ -11,6 +11,7 @@ export type ShellEventName =
   | "dismiss-one"
   | "gesture"
   | "toggle-cognition-debug"
+  | "toggle-speech-debug"
   | "select-next-cognition-debug";
 
 export type ShellListen = (
@@ -25,6 +26,7 @@ export interface EnvironmentEventTarget {
 export interface CognitionDebugCommands {
   toggle(): void;
   selectNext(snapshots: CognitionDebugSnapshot[]): void;
+  toggleSpeech?(): void;
 }
 
 export async function connectShellEvents(
@@ -69,6 +71,7 @@ export async function connectShellEvents(
   });
   if (debugCommands) {
     await listen("toggle-cognition-debug", () => debugCommands.toggle());
+    await listen("toggle-speech-debug", () => debugCommands.toggleSpeech?.());
     await listen("select-next-cognition-debug", () =>
       debugCommands.selectNext(registry.debugSnapshots()),
     );
