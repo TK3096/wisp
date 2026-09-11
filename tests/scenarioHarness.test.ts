@@ -11,6 +11,7 @@ import {
   LossyTraceWriter,
   scenarioBehaviorDecisions,
   scenarioCognitionSteps,
+  SCENARIO_TRACE_SCHEMA_VERSION,
 } from "../src/scenarioHarness";
 import { EFFECT, GREETINGS, IDLE_LINES } from "../src/config";
 import {
@@ -112,7 +113,7 @@ describe("Scenario Harness baseline", () => {
     expect(materialized).toMatchObject({
       scenarioName: BASELINE_SCENARIO.name,
       seed: BASELINE_SCENARIO.seed,
-      contractVersion: COGNITION_SCHEMA_VERSION,
+      contractVersion: SCENARIO_TRACE_SCHEMA_VERSION,
       characterId: "baseline-character-1",
       archetype: "baseline",
     });

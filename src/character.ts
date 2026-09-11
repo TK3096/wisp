@@ -159,6 +159,11 @@ export class Character {
     return true;
   }
 
+  /** Whether the next synchronous expression has a display lifecycle. */
+  canSay(): boolean {
+    return this.bubble === null && this.cfg.createBubble !== undefined;
+  }
+
   tick(dt: number): void {
     if (this.state === "idle") {
       this.tickIdle(dt);

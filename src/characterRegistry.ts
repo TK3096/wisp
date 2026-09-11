@@ -31,11 +31,13 @@ import {
 } from "./cognitionDebugSnapshot";
 import {
   MAX_RECENT_EXPRESSIONS,
+  SPEECH_VOICE_PROFILE_VERSION,
   SpeechHandle,
   SpeechHandleFactory,
   SpeechHandleInit,
   SpeechOccasionKind,
   SpeechExpression,
+  SpeechExpressionRecord,
   TaggedLine,
   createNeutralSpeechHandle,
   deriveExpressionDirection,
@@ -126,6 +128,11 @@ export interface RegistryOptions {
    * every refused or invalid result falls back to the existing fixed line.
    */
   createSpeechHandle?: SpeechHandleFactory;
+  /**
+   * Canonical final-expression projection. Called after fallback/generation
+   * resolution and before the display-only bubble lifecycle begins.
+   */
+  onExpressionRecorded?: (record: SpeechExpressionRecord) => void;
   /** Separate deterministic stream for idle-bubble and jump scheduler draws. */
   schedulerRng?: () => number;
   /**
@@ -785,6 +792,7 @@ export class CharacterRegistry {
       },
       seed: deriveExpressionSeed(
         entry,
+        occasion,
         expressionOrdinal,
         direction,
         entry.recentExpressions,
@@ -799,9 +807,29 @@ export class CharacterRegistry {
       generated = null;
     }
 
-    const finalText = isValidGeneratedSpeechExpression(generated, direction)
+    const generatedAccepted =
+      isValidGeneratedSpeechExpression(generated, direction);
+    const finalText = generated !== null && generatedAccepted
       ? generated.text
       : selectTaggedLine(lines, toneSeed, roll).text;
+
+    if (!entry.char.canSay()) return;
+
+    this.opts.onExpressionRecorded?.({
+      characterId: entry.characterId,
+      occasion: { kind: occasion },
+      expressionOrdinal,
+      archetype: entry.archetype,
+      personalitySeed: entry.personalitySeed,
+      voiceProfileVersion: SPEECH_VOICE_PROFILE_VERSION,
+      expressionSeed: request.seed,
+      tone: direction.tone,
+      intent: direction.intent,
+      intensity: direction.intensity,
+      stance: direction.stance,
+      status: generatedAccepted ? "generated" : "substituted",
+      text: finalText,
+    });
 
     // Character.say is deliberately the only bubble/display lifecycle seam.
     if (!entry.char.say(finalText)) return;

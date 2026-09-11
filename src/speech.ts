@@ -62,6 +62,25 @@ export interface SpeechExpression {
   readonly source: "generated" | "fallback";
 }
 
+/** Final, immutable outcome recorded by the canonical expression trace. */
+export type SpeechExpressionStatus = "generated" | "substituted";
+
+export interface SpeechExpressionRecord {
+  readonly characterId: string;
+  readonly occasion: { readonly kind: SpeechOccasionKind };
+  readonly expressionOrdinal: number;
+  readonly archetype: string;
+  readonly personalitySeed: number;
+  readonly voiceProfileVersion: string;
+  readonly expressionSeed: number;
+  readonly tone: BubbleTone;
+  readonly intent: UtteranceIntent;
+  readonly intensity: ExpressionIntensity;
+  readonly stance: StanceModifier | null;
+  readonly status: SpeechExpressionStatus;
+  readonly text: string;
+}
+
 export interface SpeechHandle {
   generate(request: SpeechRequest): SpeechExpression | null;
 }
@@ -128,6 +147,7 @@ export function deriveExpressionDirection(
 /** Derive the opaque expression lineage seed without consuming scheduler RNG. */
 export function deriveExpressionSeed(
   init: SpeechHandleInit,
+  occasion: SpeechOccasionKind,
   expressionOrdinal: number,
   direction: ExpressionDirection,
   recentExpressions: readonly string[],
@@ -137,6 +157,7 @@ export function deriveExpressionSeed(
     init.archetype,
     init.personalitySeed,
     init.characterId,
+    occasion,
     expressionOrdinal,
     direction.intent,
     direction.tone,

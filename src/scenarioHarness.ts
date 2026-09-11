@@ -9,7 +9,6 @@ import {
 import { EffectHandle, EffectKind } from "./effect";
 import {
   COGNITION_CADENCE_S,
-  COGNITION_SCHEMA_VERSION,
   CognitionInit,
   CognitionHandle,
   PersistentCognitionState,
@@ -22,7 +21,11 @@ import {
 } from "./cognition";
 import { LoadedAsset } from "./simulationAsset";
 import { PopulationPassSummary } from "./socialAttention";
-import { SpeechHandleFactory, createNeutralSpeechHandle } from "./speech";
+import {
+  SpeechExpressionRecord,
+  SpeechHandleFactory,
+  createNeutralSpeechHandle,
+} from "./speech";
 
 export interface ScenarioStimulus {
   atS: number;
@@ -53,7 +56,11 @@ export interface ScenarioDefinition {
   populationCognitionEnabled?: boolean;
 }
 
+/** Compatibility boundary for Scenario Harness trace shape. */
+export const SCENARIO_TRACE_SCHEMA_VERSION = 4;
+
 export type ScenarioTraceRecordType =
+  | "expression_recorded"
   | "spawn_requested"
   | "spawn_effect_started"
   | "spawn_effect_ended"
@@ -671,6 +678,42 @@ export function scenarioBehaviorDecisions(
   return decisions;
 }
 
+export interface ScenarioExpressionRecord extends SpeechExpressionRecord {
+  readonly scenarioName: string;
+  readonly seed: number;
+  readonly contractVersion: number;
+}
+
+/**
+ * Canonical cross-frame-rate projection: it removes only frame-local common
+ * fields while preserving trace order and every expression semantic field.
+ */
+export function scenarioExpressionRecords(
+  result: ScenarioResult,
+): ScenarioExpressionRecord[] {
+  return result.trace
+    .filter((record) => record.type === "expression_recorded")
+    .map((record) => ({
+      type: record.type,
+      scenarioName: record.scenarioName,
+      seed: record.seed,
+      contractVersion: record.contractVersion,
+      characterId: record.characterId,
+      occasion: record.occasion,
+      expressionOrdinal: record.expressionOrdinal,
+      archetype: record.archetype,
+      personalitySeed: record.personalitySeed,
+      voiceProfileVersion: record.voiceProfileVersion,
+      expressionSeed: record.expressionSeed,
+      tone: record.tone,
+      intent: record.intent,
+      intensity: record.intensity,
+      stance: record.stance,
+      status: record.status,
+      text: record.text,
+    }) as ScenarioExpressionRecord);
+}
+
 function utf8Bytes(value: string): number[] {
   const bytes: number[] = [];
   for (const character of value) {
@@ -827,7 +870,7 @@ export function runScenario(
       type,
       scenarioName: scenario.name,
       seed: scenario.seed,
-      contractVersion: COGNITION_SCHEMA_VERSION,
+      contractVersion: SCENARIO_TRACE_SCHEMA_VERSION,
       renderScheduleHz,
       tick: renderTick,
       clockS,
@@ -1083,6 +1126,7 @@ export function runScenario(
     createEffectHandle: makeEffectHandle,
     createCognitionHandle: makeCognitionHandle,
     createSpeechHandle,
+    onExpressionRecorded: (record) => emit("expression_recorded", { ...record }),
     createCharacterId: nextCharacterId,
     populationCognitionEnabled: scenario.populationCognitionEnabled === true,
     onPopulationCognitionPass: (summary) => emit("population_cognition_pass", { summary }),

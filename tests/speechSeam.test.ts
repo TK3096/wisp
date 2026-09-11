@@ -8,8 +8,11 @@ import {
   BASELINE_SCENARIO,
   formatScenarioTraceNdjson,
   runScenario,
+  scenarioExpressionRecords,
+  SCENARIO_TRACE_SCHEMA_VERSION,
 } from "../src/scenarioHarness";
 import {
+  SPEECH_VOICE_PROFILE_VERSION,
   SpeechHandle,
   SpeechHandleInit,
   SpeechRequest,
@@ -193,12 +196,14 @@ describe("disabled production Speech Handle seam", () => {
     );
     const init = { characterId: "character", archetype: "test", personalitySeed: 7 };
 
-    expect(deriveExpressionSeed(init, 1, direction, [])).toBe(
-      deriveExpressionSeed(init, 1, direction, []),
+    expect(deriveExpressionSeed(init, "idle", 1, direction, [])).toBe(
+      deriveExpressionSeed(init, "idle", 1, direction, []),
     );
     expect(
-      deriveExpressionSeed(init, 1, direction, Array(20).fill("old")),
-    ).toBe(deriveExpressionSeed(init, 1, direction, Array(8).fill("old")));
+      deriveExpressionSeed(init, "idle", 1, direction, Array(20).fill("old")),
+    ).toBe(
+      deriveExpressionSeed(init, "idle", 1, direction, Array(8).fill("old")),
+    );
     expect(isValidGeneratedSpeechExpression(null, direction)).toBe(false);
     expect(
       isValidGeneratedSpeechExpression(
@@ -234,5 +239,121 @@ describe("disabled production Speech Handle seam", () => {
 
     expect(generatedBubbles).toContain("deterministic greeting");
     expect(secondTrace).toBe(firstTrace);
+  });
+
+  describe("canonical expression trace safety net", () => {
+    it("records Neutral Speech Handle fallback before each fixed-line bubble", () => {
+      const result = runScenario(BASELINE_SCENARIO, 60);
+      const records = scenarioExpressionRecords(result);
+      const greeting = result.trace.findIndex(
+        (record) => record.type === "expression_recorded",
+      );
+      const greetingBubble = result.trace.findIndex(
+        (record) => record.type === "bubble_started",
+      );
+
+      expect(SCENARIO_TRACE_SCHEMA_VERSION).toBeGreaterThan(3);
+      expect(records).toHaveLength(2);
+      expect(records[0]).toMatchObject({
+        type: "expression_recorded",
+        scenarioName: "baseline",
+        seed: BASELINE_SCENARIO.seed,
+        contractVersion: SCENARIO_TRACE_SCHEMA_VERSION,
+        characterId: "baseline-character-1",
+        occasion: { kind: "greeting" },
+        expressionOrdinal: 1,
+        archetype: "baseline",
+        personalitySeed: expect.any(Number),
+        voiceProfileVersion: SPEECH_VOICE_PROFILE_VERSION,
+        expressionSeed: expect.any(Number),
+        status: "substituted",
+        text: GREETINGS[0].text,
+      });
+      expect(records[0]).toEqual(records[0]);
+      expect(records[1]).toMatchObject({
+        occasion: { kind: "idle" },
+        expressionOrdinal: 2,
+        status: "substituted",
+        text: IDLE_LINES[3].text,
+      });
+      expect(records[1].tone).toBe(records[0].tone);
+      expect(greeting).toBeGreaterThanOrEqual(0);
+      expect(greetingBubble).toBe(greeting + 1);
+    });
+
+    it("records accepted generated results before their bubbles", () => {
+      const createSpeechHandle = () => ({
+        generate: (request: SpeechRequest) => ({
+          text: `generated ${request.occasion.kind}`,
+          tone: request.direction.tone,
+          source: "generated" as const,
+        }),
+      });
+      const result = runScenario(BASELINE_SCENARIO, 60, {
+        createSpeechHandle,
+      });
+
+      expect(scenarioExpressionRecords(result)).toMatchObject([
+        {
+          expressionOrdinal: 1,
+          status: "generated",
+          text: "generated greeting",
+        },
+        {
+          expressionOrdinal: 2,
+          status: "generated",
+          text: "generated idle",
+        },
+      ]);
+    });
+
+    it("immediately fails closed once per null, invalid, and throwing outcome", () => {
+      const generate = vi.fn()
+        .mockReturnValueOnce(null)
+        .mockReturnValueOnce({
+          text: "invalid", tone: "curious", source: "fallback",
+        })
+        .mockImplementationOnce(() => {
+          throw new Error("generator failed");
+        });
+      const scenario = {
+        ...BASELINE_SCENARIO,
+        durationS: 60.8,
+        despawns: [],
+        schedulerRolls: [0.5, 0.5, 0.1, 0.5, 0.5, 0.1, 0.5],
+      };
+      const result = runScenario(scenario, 60, {
+        createSpeechHandle: () => ({ generate }),
+      });
+      const bubbles = result.trace
+        .filter((record) => record.type === "bubble_started")
+        .map((record) => record.text);
+
+      expect(generate).toHaveBeenCalledTimes(3);
+      expect(scenarioExpressionRecords(result)).toMatchObject([
+        { expressionOrdinal: 1, status: "substituted", text: GREETINGS[0].text },
+        { expressionOrdinal: 2, status: "substituted", text: IDLE_LINES[3].text },
+        { expressionOrdinal: 3, status: "substituted", text: IDLE_LINES[3].text },
+      ]);
+      expect(bubbles).toEqual([
+        GREETINGS[0].text,
+        IDLE_LINES[3].text,
+        IDLE_LINES[3].text,
+      ]);
+    });
+
+    it("is byte-identical per frame rate and semantically equivalent across rates", () => {
+      const first = runScenario(BASELINE_SCENARIO, 60);
+      const second = runScenario(BASELINE_SCENARIO, 60);
+      const projected = [30, 60, 120].map((fps) =>
+        scenarioExpressionRecords(runScenario(BASELINE_SCENARIO, fps)),
+      );
+
+      expect(formatScenarioTraceNdjson(first)).toBe(
+        formatScenarioTraceNdjson(second),
+      );
+      expect(projected[1]).toEqual(projected[0]);
+      expect(projected[2]).toEqual(projected[0]);
+    });
   });
 });
