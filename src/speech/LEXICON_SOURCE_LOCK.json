@@ -1,0 +1,9 @@
+{
+  "artifact": "english-wordnet-2025-json.zip",
+  "release": "2025-edition",
+  "artifactDate": "2025-12-12",
+  "url": "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025-json.zip",
+  "sizeBytes": 9986555,
+  "sha256": "7d749f6e2c39e6970e4997839dcf6e42fd281f3c2fae0171d2192bae8cfa4b51",
+  "license": "CC BY 4.0"
+}

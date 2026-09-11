@@ -1,0 +1,239 @@
+lemma	category	tones	persona
+friend	noun	cheerful|curious|grumpy	social
+hand	noun	cheerful|curious|grumpy	
+light	noun	cheerful|curious|grumpy	
+home	noun	cheerful|curious|grumpy	grounded
+day	noun	cheerful|curious|grumpy	
+way	noun	cheerful|curious|grumpy	
+heart	noun	cheerful|curious|grumpy	social
+book	noun	cheerful|curious	
+place	noun	cheerful|curious|grumpy	
+thing	noun	cheerful|curious|grumpy	
+word	noun	cheerful|curious|grumpy	
+voice	noun	cheerful|curious|grumpy	
+game	noun	cheerful|curious	energetic
+house	noun	cheerful|curious|grumpy	grounded
+ground	noun	cheerful|curious|grumpy	grounded
+time	noun	cheerful|curious|grumpy	
+body	noun	cheerful|curious|grumpy	
+corner	noun	cheerful|curious|grumpy	
+foot	noun	cheerful|curious|grumpy	
+bridge	noun	cheerful|curious	
+star	noun	cheerful|curious	
+circle	noun	cheerful|curious	
+pattern	noun	curious	
+screen	noun	cheerful|curious	
+window	noun	cheerful|curious	
+shadow	noun	curious|grumpy	reserved
+color	noun	cheerful|curious	
+sound	noun	cheerful|curious	
+speech	noun	cheerful|curious|grumpy	social
+spirit	noun	cheerful|curious	
+walk	verb	cheerful|curious	grounded
+look	verb	curious	
+see	verb	cheerful|curious	
+listen	verb	curious	
+make	verb	cheerful|curious	energetic
+give	verb	cheerful	social
+take	verb	cheerful|curious|grumpy	
+carry	verb	cheerful|curious	grounded
+hold	verb	cheerful|curious|grumpy	grounded
+follow	verb	curious	
+lead	verb	cheerful|grumpy	bold
+find	verb	cheerful|curious	curious
+keep	verb	cheerful|curious|grumpy	grounded
+move	verb	cheerful|curious	energetic
+jump	verb	cheerful	energetic
+run	verb	cheerful	energetic
+rest	verb	cheerful|curious	calm
+breathe	verb	cheerful|curious	
+wait	verb	curious	calm
+open	verb	cheerful|curious	
+close	verb	cheerful|curious|grumpy	cautious
+help	verb	cheerful	social
+ask	verb	curious	social
+say	verb	cheerful|curious|grumpy	social
+think	verb	curious	
+know	verb	curious	grounded
+remember	verb	curious|grumpy	
+forget	verb	curious|grumpy	
+begin	verb	cheerful	energetic
+finish	verb	cheerful	grounded
+build	verb	cheerful	grounded
+change	verb	cheerful|curious	
+
+good	adjective	cheerful	social
+soft	adjective	cheerful|curious	calm
+bright	adjective	cheerful	energetic
+clear	adjective	cheerful|curious	
+quiet	adjective	curious	reserved
+gentle	adjective	cheerful	calm
+warm	adjective	cheerful	social
+cool	adjective	cheerful|curious	
+strong	adjective	cheerful|grumpy	bold
+small	adjective	cheerful|curious	
+little	adjective	cheerful|curious	
+big	adjective	cheerful|grumpy	bold
+quick	adjective	cheerful	energetic
+slow	adjective	curious	calm
+steady	adjective	cheerful|grumpy	grounded
+curious	adjective	curious	
+brave	adjective	cheerful|grumpy	bold
+careful	adjective	curious	cautious
+friendly	adjective	cheerful	social
+shiny	adjective	cheerful	energetic
+rough	adjective	grumpy	grounded
+smooth	adjective	cheerful|curious	calm
+well	adverb	cheerful|curious|grumpy	
+now	adverb	cheerful|curious|grumpy	
+here	adverb	cheerful|curious|grumpy	
+near	adverb	cheerful|curious	social
+together	adverb	cheerful	social
+quietly	adverb	curious	reserved
+slowly	adverb	curious	calm
+quickly	adverb	cheerful	energetic
+carefully	adverb	curious	cautious
+always	adverb	cheerful|curious|grumpy	
+often	adverb	cheerful|curious	
+never	adverb	grumpy	reserved
+maybe	adverb	curious	
+really	adverb	cheerful|curious|grumpy	
+slightly	adverb	curious	
+clearly	adverb	cheerful|curious	
+gently	adverb	cheerful	calm
+abroad	adverb	cheerful|curious|grumpy	
+actually	adverb	cheerful|curious|grumpy	
+again	adverb	cheerful|curious|grumpy	
+ahead	adverb	cheerful|curious|grumpy	
+almost	adverb	cheerful|curious|grumpy	
+already	adverb	cheerful|curious|grumpy	
+also	adverb	cheerful|curious|grumpy	
+anywhere	adverb	cheerful|curious|grumpy	
+away	adverb	cheerful|curious|grumpy	
+backward	adverb	cheerful|curious|grumpy	
+boldly	adverb	cheerful|curious|grumpy	
+bravely	adverb	cheerful|curious|grumpy	
+brightly	adverb	cheerful|curious|grumpy	
+calmly	adverb	cheerful|curious|grumpy	
+certainly	adverb	cheerful|curious|grumpy	
+cheerfully	adverb	cheerful|curious|grumpy	
+coldly	adverb	cheerful|curious|grumpy	
+comfortably	adverb	cheerful|curious|grumpy	
+constantly	adverb	cheerful|curious|grumpy	
+correctly	adverb	cheerful|curious|grumpy	
+courageously	adverb	cheerful|curious|grumpy	
+curiously	adverb	cheerful|curious|grumpy	
+currently	adverb	cheerful|curious|grumpy	
+daily	adverb	cheerful|curious|grumpy	
+deeply	adverb	cheerful|curious|grumpy	
+deliberately	adverb	cheerful|curious|grumpy	
+differently	adverb	cheerful|curious|grumpy	
+downstairs	adverb	cheerful|curious|grumpy	
+eagerly	adverb	cheerful|curious|grumpy	
+easily	adverb	cheerful|curious|grumpy	
+eastward	adverb	cheerful|curious|grumpy	
+elsewhere	adverb	cheerful|curious|grumpy	
+evenly	adverb	cheerful|curious|grumpy	
+eventually	adverb	cheerful|curious|grumpy	
+everywhere	adverb	cheerful|curious|grumpy	
+exactly	adverb	cheerful|curious|grumpy	
+excitedly	adverb	cheerful|curious|grumpy	
+fairly	adverb	cheerful|curious|grumpy	
+finally	adverb	cheerful|curious|grumpy	
+firmly	adverb	cheerful|curious|grumpy	
+forwards	adverb	cheerful|curious|grumpy	
+freely	adverb	cheerful|curious|grumpy	
+frequently	adverb	cheerful|curious|grumpy	
+gladly	adverb	cheerful|curious|grumpy	
+hard	adverb	cheerful|curious|grumpy	
+heavily	adverb	cheerful|curious|grumpy	
+honestly	adverb	cheerful|curious|grumpy	
+hopefully	adverb	cheerful|curious|grumpy	
+immediately	adverb	cheerful|curious|grumpy	
+indoors	adverb	cheerful|curious|grumpy	
+just	adverb	cheerful|curious|grumpy	
+kindly	adverb	cheerful|curious|grumpy	
+largely	adverb	cheerful|curious|grumpy	
+lately	adverb	cheerful|curious|grumpy	
+later	adverb	cheerful|curious|grumpy	
+lightly	adverb	cheerful|curious|grumpy	
+likely	adverb	cheerful|curious|grumpy	
+long	adverb	cheerful|curious|grumpy	
+loudly	adverb	cheerful|curious|grumpy	
+merely	adverb	cheerful|curious|grumpy	
+mostly	adverb	cheerful|curious|grumpy	
+naturally	adverb	cheerful|curious|grumpy	
+nearly	adverb	cheerful|curious|grumpy	
+neatly	adverb	cheerful|curious|grumpy	
+newly	adverb	cheerful|curious|grumpy	
+northward	adverb	cheerful|curious|grumpy	
+nowhere	adverb	cheerful|curious|grumpy	
+obviously	adverb	cheerful|curious|grumpy	
+officially	adverb	cheerful|curious|grumpy	
+only	adverb	cheerful|curious|grumpy	
+outdoors	adverb	cheerful|curious|grumpy	
+patiently	adverb	cheerful|curious|grumpy	
+perhaps	adverb	cheerful|curious|grumpy	
+politely	adverb	cheerful|curious|grumpy	
+poorly	adverb	cheerful|curious|grumpy	
+positively	adverb	cheerful|curious|grumpy	
+possibly	adverb	cheerful|curious|grumpy	
+powerfully	adverb	cheerful|curious|grumpy	
+privately	adverb	cheerful|curious|grumpy	
+probably	adverb	cheerful|curious|grumpy	
+promptly	adverb	cheerful|curious|grumpy	
+properly	adverb	cheerful|curious|grumpy	
+quite	adverb	cheerful|curious|grumpy	
+rapidly	adverb	cheerful|curious|grumpy	
+rarely	adverb	cheerful|curious|grumpy	
+rather	adverb	cheerful|curious|grumpy	
+readily	adverb	cheerful|curious|grumpy	
+regularly	adverb	cheerful|curious|grumpy	
+safely	adverb	cheerful|curious|grumpy	
+scarcely	adverb	cheerful|curious|grumpy	
+seldom	adverb	cheerful|curious|grumpy	
+seriously	adverb	cheerful|curious|grumpy	
+sharply	adverb	cheerful|curious|grumpy	
+shortly	adverb	cheerful|curious|grumpy	
+sideways	adverb	cheerful|curious|grumpy	
+silently	adverb	cheerful|curious|grumpy	
+simply	adverb	cheerful|curious|grumpy	
+smoothly	adverb	cheerful|curious|grumpy	
+softly	adverb	cheerful|curious|grumpy	
+solely	adverb	cheerful|curious|grumpy	
+sometimes	adverb	cheerful|curious|grumpy	
+somewhere	adverb	cheerful|curious|grumpy	
+soon	adverb	cheerful|curious|grumpy	
+southward	adverb	cheerful|curious|grumpy	
+specially	adverb	cheerful|curious|grumpy	
+steadily	adverb	cheerful|curious|grumpy	
+still	adverb	cheerful|curious|grumpy	
+strangely	adverb	cheerful|curious|grumpy	
+strongly	adverb	cheerful|curious|grumpy	
+suddenly	adverb	cheerful|curious|grumpy	
+surely	adverb	cheerful|curious|grumpy	
+sweetly	adverb	cheerful|curious|grumpy	
+swiftly	adverb	cheerful|curious|grumpy	
+tenderly	adverb	cheerful|curious|grumpy	
+then	adverb	cheerful|curious|grumpy	
+there	adverb	cheerful|curious|grumpy	
+thoroughly	adverb	cheerful|curious|grumpy	
+tightly	adverb	cheerful|curious|grumpy	
+today	adverb	cheerful|curious|grumpy	
+tomorrow	adverb	cheerful|curious|grumpy	
+tonight	adverb	cheerful|curious|grumpy	
+totally	adverb	cheerful|curious|grumpy	
+truly	adverb	cheerful|curious|grumpy	
+typically	adverb	cheerful|curious|grumpy	
+uniformly	adverb	cheerful|curious|grumpy	
+upstairs	adverb	cheerful|curious|grumpy	
+usually	adverb	cheerful|curious|grumpy	
+utterly	adverb	cheerful|curious|grumpy	
+very	adverb	cheerful|curious|grumpy	
+warmly	adverb	cheerful|curious|grumpy	
+westward	adverb	cheerful|curious|grumpy	
+willingly	adverb	cheerful|curious|grumpy	
+wisely	adverb	cheerful|curious|grumpy	
+wrongly	adverb	cheerful|curious|grumpy	
+yesterday	adverb	cheerful|curious|grumpy	
+yet	adverb	cheerful|curious|grumpy	
