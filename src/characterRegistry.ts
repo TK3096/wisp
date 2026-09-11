@@ -31,7 +31,8 @@ import {
 } from "./cognitionDebugSnapshot";
 import {
   MAX_RECENT_EXPRESSIONS,
-  SPEECH_VOICE_PROFILE_VERSION,
+  NEUTRAL_SPEECH_VOICE_PROFILE_VERSION,
+  GENERATED_REPETITION_WINDOW,
   SpeechHandle,
   SpeechHandleFactory,
   SpeechHandleInit,
@@ -217,6 +218,8 @@ interface CharEntry {
   persistenceQueue: Promise<void> | null;
   /** Per-character synchronous pure generation seam. */
   speech: SpeechHandle;
+  /** Immutable lineage of the active voice, used by seed derivation and traces. */
+  voiceProfileVersion: string;
   /** One-based ordering of accepted final expressions in this session. */
   expressionOrdinal: number;
   /** Bounded, non-durable final-text context used by generation requests. */
@@ -475,6 +478,11 @@ export class CharacterRegistry {
       // A malformed injected factory is just another disabled speech source.
       speech = createNeutralSpeechHandle();
     }
+    const speechVoiceProfileVersion =
+      typeof speech.voiceProfileVersion === "string" &&
+      speech.voiceProfileVersion.trim().length > 0
+        ? speech.voiceProfileVersion
+        : NEUTRAL_SPEECH_VOICE_PROFILE_VERSION;
 
     let pendingInitialState: PersistentCognitionState | null = null;
 
@@ -501,6 +509,7 @@ export class CharacterRegistry {
       nextAutosaveAtS: this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S,
       persistenceQueue: null,
       speech,
+      voiceProfileVersion: speechVoiceProfileVersion,
       expressionOrdinal: 0,
       recentExpressions: [],
     };
@@ -796,6 +805,7 @@ export class CharacterRegistry {
         expressionOrdinal,
         direction,
         entry.recentExpressions,
+        entry.voiceProfileVersion,
       ),
     } as const;
 
@@ -807,8 +817,12 @@ export class CharacterRegistry {
       generated = null;
     }
 
-    const generatedAccepted =
-      isValidGeneratedSpeechExpression(generated, direction);
+    const generatedAccepted = generated !== null &&
+      isValidGeneratedSpeechExpression(
+        generated,
+        direction,
+        entry.recentExpressions.slice(-GENERATED_REPETITION_WINDOW),
+      );
     const finalText = generated !== null && generatedAccepted
       ? generated.text
       : selectTaggedLine(lines, toneSeed, roll).text;
@@ -821,7 +835,7 @@ export class CharacterRegistry {
       expressionOrdinal,
       archetype: entry.archetype,
       personalitySeed: entry.personalitySeed,
-      voiceProfileVersion: SPEECH_VOICE_PROFILE_VERSION,
+      voiceProfileVersion: entry.voiceProfileVersion,
       expressionSeed: request.seed,
       tone: direction.tone,
       intent: direction.intent,

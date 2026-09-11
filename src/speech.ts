@@ -14,13 +14,23 @@ export interface TaggedLine {
   readonly tone: BubbleTone;
 }
 
-/** Compatibility boundary for the disabled production speech seam. */
-export const SPEECH_VOICE_PROFILE_VERSION = "neutral-speech-v1";
+/** Versioned voice lineage for the disabled Neutral Speech Handle. */
+export const NEUTRAL_SPEECH_VOICE_PROFILE_VERSION = "neutral-speech-v1";
+/** Versioned voice lineage for the pure production generator. */
+export const GENERATED_SPEECH_VOICE_PROFILE_VERSION = "generated-speech-v1";
 
-/** Upper bound for a generated expression before the registry validates it. */
-export const MAX_SPEECH_TEXT_LENGTH = 160;
+/** Backward-compatible name for the registry's disabled default lineage. */
+export const SPEECH_VOICE_PROFILE_VERSION =
+  NEUTRAL_SPEECH_VOICE_PROFILE_VERSION;
+
+/** Accepted generated-expression upper bound in Unicode scalar values. */
+export const MAX_SPEECH_TEXT_LENGTH = 48;
 /** Hard bound on the in-session anti-repetition context. */
 export const MAX_RECENT_EXPRESSIONS = 8;
+/** Exact generated outputs rejected before retrying the bounded request. */
+export const GENERATED_REPETITION_WINDOW = 3;
+/** Generator-local candidate attempts before fail-closed refusal. */
+export const MAX_GENERATED_ATTEMPTS = 4;
 
 export type SpeechOccasionKind = "greeting" | "idle";
 export type UtteranceIntent =
@@ -82,6 +92,8 @@ export interface SpeechExpressionRecord {
 }
 
 export interface SpeechHandle {
+  /** Stable, optional lineage surface used by canonical expression traces. */
+  readonly voiceProfileVersion?: string;
   generate(request: SpeechRequest): SpeechExpression | null;
 }
 
@@ -93,6 +105,7 @@ export type SpeechHandleFactory = (init: SpeechHandleInit) => SpeechHandle;
  */
 export function createNeutralSpeechHandle(): SpeechHandle {
   return {
+    voiceProfileVersion: NEUTRAL_SPEECH_VOICE_PROFILE_VERSION,
     generate() {
       return null;
     },
@@ -151,9 +164,10 @@ export function deriveExpressionSeed(
   expressionOrdinal: number,
   direction: ExpressionDirection,
   recentExpressions: readonly string[],
+  voiceProfileVersion: string = NEUTRAL_SPEECH_VOICE_PROFILE_VERSION,
 ): number {
   const lineage = [
-    SPEECH_VOICE_PROFILE_VERSION,
+    voiceProfileVersion,
     init.archetype,
     init.personalitySeed,
     init.characterId,
@@ -181,17 +195,60 @@ export function deriveExpressionSeed(
 export function isValidGeneratedSpeechExpression(
   expression: unknown,
   direction: ExpressionDirection,
+  recentExpressions: readonly string[] = [],
 ): expression is SpeechExpression {
   if (!expression || typeof expression !== "object") return false;
   const candidate = expression as Partial<SpeechExpression>;
-  return (
-    typeof candidate.text === "string" &&
-    candidate.text.trim().length > 0 &&
-    candidate.text.length <= MAX_SPEECH_TEXT_LENGTH &&
-    candidate.tone === direction.tone &&
-    candidate.source === "generated"
-  );
+  if (
+    typeof candidate.text !== "string" ||
+    candidate.tone !== direction.tone ||
+    candidate.source !== "generated"
+  ) {
+    return false;
+  }
+
+  const text = candidate.text;
+  const trimmed = text.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed !== text ||
+    [...text].length > MAX_SPEECH_TEXT_LENGTH ||
+    /[\p{Cc}\p{Cf}]/u.test(text)
+  ) {
+    return false;
+  }
+
+  if (
+    !/^[\p{L}\p{N}][\p{L}\p{N}\s'’,.\-!?;:~]*$/u.test(text) ||
+    SPEECH_BLOCKED_PATTERN.test(text)
+  ) {
+    return false;
+  }
+
+  const normalized = normalizeSpeechRepetitionKey(text);
+  return !recentExpressions
+    .slice(-GENERATED_REPETITION_WINDOW)
+    .some((expression) =>
+      normalizeSpeechRepetitionKey(expression) === normalized,
+    );
 }
+
+/** Case/punctuation-insensitive bounded repetition comparison. */
+export function normalizeSpeechRepetitionKey(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, "")
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Deterministic structural and lexical safety checks. These are not runtime
+ * moderation: curated production words and authored skeletons remain the first
+ * safety boundary.
+ */
+const SPEECH_BLOCKED_PATTERN =
+  /(?:https?:\/\/|www\.|[^\s:@]+@[^\s:]+\.[^\s:]+|<\s*[/!]?[a-z][^>]*>|`[^`]*`|\{|\}|(?:^|\s)(?:function|const|let|var|import|export|class)(?:\s|$)|ignore\s+previous|system\s+prompt|buy\s+now)/i;
 
 /** Convenience projection for the greeting, which precedes the first cadence tick. */
 export function neutralSpeechSignal(

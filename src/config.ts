@@ -105,6 +105,12 @@ export const COGNITION_LIVE_DEFAULT_ENABLED = true;
  */
 export const POPULATION_COGNITION_ENABLED = true;
 
+/**
+ * Generated speech is implementation-complete but remains disabled pending the
+ * accepted performance soak and product-owner smoke review.
+ */
+export const GENERATED_SPEECH_ENABLED = false;
+
 export const GREETINGS: TaggedLine[] = [
   { text: "hi!", tone: "cheerful" },
   { text: "hello!", tone: "cheerful" },
