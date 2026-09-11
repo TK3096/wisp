@@ -1,4 +1,9 @@
-import { BehaviorSignal, PersonalityDimensions } from "./cognition";
+import {
+  BehaviorSignal,
+  NEUTRAL_BEHAVIOR_SIGNAL,
+  PersonalityDimensions,
+  ToneSeed,
+} from "./cognition";
 import { BUBBLE_TONE_WEIGHTS } from "./config";
 
 /** The accepted tone vocabulary. Every speech line has exactly one tag. */
@@ -7,6 +12,175 @@ export type BubbleTone = "cheerful" | "curious" | "grumpy";
 export interface TaggedLine {
   readonly text: string;
   readonly tone: BubbleTone;
+}
+
+/** Compatibility boundary for the disabled production speech seam. */
+export const SPEECH_VOICE_PROFILE_VERSION = "neutral-speech-v1";
+
+/** Upper bound for a generated expression before the registry validates it. */
+export const MAX_SPEECH_TEXT_LENGTH = 160;
+/** Hard bound on the in-session anti-repetition context. */
+export const MAX_RECENT_EXPRESSIONS = 8;
+
+export type SpeechOccasionKind = "greeting" | "idle";
+export type UtteranceIntent =
+  | "greet"
+  | "idle"
+  | "startle"
+  | "excite"
+  | "investigate"
+  | "bored";
+export type ExpressionIntensity = "quiet" | "neutral" | "charged";
+export type StanceModifier = "novel" | "familiar" | "social" | "cautious";
+
+export interface ExpressionDirection {
+  readonly tone: BubbleTone;
+  readonly intent: UtteranceIntent;
+  readonly intensity: ExpressionIntensity;
+  readonly stance: StanceModifier | null;
+}
+
+export interface SpeechHandleInit {
+  readonly characterId: string;
+  readonly archetype: string;
+  readonly personalitySeed: number;
+}
+
+export interface SpeechRequest {
+  readonly occasion: { readonly kind: SpeechOccasionKind };
+  readonly personality: PersonalityDimensions;
+  readonly direction: ExpressionDirection;
+  readonly context: {
+    readonly recentExpressions: readonly string[];
+  };
+  readonly seed: number;
+}
+
+export interface SpeechExpression {
+  readonly text: string;
+  readonly tone: BubbleTone;
+  readonly source: "generated" | "fallback";
+}
+
+export interface SpeechHandle {
+  generate(request: SpeechRequest): SpeechExpression | null;
+}
+
+export type SpeechHandleFactory = (init: SpeechHandleInit) => SpeechHandle;
+
+/**
+ * The disabled production default. Its only decision is to refuse generation;
+ * the registry then owns the exact existing fixed-line fallback.
+ */
+export function createNeutralSpeechHandle(): SpeechHandle {
+  return {
+    generate() {
+      return null;
+    },
+  };
+}
+
+const REACTION_INTENTS = {
+  startle: "startle",
+  excitement: "excite",
+  curiosity: "investigate",
+  boredom: "bored",
+} as const;
+
+/**
+ * Registry-side projection from observable Cognition state. The thresholds are
+ * intentionally coarse and frame-independent; they do not expose raw
+ * BehaviorSignal to a Speech Handle.
+ */
+export function deriveExpressionDirection(
+  signal: BehaviorSignal,
+  occasion: SpeechOccasionKind,
+  toneRoll = 0,
+): ExpressionDirection {
+  const intent =
+    signal.reaction.kind === "none"
+      ? occasion === "greeting" ? "greet" : "idle"
+      : REACTION_INTENTS[signal.reaction.kind];
+  const intensity: ExpressionIntensity =
+    signal.reaction.kind !== "none" || signal.affect.arousal > 0.66
+      ? "charged"
+      : signal.affect.arousal < 0.33 ? "quiet" : "neutral";
+
+  const centeredBeliefs = [
+    { stance: "novel" as const, magnitude: signal.microBelief.novelty - 0.5 },
+    {
+      stance: "familiar" as const,
+      magnitude: signal.microBelief.familiarity - 0.5,
+    },
+    {
+      stance: "social" as const,
+      magnitude: signal.microBelief.socialPositivity - 0.5,
+    },
+    { stance: "cautious" as const, magnitude: signal.microBelief.caution - 0.5 },
+  ].sort((left, right) => Math.abs(right.magnitude) - Math.abs(left.magnitude));
+  const dominant = centeredBeliefs[0];
+  const stance =
+    Math.abs(dominant.magnitude) > 0.05 ? dominant.stance : null;
+
+  return { tone: selectBubbleTone(signal, toneRoll), intent, intensity, stance };
+}
+
+/** Derive the opaque expression lineage seed without consuming scheduler RNG. */
+export function deriveExpressionSeed(
+  init: SpeechHandleInit,
+  expressionOrdinal: number,
+  direction: ExpressionDirection,
+  recentExpressions: readonly string[],
+): number {
+  const lineage = [
+    SPEECH_VOICE_PROFILE_VERSION,
+    init.archetype,
+    init.personalitySeed,
+    init.characterId,
+    expressionOrdinal,
+    direction.intent,
+    direction.tone,
+    direction.intensity,
+    direction.stance ?? "none",
+    ...recentExpressions.slice(-MAX_RECENT_EXPRESSIONS),
+  ].join("\0");
+
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < lineage.length; index++) {
+    hash ^= lineage.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Independent, bounded, fail-closed acceptance check. Subjective quality is not
+ * validation: only contract and safety bounds gate use of generated text.
+ */
+export function isValidGeneratedSpeechExpression(
+  expression: unknown,
+  direction: ExpressionDirection,
+): expression is SpeechExpression {
+  if (!expression || typeof expression !== "object") return false;
+  const candidate = expression as Partial<SpeechExpression>;
+  return (
+    typeof candidate.text === "string" &&
+    candidate.text.trim().length > 0 &&
+    candidate.text.length <= MAX_SPEECH_TEXT_LENGTH &&
+    candidate.tone === direction.tone &&
+    candidate.source === "generated"
+  );
+}
+
+/** Convenience projection for the greeting, which precedes the first cadence tick. */
+export function neutralSpeechSignal(
+  toneSeed: Pick<ToneSeed, "personality" | "affect">,
+): BehaviorSignal {
+  return {
+    ...NEUTRAL_BEHAVIOR_SIGNAL,
+    personality: { ...toneSeed.personality },
+    affect: { ...toneSeed.affect },
+  };
 }
 
 /**

@@ -22,6 +22,7 @@ import {
 } from "./cognition";
 import { LoadedAsset } from "./simulationAsset";
 import { PopulationPassSummary } from "./socialAttention";
+import { SpeechHandleFactory, createNeutralSpeechHandle } from "./speech";
 
 export interface ScenarioStimulus {
   atS: number;
@@ -103,6 +104,8 @@ export interface ScenarioRunOptions {
   maxQueuedTraceLines?: number;
   /** Injected cognition seam. Unit tests stay pure and never build WASM. */
   createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
+  /** Injected synchronous speech seam; the default remains disabled. */
+  createSpeechHandle?: SpeechHandleFactory;
   /** Optional wall-clock instrumentation; it never changes the virtual trace. */
   instrumentation?: ScenarioInstrumentation;
 }
@@ -856,6 +859,8 @@ export function runScenario(
 
   const createCognition =
     options.createCognitionHandle ?? createNeutralCognitionHandle;
+  const createSpeechHandle =
+    options.createSpeechHandle ?? createNeutralSpeechHandle;
   const instrumentation = options.instrumentation;
   const makeCognitionHandle = (init: CognitionInit) => {
     const cognition = createCognition(init);
@@ -1077,6 +1082,7 @@ export function runScenario(
     createBubbleHandle: makeBubbleHandle,
     createEffectHandle: makeEffectHandle,
     createCognitionHandle: makeCognitionHandle,
+    createSpeechHandle,
     createCharacterId: nextCharacterId,
     populationCognitionEnabled: scenario.populationCognitionEnabled === true,
     onPopulationCognitionPass: (summary) => emit("population_cognition_pass", { summary }),

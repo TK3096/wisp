@@ -29,7 +29,21 @@ import {
   CognitionDebugStimulus,
   projectCognitionDebugSnapshot,
 } from "./cognitionDebugSnapshot";
-import { TaggedLine, selectTaggedLine } from "./speech";
+import {
+  MAX_RECENT_EXPRESSIONS,
+  SpeechHandle,
+  SpeechHandleFactory,
+  SpeechHandleInit,
+  SpeechOccasionKind,
+  SpeechExpression,
+  TaggedLine,
+  createNeutralSpeechHandle,
+  deriveExpressionDirection,
+  deriveExpressionSeed,
+  isValidGeneratedSpeechExpression,
+  neutralSpeechSignal,
+  selectTaggedLine,
+} from "./speech";
 import {
   MAX_POPULATION_CATCHUP_PASSES,
   PopulationPassSummary,
@@ -107,6 +121,11 @@ export interface RegistryOptions {
    * simulation's rendering or shell dependencies.
    */
   createCognitionHandle?: (init: CognitionInit) => CognitionHandle;
+  /**
+   * Per-character synchronous generation seam. The default is disabled and
+   * every refused or invalid result falls back to the existing fixed line.
+   */
+  createSpeechHandle?: SpeechHandleFactory;
   /** Separate deterministic stream for idle-bubble and jump scheduler draws. */
   schedulerRng?: () => number;
   /**
@@ -158,6 +177,7 @@ function createInertCharacterHandle(): CharacterHandle {
 type ResolvedOptions = RegistryOptions & {
   createHandle: (ctx: SpawnContext) => CharacterHandle;
   createCognitionHandle: (init: CognitionInit) => CognitionHandle;
+  createSpeechHandle: SpeechHandleFactory;
 };
 
 interface CharEntry {
@@ -188,6 +208,12 @@ interface CharEntry {
   persistedCreatedAtMs: number;
   nextAutosaveAtS: number;
   persistenceQueue: Promise<void> | null;
+  /** Per-character synchronous pure generation seam. */
+  speech: SpeechHandle;
+  /** One-based ordering of accepted final expressions in this session. */
+  expressionOrdinal: number;
+  /** Bounded, non-durable final-text context used by generation requests. */
+  recentExpressions: string[];
 }
 
 interface PendingSpawn {
@@ -215,6 +241,7 @@ export class CharacterRegistry {
     this.opts = {
       createHandle: createInertCharacterHandle,
       createCognitionHandle: createNeutralCognitionHandle,
+      createSpeechHandle: createNeutralSpeechHandle,
       ...opts,
     };
   }
@@ -379,6 +406,7 @@ export class CharacterRegistry {
       createHandle,
       createBubbleHandle,
       createCognitionHandle,
+      createSpeechHandle,
       derivePersonalitySeed: deriveSeed,
     } = this.opts;
 
@@ -428,27 +456,20 @@ export class CharacterRegistry {
       archetype: entry.name,
       personalitySeed,
     });
+    const speechInit: SpeechHandleInit = {
+      characterId,
+      archetype: entry.name,
+      personalitySeed,
+    };
+    let speech: SpeechHandle;
+    try {
+      speech = createSpeechHandle(speechInit);
+    } catch {
+      // A malformed injected factory is just another disabled speech source.
+      speech = createNeutralSpeechHandle();
+    }
 
     let pendingInitialState: PersistentCognitionState | null = null;
-
-    if (restored) {
-      try {
-        cognition.restore(restored.cognitionState as PersistentCognitionState);
-      } catch {
-        character.destroy();
-        return null;
-      }
-    } else {
-      // The initial read-only projection establishes personality/affect for
-      // tone selection without advancing the Temporal Derivative or cadence.
-      const initialState = this.opts.persistence ? cognition.snapshot() : null;
-      const toneSeed = cognition.toneSeed();
-      const greetingRoll = rng();
-      this.sayTagged(character, cognition, GREETINGS, toneSeed, greetingRoll);
-      if (initialState) {
-        pendingInitialState = initialState;
-      }
-    }
 
     // Fixed initial roll timers so characters don't lock-step on the first roll.
     const newEntry: CharEntry = {
@@ -472,7 +493,30 @@ export class CharacterRegistry {
       persistedCreatedAtMs: restored?.metadata.createdAtMs ?? 0,
       nextAutosaveAtS: this.elapsed + CHARACTER_AUTOSAVE_INTERVAL_S,
       persistenceQueue: null,
+      speech,
+      expressionOrdinal: 0,
+      recentExpressions: [],
     };
+
+    if (restored) {
+      try {
+        cognition.restore(restored.cognitionState as PersistentCognitionState);
+      } catch {
+        character.destroy();
+        return null;
+      }
+    } else {
+      // The initial read-only projection establishes personality/affect for
+      // tone selection without advancing the Temporal Derivative or cadence.
+      const initialState = this.opts.persistence ? cognition.snapshot() : null;
+      const toneSeed = cognition.toneSeed();
+      const greetingRoll = rng();
+      this.sayTagged(newEntry, GREETINGS, "greeting", toneSeed, greetingRoll);
+      if (initialState) {
+        pendingInitialState = initialState;
+      }
+    }
+
     this.entries.push(newEntry);
     if (pendingInitialState) {
       this.enqueuePersistence(newEntry, "materialization", pendingInitialState);
@@ -713,21 +757,64 @@ export class CharacterRegistry {
 
   /**
    * Select and emit one tagged expression. Every expression—greeting or
-   * idle—passes through the same active-bubble, cooldown, and reward seams.
+   * idle—passes through the same Speech Handle, active-bubble, cooldown, and
+   * reward seams. The Neutral Handle returns null, making the fixed-line path
+   * below the exact production default.
    */
   private sayTagged(
-    character: Character,
-    cognition: CognitionHandle,
+    entry: CharEntry,
     lines: readonly TaggedLine[],
+    occasion: SpeechOccasionKind,
     toneSeed: Pick<ToneSeed, "personality" | "affect">,
     roll: number,
   ): void {
     if (this.elapsed - this.lastBubbleAt < BUBBLE.GLOBAL_COOLDOWN_S) return;
 
-    const line = selectTaggedLine(lines, toneSeed, roll);
-    if (!character.say(line.text)) return;
+    const direction = deriveExpressionDirection(
+      entry.latestSignal ?? neutralSpeechSignal(toneSeed),
+      occasion,
+      roll,
+    );
+    const expressionOrdinal = entry.expressionOrdinal + 1;
+    const request = {
+      occasion: { kind: occasion },
+      personality: toneSeed.personality,
+      direction,
+      context: {
+        recentExpressions: Object.freeze([...entry.recentExpressions]),
+      },
+      seed: deriveExpressionSeed(
+        entry,
+        expressionOrdinal,
+        direction,
+        entry.recentExpressions,
+      ),
+    } as const;
 
-    cognition.noteExpression();
+    let generated: SpeechExpression | null = null;
+    try {
+      generated = entry.speech.generate(request);
+    } catch {
+      // Generation is fail-closed: one attempt, no retry, and no error bubble.
+      generated = null;
+    }
+
+    const finalText = isValidGeneratedSpeechExpression(generated, direction)
+      ? generated.text
+      : selectTaggedLine(lines, toneSeed, roll).text;
+
+    // Character.say is deliberately the only bubble/display lifecycle seam.
+    if (!entry.char.say(finalText)) return;
+
+    entry.expressionOrdinal = expressionOrdinal;
+    entry.recentExpressions.push(finalText);
+    if (entry.recentExpressions.length > MAX_RECENT_EXPRESSIONS) {
+      entry.recentExpressions.splice(
+        0,
+        entry.recentExpressions.length - MAX_RECENT_EXPRESSIONS,
+      );
+    }
+    entry.cognition.noteExpression();
     this.lastBubbleAt = this.elapsed;
   }
 
@@ -827,9 +914,9 @@ export class CharacterRegistry {
           const toneSeed = entry.latestSignal ?? NEUTRAL_BEHAVIOR_SIGNAL;
           const lineRoll = behaviorRng();
           this.sayTagged(
-            entry.char,
-            entry.cognition,
+            entry,
             IDLE_LINES,
+            "idle",
             toneSeed,
             lineRoll,
           );
