@@ -168,6 +168,14 @@ _Avoid_: emotion level, volume, personality strength
 The bounded lexical posture selected from at most one dominant Micro-belief signal.
 _Avoid_: belief statement, topic, opinion command
 
+**Semantic Slot**:
+The bounded authored position in a generated phrase reserved for words sharing one in-world role.
+_Avoid_: grammar slot, part-of-speech tag, arbitrary word pool
+
+**Speech Semantic Coherence Contract**:
+The versioned set of authored phrase patterns and Semantic Slots that allows only in-world plausible word combinations.
+_Avoid_: truth checker, semantic model, runtime human review
+
 **Neutral Speech Handle**:
 The default Speech Handle that supplies no generated expression, leaving the behavior orchestrator to use its ordinary fallback.
 _Avoid_: disabled speech, empty speaker, silent mode
