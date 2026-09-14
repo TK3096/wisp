@@ -118,7 +118,7 @@ function makeSnapshot(
     requestedAtS: 1.24,
     occasion: "idle",
     expressionOrdinal: 4,
-    voiceProfileVersion: "generated-speech-v1",
+    voiceProfileVersion: "generated-speech-v2",
     direction: DIRECTION,
     status: "generated",
     attempts: 2,
@@ -167,7 +167,7 @@ describe("Speech Debug Snapshot", () => {
   it("formats the compact accepted overlay fields", () => {
     expect(formatSpeechDebugSnapshot(makeSnapshot())).toEqual([
       "Mask Dude #1",
-      "voice generated-speech-v1",
+      "voice generated-speech-v2",
       "occasion idle #4 @ 1.24s",
       "direction curious/investigate charged · novel",
       "outcome generated · 2 attempts · 0.021ms",

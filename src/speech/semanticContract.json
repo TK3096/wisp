@@ -1,0 +1,868 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "speech-semantic-coherence-v1",
+  "slots": [
+    {
+      "name": "acknowledgment",
+      "definition": "A short persona acknowledgement usable at the start or as a standalone reply.",
+      "selection": "sociability",
+      "words": [
+        "hello",
+        "hi",
+        "no",
+        "yes"
+      ],
+      "stanceWords": {
+        "novel": [
+          "hi"
+        ],
+        "familiar": [
+          "hello"
+        ],
+        "social": [
+          "hello",
+          "yes"
+        ],
+        "cautious": [
+          "no"
+        ]
+      }
+    },
+    {
+      "name": "nearby-object",
+      "definition": "An observable feature or object in the Wisp scene.",
+      "selection": "curiosity",
+      "words": [
+        "bridge",
+        "corner",
+        "floor",
+        "shadow",
+        "stone",
+        "wall",
+        "window",
+        "wind"
+      ],
+      "stanceWords": {
+        "novel": [
+          "shadow",
+          "window",
+          "wind"
+        ],
+        "familiar": [
+          "corner",
+          "floor",
+          "wall"
+        ],
+        "social": [
+          "bridge",
+          "window"
+        ],
+        "cautious": [
+          "stone",
+          "wall"
+        ]
+      }
+    },
+    {
+      "name": "motion-action",
+      "definition": "A bounded motion or state change the character can observe or imagine.",
+      "selection": "energy",
+      "words": [
+        "drift",
+        "float",
+        "jump",
+        "move",
+        "run",
+        "settle",
+        "spin",
+        "turn",
+        "walk",
+        "wait"
+      ],
+      "stanceWords": {
+        "novel": [
+          "drift",
+          "float",
+          "spin"
+        ],
+        "familiar": [
+          "turn",
+          "settle",
+          "walk"
+        ],
+        "social": [
+          "jump",
+          "spin"
+        ],
+        "cautious": [
+          "settle",
+          "wait"
+        ]
+      }
+    },
+    {
+      "name": "place-word",
+      "definition": "A spatial or tempo word anchored to the observable scene.",
+      "selection": "boldness",
+      "words": [
+        "away",
+        "here",
+        "still",
+        "there"
+      ],
+      "stanceWords": {
+        "novel": [
+          "away",
+          "there"
+        ],
+        "familiar": [
+          "here",
+          "still"
+        ],
+        "social": [
+          "here",
+          "there"
+        ],
+        "cautious": [
+          "here"
+        ]
+      }
+    },
+    {
+      "name": "visible-quality",
+      "definition": "A directly observable quality of the scene or a nearby object.",
+      "selection": "sociability",
+      "words": [
+        "bright",
+        "clear",
+        "cool",
+        "curious",
+        "dim",
+        "fresh",
+        "gentle",
+        "open",
+        "quiet",
+        "quick",
+        "safe",
+        "slow",
+        "small",
+        "soft",
+        "warm"
+      ],
+      "stanceWords": {
+        "novel": [
+          "curious",
+          "dim",
+          "fresh"
+        ],
+        "familiar": [
+          "quiet",
+          "safe",
+          "soft"
+        ],
+        "social": [
+          "bright",
+          "gentle",
+          "warm"
+        ],
+        "cautious": [
+          "quiet",
+          "safe",
+          "slow"
+        ]
+      }
+    }
+  ],
+  "voices": [
+    {
+      "archetype": "mask-dude",
+      "terminal": ".",
+      "preferredWords": {
+        "acknowledgment": [
+          "hello"
+        ],
+        "nearby-object": [
+          "shadow",
+          "window"
+        ],
+        "motion-action": [
+          "drift",
+          "turn"
+        ],
+        "place-word": [
+          "here",
+          "still"
+        ],
+        "visible-quality": [
+          "quiet",
+          "curious"
+        ]
+      },
+      "skeletons": {
+        "greet": [
+          {
+            "template": "hello, {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "{acknowledgment}: the {nearby-object} can {motion-action}",
+            "slots": [
+              "acknowledgment",
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "neutral"
+            ]
+          }
+        ],
+        "idle": [
+          {
+            "template": "the {nearby-object} feels {visible-quality}",
+            "slots": [
+              "nearby-object",
+              "visible-quality"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "{visible-quality} {nearby-object} {place-word}",
+            "slots": [
+              "visible-quality",
+              "nearby-object",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "startle": [
+          {
+            "template": "oh, the {nearby-object} may {motion-action}!",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "charged"
+            ]
+          },
+          {
+            "template": "too {visible-quality} {place-word}",
+            "slots": [
+              "visible-quality",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "excite": [
+          {
+            "template": "look, the {nearby-object} can {motion-action}!",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "{visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "investigate": [
+          {
+            "template": "what makes the {nearby-object} {motion-action}?",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "where is the {visible-quality} {nearby-object}?",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "bored": [
+          {
+            "template": "the {nearby-object} can wait {place-word}",
+            "slots": [
+              "nearby-object",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "another {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "archetype": "ninja-frog",
+      "terminal": ".",
+      "preferredWords": {
+        "acknowledgment": [
+          "hi",
+          "yes"
+        ],
+        "nearby-object": [
+          "corner",
+          "wall"
+        ],
+        "motion-action": [
+          "jump",
+          "spin"
+        ],
+        "place-word": [
+          "there",
+          "away"
+        ],
+        "visible-quality": [
+          "quick",
+          "clear"
+        ]
+      },
+      "skeletons": {
+        "greet": [
+          {
+            "template": "{acknowledgment} check",
+            "slots": [
+              "acknowledgment"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "{acknowledgment}, no trouble",
+            "slots": [
+              "acknowledgment"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "idle": [
+          {
+            "template": "{nearby-object} mode",
+            "slots": [
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "{place-word}, still {visible-quality}",
+            "slots": [
+              "place-word",
+              "visible-quality"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "startle": [
+          {
+            "template": "the {nearby-object} moved!",
+            "slots": [
+              "nearby-object"
+            ],
+            "intensities": [
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "too {visible-quality} {place-word}",
+            "slots": [
+              "visible-quality",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "excite": [
+          {
+            "template": "that {nearby-object} can {motion-action}!",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "good, {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "investigate": [
+          {
+            "template": "track the {nearby-object}",
+            "slots": [
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "why did the {nearby-object} {motion-action}?",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "bored": [
+          {
+            "template": "no {nearby-object} {place-word}",
+            "slots": [
+              "nearby-object",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "same {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "archetype": "pink-man",
+      "terminal": "!",
+      "preferredWords": {
+        "acknowledgment": [
+          "hello",
+          "hi"
+        ],
+        "nearby-object": [
+          "bridge",
+          "window"
+        ],
+        "motion-action": [
+          "float",
+          "spin"
+        ],
+        "place-word": [
+          "here",
+          "there"
+        ],
+        "visible-quality": [
+          "bright",
+          "gentle"
+        ]
+      },
+      "skeletons": {
+        "greet": [
+          {
+            "template": "hi hi, {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          },
+          {
+            "template": "hello, {visible-quality} {nearby-object}!",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "neutral",
+              "charged"
+            ]
+          }
+        ],
+        "idle": [
+          {
+            "template": "{visible-quality} {nearby-object} time",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          },
+          {
+            "template": "{place-word} again, {visible-quality}!",
+            "slots": [
+              "place-word",
+              "visible-quality"
+            ],
+            "intensities": [
+              "neutral",
+              "charged"
+            ]
+          }
+        ],
+        "startle": [
+          {
+            "template": "wah, the {nearby-object} can {motion-action}!",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "charged"
+            ]
+          },
+          {
+            "template": "{visible-quality} pop {place-word}",
+            "slots": [
+              "visible-quality",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "excite": [
+          {
+            "template": "{visible-quality} {nearby-object}, yes yes!",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "{place-word} the {nearby-object} booms",
+            "slots": [
+              "place-word",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "investigate": [
+          {
+            "template": "why can the {nearby-object} {motion-action}?",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "a {visible-quality} {nearby-object} mystery?",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "bored": [
+          {
+            "template": "the {nearby-object} went quiet",
+            "slots": [
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "hm, no {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "archetype": "virtual-guy",
+      "terminal": ".",
+      "preferredWords": {
+        "acknowledgment": [
+          "yes"
+        ],
+        "nearby-object": [
+          "floor",
+          "wind"
+        ],
+        "motion-action": [
+          "move",
+          "settle"
+        ],
+        "place-word": [
+          "there",
+          "away"
+        ],
+        "visible-quality": [
+          "clear",
+          "safe"
+        ]
+      },
+      "skeletons": {
+        "greet": [
+          {
+            "template": "contact: {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "{acknowledgment}: zone reads {visible-quality}",
+            "slots": [
+              "acknowledgment",
+              "visible-quality"
+            ],
+            "intensities": [
+              "neutral"
+            ]
+          }
+        ],
+        "idle": [
+          {
+            "template": "scanning the {visible-quality} {nearby-object}",
+            "slots": [
+              "visible-quality",
+              "nearby-object"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "routine {nearby-object} {place-word}",
+            "slots": [
+              "nearby-object",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "startle": [
+          {
+            "template": "alert: {nearby-object} may {motion-action}!",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "charged"
+            ]
+          },
+          {
+            "template": "unverified {nearby-object} {place-word}",
+            "slots": [
+              "nearby-object",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "excite": [
+          {
+            "template": "useful {nearby-object}: it can {motion-action}!",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "pattern reads {visible-quality} {place-word}",
+            "slots": [
+              "visible-quality",
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "investigate": [
+          {
+            "template": "sample the {nearby-object}, then {motion-action}",
+            "slots": [
+              "nearby-object",
+              "motion-action"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "why is the {nearby-object} {visible-quality}?",
+            "slots": [
+              "nearby-object",
+              "visible-quality"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ],
+        "bored": [
+          {
+            "template": "all quiet {place-word}",
+            "slots": [
+              "place-word"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral",
+              "charged"
+            ]
+          },
+          {
+            "template": "holding {place-word}, {visible-quality}",
+            "slots": [
+              "place-word",
+              "visible-quality"
+            ],
+            "intensities": [
+              "quiet",
+              "neutral"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

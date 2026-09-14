@@ -17,7 +17,7 @@ export interface TaggedLine {
 /** Versioned voice lineage for the disabled Neutral Speech Handle. */
 export const NEUTRAL_SPEECH_VOICE_PROFILE_VERSION = "neutral-speech-v1";
 /** Versioned voice lineage for the pure production generator. */
-export const GENERATED_SPEECH_VOICE_PROFILE_VERSION = "generated-speech-v1";
+export const GENERATED_SPEECH_VOICE_PROFILE_VERSION = "generated-speech-v2";
 
 /** Backward-compatible name for the registry's disabled default lineage. */
 export const SPEECH_VOICE_PROFILE_VERSION =

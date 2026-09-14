@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "speech-semantic-coherence-v1",
+  "samples": [
+    {
+      "archetype": "mask-dude",
+      "intent": "greet",
+      "seed": 1903129261,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "greet",
+        "intensity": "neutral",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "hello: the window can drift."
+    },
+    {
+      "archetype": "mask-dude",
+      "intent": "idle",
+      "seed": 1987486974,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "idle",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "slow window there."
+    },
+    {
+      "archetype": "mask-dude",
+      "intent": "startle",
+      "seed": 2134202843,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "startle",
+        "intensity": "charged",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "oh, the window may jump!"
+    },
+    {
+      "archetype": "mask-dude",
+      "intent": "excite",
+      "seed": 2372400970,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "excite",
+        "intensity": "charged",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "look, the corner can move!"
+    },
+    {
+      "archetype": "mask-dude",
+      "intent": "investigate",
+      "seed": 1546666927,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "investigate",
+        "intensity": "neutral",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "where is the curious window?"
+    },
+    {
+      "archetype": "mask-dude",
+      "intent": "bored",
+      "seed": 1993551870,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "grumpy",
+        "intent": "bored",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "the window can wait here."
+    },
+    {
+      "archetype": "ninja-frog",
+      "intent": "greet",
+      "seed": 4146519433,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "greet",
+        "intensity": "neutral",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "yes check."
+    },
+    {
+      "archetype": "ninja-frog",
+      "intent": "idle",
+      "seed": 330088266,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "idle",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "still, still soft."
+    },
+    {
+      "archetype": "ninja-frog",
+      "intent": "startle",
+      "seed": 1086505191,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "startle",
+        "intensity": "charged",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "the shadow moved!"
+    },
+    {
+      "archetype": "ninja-frog",
+      "intent": "excite",
+      "seed": 807284822,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "excite",
+        "intensity": "charged",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "that bridge can jump!"
+    },
+    {
+      "archetype": "ninja-frog",
+      "intent": "investigate",
+      "seed": 3924362547,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "investigate",
+        "intensity": "neutral",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "track the window."
+    },
+    {
+      "archetype": "ninja-frog",
+      "intent": "bored",
+      "seed": 3389338098,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "grumpy",
+        "intent": "bored",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "no stone there."
+    },
+    {
+      "archetype": "pink-man",
+      "intent": "greet",
+      "seed": 3766905677,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "greet",
+        "intensity": "neutral",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "hi hi, quick bridge!"
+    },
+    {
+      "archetype": "pink-man",
+      "intent": "idle",
+      "seed": 1961471518,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "idle",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "quiet floor time."
+    },
+    {
+      "archetype": "pink-man",
+      "intent": "startle",
+      "seed": 4114255995,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "startle",
+        "intensity": "charged",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "wah, the wind can spin!"
+    },
+    {
+      "archetype": "pink-man",
+      "intent": "excite",
+      "seed": 2018714218,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "excite",
+        "intensity": "charged",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "bright wall, yes yes!"
+    },
+    {
+      "archetype": "pink-man",
+      "intent": "investigate",
+      "seed": 2283668303,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "investigate",
+        "intensity": "neutral",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "why can the window settle?"
+    },
+    {
+      "archetype": "pink-man",
+      "intent": "bored",
+      "seed": 3857328286,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "grumpy",
+        "intent": "bored",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "hm, no clear wind."
+    },
+    {
+      "archetype": "virtual-guy",
+      "intent": "greet",
+      "seed": 1404204371,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "greet",
+        "intensity": "neutral",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "contact: quiet wind."
+    },
+    {
+      "archetype": "virtual-guy",
+      "intent": "idle",
+      "seed": 613097088,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "idle",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "routine floor away."
+    },
+    {
+      "archetype": "virtual-guy",
+      "intent": "startle",
+      "seed": 3418834609,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "startle",
+        "intensity": "charged",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "alert: floor may settle!"
+    },
+    {
+      "archetype": "virtual-guy",
+      "intent": "excite",
+      "seed": 891091192,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "cheerful",
+        "intent": "excite",
+        "intensity": "charged",
+        "stance": "social"
+      },
+      "status": "generated",
+      "text": "useful stone: it can turn!"
+    },
+    {
+      "archetype": "virtual-guy",
+      "intent": "investigate",
+      "seed": 3320247021,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "curious",
+        "intent": "investigate",
+        "intensity": "neutral",
+        "stance": "novel"
+      },
+      "status": "generated",
+      "text": "why is the corner small?"
+    },
+    {
+      "archetype": "virtual-guy",
+      "intent": "bored",
+      "seed": 1343669080,
+      "voiceProfileVersion": "generated-speech-v2",
+      "direction": {
+        "tone": "grumpy",
+        "intent": "bored",
+        "intensity": "quiet",
+        "stance": "familiar"
+      },
+      "status": "generated",
+      "text": "all quiet still."
+    }
+  ]
+}
