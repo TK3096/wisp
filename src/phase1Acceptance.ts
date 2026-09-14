@@ -27,7 +27,7 @@ import {
   HEADLESS_LOADED_ASSET,
   runScenario,
   scenarioBehaviorDecisions,
-  scenarioCognitionSteps,
+  scenarioCanonicalCognitionSteps,
 } from "./scenarioHarness";
 
 export const PHASE1_ACCEPTANCE_SCHEMA_VERSION = 1;
@@ -213,7 +213,7 @@ function decisions(result: ScenarioResult): ReturnType<typeof scenarioBehaviorDe
 }
 
 function steps(result: ScenarioResult, throughS = Number.POSITIVE_INFINITY) {
-  return scenarioCognitionSteps(result).filter(
+  return scenarioCanonicalCognitionSteps(result).filter(
     (step) => step.elapsedCognitionS <= throughS,
   );
 }

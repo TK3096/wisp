@@ -456,6 +456,12 @@ export interface ScenarioCognitionStep {
   cognitionState: unknown;
 }
 
+/** Frame-local fields are removed for canonical cross-frame-rate comparison. */
+export type ScenarioCanonicalCognitionStep = Omit<
+  ScenarioCognitionStep,
+  "clockS"
+>;
+
 export type ScenarioBehaviorDecision =
   | { type: "character_materialized"; characterId: string; archetype: string; x: number; y: number }
   | { type: "animation_changed"; characterId: string; from: string | null; to: string }
@@ -619,6 +625,18 @@ export function scenarioCognitionSteps(
       appliedBiases: record.appliedBiases,
       cognitionState: record.cognitionState,
     }));
+}
+
+/**
+ * Canonical cross-frame-rate cognition projection: remove the host render
+ * clock while preserving cadence identity and every cognition semantic field.
+ */
+export function scenarioCanonicalCognitionSteps(
+  result: ScenarioResult,
+): ScenarioCanonicalCognitionStep[] {
+  return scenarioCognitionSteps(result).map(
+    ({ clockS: _clockS, ...step }) => step,
+  );
 }
 
 export function scenarioBehaviorDecisions(

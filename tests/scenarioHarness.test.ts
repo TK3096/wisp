@@ -5,12 +5,14 @@ import {
   TONE_WEIGHTED_SPEECH_SCENARIO,
   HABITUATION_SCENARIO,
   NOVEL_STRONG_GESTURE_SCENARIO,
+  PERSONALITY_CONTRAST_SCENARIO,
   PHASE1_STRESS_SCENARIO,
   formatScenarioTraceNdjson,
   runScenario,
   LossyTraceWriter,
   scenarioBehaviorDecisions,
   scenarioCognitionSteps,
+  scenarioCanonicalCognitionSteps,
   SCENARIO_TRACE_SCHEMA_VERSION,
 } from "../src/scenarioHarness";
 import { EFFECT, GREETINGS, IDLE_LINES } from "../src/config";
@@ -174,20 +176,25 @@ describe("Scenario Harness baseline", () => {
     expect(secondTrace).toBe(firstTrace);
   });
 
-  it("produces equivalent cognition and behavior decisions at 30, 60, and 120 fps", () => {
+  it("produces equivalent canonical cognition and behavior decisions at 30, 60, and 120 fps", () => {
     const cognitionSteps: unknown[][] = [];
     const decisions: unknown[][] = [];
 
-    for (const framesPerSecond of [30, 60, 120]) {
-      const result = runScenario(BASELINE_SCENARIO, framesPerSecond);
-      cognitionSteps.push(scenarioCognitionSteps(result));
-      decisions.push(scenarioBehaviorDecisions(result));
-    }
+    for (const scenario of [BASELINE_SCENARIO, PERSONALITY_CONTRAST_SCENARIO]) {
+      for (const framesPerSecond of [30, 60, 120]) {
+        const result = runScenario(scenario, framesPerSecond);
+        cognitionSteps.push(scenarioCanonicalCognitionSteps(result));
+        decisions.push(scenarioBehaviorDecisions(result));
+      }
 
-    expect(cognitionSteps[1]).toEqual(cognitionSteps[0]);
-    expect(cognitionSteps[2]).toEqual(cognitionSteps[0]);
-    expect(decisions[1]).toEqual(decisions[0]);
-    expect(decisions[2]).toEqual(decisions[0]);
+      expect(cognitionSteps[0][0]).not.toHaveProperty("clockS");
+      expect(cognitionSteps[1]).toEqual(cognitionSteps[0]);
+      expect(cognitionSteps[2]).toEqual(cognitionSteps[0]);
+      expect(decisions[1]).toEqual(decisions[0]);
+      expect(decisions[2]).toEqual(decisions[0]);
+      cognitionSteps.length = 0;
+      decisions.length = 0;
+    }
   });
 
   it("shows legible differences from contrasting personality seeds without moving scheduler ownership", () => {

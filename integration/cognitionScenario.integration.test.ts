@@ -13,7 +13,7 @@ import {
   REACTION_STORM_SCENARIO,
   runScenario,
   scenarioBehaviorDecisions,
-  scenarioCognitionSteps,
+  scenarioCanonicalCognitionSteps,
 } from "../src/scenarioHarness";
 import {
   BehaviorSignal,
@@ -64,7 +64,7 @@ it("turns contrasting real Personality Seeds into different headless behavior de
 
 interface LiveReplay {
   results: ReturnType<typeof runScenario>[];
-  steps: ReturnType<typeof scenarioCognitionSteps>[];
+  steps: ReturnType<typeof scenarioCanonicalCognitionSteps>[];
   decisions: ReturnType<typeof scenarioBehaviorDecisions>[];
   stableEvents: Record<string, unknown>[][];
 }
@@ -78,7 +78,7 @@ function replayAtAllFrameRates(
   );
   return {
     results,
-    steps: results.map(scenarioCognitionSteps),
+    steps: results.map(scenarioCanonicalCognitionSteps),
     decisions: results.map(scenarioBehaviorDecisions),
     stableEvents: results.map((result) =>
       result.trace
