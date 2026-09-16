@@ -21,6 +21,7 @@ import {
   CognitionHandle,
   NEUTRAL_BEHAVIOR_SIGNAL,
 } from "../src/cognition";
+import { createNeutralSpeechHandle } from "../src/speech";
 
 describe("Scenario Harness baseline", () => {
   it("collects optional wall-clock metrics without changing canonical traces", () => {
@@ -78,7 +79,9 @@ describe("Scenario Harness baseline", () => {
   });
 
   it("replays the current spawn, wander, jump, bubble, and despawn behavior", () => {
-    const result = runScenario(BASELINE_SCENARIO, 60);
+    const result = runScenario(BASELINE_SCENARIO, 60, {
+      createSpeechHandle: createNeutralSpeechHandle,
+    });
     const types = new Set(result.trace.map((record) => record.type));
 
     expect(types).toContain("spawn_effect_started");
@@ -632,8 +635,12 @@ describe("reward and tone acceptance scenarios", () => {
   });
 
   it("demonstrates deterministic personality/affect-weighted tone selection", () => {
-    const first = runScenario(TONE_WEIGHTED_SPEECH_SCENARIO, 60);
-    const second = runScenario(TONE_WEIGHTED_SPEECH_SCENARIO, 60);
+    const first = runScenario(TONE_WEIGHTED_SPEECH_SCENARIO, 60, {
+      createSpeechHandle: createNeutralSpeechHandle,
+    });
+    const second = runScenario(TONE_WEIGHTED_SPEECH_SCENARIO, 60, {
+      createSpeechHandle: createNeutralSpeechHandle,
+    });
     const idle = first.trace.find(
       (record) =>
         record.type === "bubble_started" && record.reason === "idle",

@@ -6,6 +6,7 @@ import {
   COGNITION_LIVE_DEFAULT_ENABLED,
   EFFECT,
   FLOOR_BAND_PX,
+  GENERATED_SPEECH_ENABLED,
   POPULATION_COGNITION_ENABLED,
 } from "./config";
 import { loadAsset, loadEffect } from "./spriteLoader";
@@ -15,6 +16,8 @@ import { EffectKind } from "./effect";
 import { connectShellEvents } from "./shellBridge";
 import { bindWasmCognition } from "./cognitionFacade";
 import { createNeutralCognitionHandle } from "./cognition";
+import { createGeneratedSpeechHandle } from "./speech/generator";
+import { createNeutralSpeechHandle } from "./speech";
 import {
   createNativeIdentityFactory,
   createTauriPersistence,
@@ -65,6 +68,9 @@ async function init() {
     createCognitionHandle: COGNITION_LIVE_DEFAULT_ENABLED
       ? await bindWasmCognition()
       : createNeutralCognitionHandle,
+    createSpeechHandle: GENERATED_SPEECH_ENABLED
+      ? createGeneratedSpeechHandle
+      : createNeutralSpeechHandle,
     createCharacterId: createNativeIdentityFactory(),
     populationCognitionEnabled: POPULATION_COGNITION_ENABLED,
     persistence: createTauriPersistence(),

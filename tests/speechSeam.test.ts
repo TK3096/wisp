@@ -243,7 +243,9 @@ describe("disabled production Speech Handle seam", () => {
 
   describe("canonical expression trace safety net", () => {
     it("records Neutral Speech Handle fallback before each fixed-line bubble", () => {
-      const result = runScenario(BASELINE_SCENARIO, 60);
+      const result = runScenario(BASELINE_SCENARIO, 60, {
+        createSpeechHandle: createNeutralSpeechHandle,
+      });
       const records = scenarioExpressionRecords(result);
       const greeting = result.trace.findIndex(
         (record) => record.type === "expression_recorded",
@@ -343,10 +345,16 @@ describe("disabled production Speech Handle seam", () => {
     });
 
     it("is byte-identical per frame rate and semantically equivalent across rates", () => {
-      const first = runScenario(BASELINE_SCENARIO, 60);
-      const second = runScenario(BASELINE_SCENARIO, 60);
+      const first = runScenario(BASELINE_SCENARIO, 60, {
+        createSpeechHandle: createNeutralSpeechHandle,
+      });
+      const second = runScenario(BASELINE_SCENARIO, 60, {
+        createSpeechHandle: createNeutralSpeechHandle,
+      });
       const projected = [30, 60, 120].map((fps) =>
-        scenarioExpressionRecords(runScenario(BASELINE_SCENARIO, fps)),
+        scenarioExpressionRecords(runScenario(BASELINE_SCENARIO, fps, {
+          createSpeechHandle: createNeutralSpeechHandle,
+        })),
       );
 
       expect(formatScenarioTraceNdjson(first)).toBe(

@@ -21,6 +21,8 @@ import {
 } from "./cognition";
 import { LoadedAsset } from "./simulationAsset";
 import { PopulationPassSummary } from "./socialAttention";
+import { GENERATED_SPEECH_ENABLED } from "./config";
+import { createGeneratedSpeechHandle } from "./speech/generator";
 import {
   SpeechExpressionRecord,
   SpeechHandleFactory,
@@ -921,7 +923,8 @@ export function runScenario(
   const createCognition =
     options.createCognitionHandle ?? createNeutralCognitionHandle;
   const createSpeechHandle =
-    options.createSpeechHandle ?? createNeutralSpeechHandle;
+    options.createSpeechHandle ??
+    (GENERATED_SPEECH_ENABLED ? createGeneratedSpeechHandle : createNeutralSpeechHandle);
   const instrumentation = options.instrumentation;
   const makeCognitionHandle = (init: CognitionInit) => {
     const cognition = createCognition(init);

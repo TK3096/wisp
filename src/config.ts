@@ -116,10 +116,11 @@ export const COGNITION_LIVE_DEFAULT_ENABLED = true;
 export const POPULATION_COGNITION_ENABLED = true;
 
 /**
- * Generated speech is implementation-complete but remains disabled pending the
- * accepted performance soak and product-owner smoke review.
+ * Product-owner enablement after the semantic, determinism, performance, and
+ * smoke gates. Naturalness remains accepted-with-improvement-followup, so the
+ * fail-closed fixed-line path remains the safety boundary.
  */
-export const GENERATED_SPEECH_ENABLED = false;
+export const GENERATED_SPEECH_ENABLED = true;
 
 export const GREETINGS: TaggedLine[] = [
   { text: "hi!", tone: "cheerful" },

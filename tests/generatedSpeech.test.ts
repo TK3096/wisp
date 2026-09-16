@@ -55,8 +55,8 @@ function direction(overrides: Partial<ExpressionDirection> = {}): ExpressionDire
 }
 
 describe("production Speech generator harness gates", () => {
-  it("keeps generated speech default-off on the fixed-line baseline", () => {
-    expect(GENERATED_SPEECH_ENABLED).toBe(false);
+  it("enables generated speech by default after product-owner review", () => {
+    expect(GENERATED_SPEECH_ENABLED).toBe(true);
     expect(createNeutralSpeechHandle().generate(
       request(1, direction()),
     )).toBeNull();
@@ -64,14 +64,12 @@ describe("production Speech generator harness gates", () => {
     const result = runScenario(BASELINE_SCENARIO, 60);
     expect(scenarioExpressionRecords(result)).toMatchObject([
       {
-        status: "substituted",
-        text: GREETINGS[0].text,
-        voiceProfileVersion: "neutral-speech-v1",
+        status: "generated",
+        voiceProfileVersion: GENERATED_SPEECH_VOICE_PROFILE_VERSION,
       },
       {
-        status: "substituted",
-        text: IDLE_LINES[3].text,
-        voiceProfileVersion: "neutral-speech-v1",
+        status: "generated",
+        voiceProfileVersion: GENERATED_SPEECH_VOICE_PROFILE_VERSION,
       },
     ]);
   });
